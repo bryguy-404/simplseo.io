@@ -25,8 +25,8 @@ const clean = value => {
   if (connection.gscSiteUrl && connection.gscSiteUrl !== expectedProperty) throw new Error('Connection property mismatch.');
   const runId = before.revampRunId || `recovery-${crypto.createHash('sha256').update(uid + (before.revampInitiatedAt || before.revampDate || '')).digest('hex').slice(0, 20)}`;
   const patch = { revampRunId: runId, revampSchemaVersion: 2, revampStatus: 'complete', revampStep: 'complete', postOnboardingStep: 'complete', revampMonitoringEnabled: true, progressReviewRequired: true };
-  console.log(JSON.stringify({ project: process.env.FIREBASE_PROJECT_ID, uid, property: expectedProperty, mode: flags.includes('--apply') ? 'apply' : 'dry-run', patch }));
-  if (!flags.includes('--apply')) { await admin.app().delete(); return; }
+  console.log(JSON.stringify({ project: process.env.FIREBASE_PROJECT_ID, uid, property: expectedProperty, mode: flags.includes('--apply') ? 'apply' : flags.includes('--backup-only') ? 'backup-only' : 'dry-run', patch }));
+  if (!flags.includes('--apply') && !flags.includes('--backup-only')) { await admin.app().delete(); return; }
   const backupRoot = process.env.RECOVERY_BACKUP_DIR;
   if (!backupRoot || !path.isAbsolute(backupRoot) || backupRoot.startsWith(process.cwd() + path.sep)) throw new Error('Set RECOVERY_BACKUP_DIR to an absolute protected directory outside the repository.');
   fs.mkdirSync(backupRoot, { recursive: true, mode: 0o700 }); fs.chmodSync(backupRoot, 0o700);
@@ -49,6 +49,7 @@ const clean = value => {
   fs.writeFileSync(backupPath, JSON.stringify({ project: process.env.FIREBASE_PROJECT_ID, uid, capturedAt: new Date().toISOString(), before, patch, records: [...all.values()] }, null, 2), { mode: 0o600, flag: 'wx' });
   const verified = JSON.parse(fs.readFileSync(backupPath));
   if (verified.records.length !== all.size) throw new Error('Backup verification failed.');
+  if (flags.includes('--backup-only')) { console.log(JSON.stringify({ backupPath, preservedRecords: all.size, productionWrites: false })); await admin.app().delete(); return; }
   const historyRef = db.collection('users').doc(uid).collection('revampHistory').doc(runId);
   if (!(await historyRef.get()).data()?.complete) {
     await historyRef.set({ runId, complete: false, historicalMetrics: 'unverified' }, { merge: true });

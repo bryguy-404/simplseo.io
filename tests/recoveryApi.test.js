@@ -59,6 +59,21 @@ describe('recovery API and history', () => {
     expect(records.get('onboarding/alice').revampStatus).toBe('in-progress');
   });
 });
+it('resumes an interrupted snapshot without changing records already preserved', async () => {
+  const transaction = db.runTransaction;
+  let calls = 0;
+  const spy = vi.spyOn(db, 'runTransaction').mockImplementation(async fn => {
+    if (++calls === 2) throw new Error('Interrupted snapshot');
+    return transaction(fn);
+  });
+  expect((await complete(request({}))).status).toBe(500);
+  expect(records.get('users/alice/revampHistory/run-one').complete).toBe(false);
+  spy.mockRestore();
+  await db.collection('implementedSeoTips').doc('alice_tip').update({ title: 'Later change' });
+  expect((await complete(request({}))).status).toBe(200);
+  expect(records.get('users/alice/revampHistory/run-one/records/implementedSeoTips_alice_tip').data.title).toBe('Original');
+  expect(records.get('users/alice/revampHistory/run-one').complete).toBe(true);
+});
 describe('Google monitoring', () => {
   beforeEach(async () => { await db.collection('users').doc('alice').set({ gscAccessToken: 'access', gscRefreshToken: 'refresh', gscSiteUrl: 'sc-domain:example.test', gscExpiresAt: Date.now() + 3600000 }); });
   it('queries the exact page, accepts one impression and works after setup completion', async () => {
