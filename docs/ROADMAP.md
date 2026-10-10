@@ -115,6 +115,8 @@ Version 7 simplifies that workflow: page selection and key numbers stay visible,
 
 Version 7 is live from source `337971a` as `dpl_5RaD4Xbv2kaKGXdQk9ZgRKNRUMps` at the same public URL. Verification passed 486 unit/API tests, all 49 browser scenarios, production builds and visual checks. Eight anonymous/eight cross-account route probes passed. Bryan's three saved homepage tasks restored in the live browser; read-only checks preserved every saved plan, zero active changes and 18 archive snapshots. Completed/collecting states were tested with demo accounts, without confirming fictional work in production.
 
+Version 8 adds immediate page-switch loading feedback and a quieter “Check for updates.” Fresh page/search inputs are compared with the saved review before paid AI generation. Unchanged inputs keep the exact plan and task states; incomplete checks preserve the plan with an honest message. New supported evidence can update the review using the existing task reconciliation. See the version 8 release record in [Phase 4](PHASE4.md). This remains a Phase 4 refinement, with Phase 5 deferred until Bryan accepts the workflow.
+
 ## Phase 5 Pilot and product economics
 
 **Deferred.** Finish the current Phase 4 refinement and Bryan's usefulness checkpoint first. Use Bryan's website as a pilot, then a small group of owners. Measure completed tasks, useful recommendations, support time, API costs and retention. Validate the approximately $50 monthly price without promising agency-equivalent results. Consider Supabase/Railway migration separately after the current product works reliably.

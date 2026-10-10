@@ -8,7 +8,8 @@ import { RequestError } from './requestAuth';
 import { collectPageReviewEvidence } from './pageReviewEvidence';
 import { collectPageReviewDiagnostics } from './pageReviewDiagnostics';
 import { consumePageReviewQuota } from './requestQuota';
-import { readPageReviewPlan, savePageReviewPlan } from './pageReviewPlans';
+import { readPageReviewPlanForUpdate, savePageReviewPlan } from './pageReviewPlans';
+import { PAGE_REVIEW_VERSION, comparePageReviewUpdate, pageReviewUpdateBaseline, pageReviewUpdateLimitation } from './pageReviewUpdates';
 import { PAGE_REVIEW_MODEL, PAGE_REVIEW_TIMELINE, buildReviewRequest, buildResearchRequest, responseText, validatePageAssessment, parseWebResearch } from '../pageReviewPolicy';
 
 export async function readCurrentPageForReview(userId, pageUrl) {
@@ -71,9 +72,9 @@ export function validateReviewSuggestions(payload, currentPage) {
   return { title, description };
 }
 
-async function researchPage(openai, currentPage, signal) {
+async function researchPage(openai, currentPage, signal, timeout = 45000) {
   try {
-    const response = await openai.responses.create(buildResearchRequest(currentPage), { timeout: 45000, ...(signal ? { signal } : {}) });
+    const response = await openai.responses.create(buildResearchRequest(currentPage), { timeout, ...(signal ? { signal } : {}) });
     return parseWebResearch(response);
   } catch {
     return { status: 'unavailable', summary: '', sources: [], checkedAt: new Date().toISOString(),
@@ -87,27 +88,49 @@ export async function generatePageReviewSuggestions(userId, pageUrl, keywordInpu
   const ownerGoal = goal.trim();
   const focusKeywords = normalizeKeywords(keywordInput);
   const review = await readCurrentPageForReview(userId, pageUrl);
-  const previousPlan = await readPageReviewPlan(userId, pageUrl);
+  let previousPlan = await readPageReviewPlanForUpdate(userId, review.provenance);
   const { currentPage } = review;
   if (currentPage.finalUrl !== pageUrl) throw new RequestError('This page redirects to another URL. Review the destination page before generating suggestions.', 409);
   if (currentPage.textContent.length < 80 || currentPage.textContent.split(/\s+/).length < 12) {
     throw new RequestError('There is not enough readable page content to draft an accurate suggestion. This may be a JavaScript-only page. Review its title and description manually or make its main content available in the page HTML.', 422);
   }
-  if (!process.env.OPENAI_API_KEY) throw new RequestError('Suggestions are temporarily unavailable. You can still review the current page content.', 503);
-  await consumePageReviewQuota(userId);
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 0, timeout: 45000 });
-  const evidencePromise = collectPageReviewEvidence(userId, { pageUrl, property: review.provenance.property, currentPage, focusKeywords });
-  const [evidence, research, diagnostics] = await Promise.all([
-    evidencePromise,
-    researchPage(openai, currentPage, signal),
-    evidencePromise.then(evidence => collectPageReviewDiagnostics(userId, { pageUrl, property: review.provenance.property, currentPage, evidence })),
-  ]);
+  const evidence = await collectPageReviewEvidence(userId, { pageUrl, property: review.provenance.property, currentPage, focusKeywords });
+  const diagnostics = await collectPageReviewDiagnostics(userId, { pageUrl, property: review.provenance.property, currentPage, evidence });
   await assertReviewStillCurrent(userId, review.provenance);
   if (signal?.aborted) throw new RequestError('The page review was cancelled.', 409);
+  previousPlan = await readPageReviewPlanForUpdate(userId, review.provenance, { expectedReview: previousPlan?.review || null });
+  const context = { ...review, evidence, diagnostics, ownerGoal, focusKeywords };
+  const updateStatus = comparePageReviewUpdate(previousPlan?.review, context);
+  if (updateStatus !== 'updated') {
+    return { ...previousPlan.review, plan: previousPlan,
+      checkContext: { ...review, evidence },
+      updateCheck: { status: updateStatus, checkedAt: new Date().toISOString(),
+        message: updateStatus === 'unchanged' ? 'Your saved plan is up to date.'
+          : 'We couldn’t finish checking for updates. Your saved plan is unchanged. Try again later.',
+        ...(updateStatus === 'unchanged' ? { limitation: pageReviewUpdateLimitation(diagnostics) } : {}),
+      } };
+  }
+  // Paid research and model generation happen only for genuinely new inputs.
+  // Refreshing or checking the same evidence never consumes an AI allowance.
+  if (!process.env.OPENAI_API_KEY) throw new RequestError('Suggestions are temporarily unavailable. You can still review the current page content.', 503);
+  // Fresh website/Google checks use part of the route's 180-second budget.
+  // Bound each subsequent provider stage by the time actually remaining.
+  const providerTimeout = maximum => {
+    const remaining = 175000 - (Date.now() - Date.parse(startedAt));
+    if (remaining < 5000) throw new RequestError('The update check took too long. Your saved plan is unchanged. Please try again later.', 503);
+    return Math.min(maximum, remaining);
+  };
+  const researchTimeout = providerTimeout(45000);
+  await consumePageReviewQuota(userId);
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 0, timeout: 45000 });
+  const research = await researchPage(openai, currentPage, signal, researchTimeout);
+  await assertReviewStillCurrent(userId, review.provenance);
+  if (signal?.aborted) throw new RequestError('The page review was cancelled.', 409);
+  previousPlan = await readPageReviewPlanForUpdate(userId, review.provenance, { expectedReview: previousPlan?.review || null });
   let response;
   try {
     response = await openai.responses.create(buildReviewRequest({ currentPage, evidence, research, diagnostics, ownerGoal, focusKeywords, priorTasks: previousPlan?.tasks || [] }),
-      { timeout: 65000, ...(signal ? { signal } : {}) });
+      { timeout: providerTimeout(65000), ...(signal ? { signal } : {}) });
   } catch {
     throw new RequestError('The page review service is temporarily unavailable. Your website has not been changed. Please try again later.', 503);
   }
@@ -117,7 +140,8 @@ export async function generatePageReviewSuggestions(userId, pageUrl, keywordInpu
   await assertReviewStillCurrent(userId, review.provenance);
   if (signal?.aborted) throw new RequestError('The page review was cancelled. Your saved plan is unchanged.', 409);
   const completedReview = { ...result, currentPage, evidence, research, diagnostics, timeline: PAGE_REVIEW_TIMELINE, ownerGoal,
-    provenance: { ...review.provenance, generatedAt: new Date().toISOString(), reviewVersion: 6, model: PAGE_REVIEW_MODEL } };
+    updateBaseline: pageReviewUpdateBaseline(context),
+    provenance: { ...review.provenance, generatedAt: new Date().toISOString(), reviewVersion: PAGE_REVIEW_VERSION, model: PAGE_REVIEW_MODEL } };
   const plan = await savePageReviewPlan(userId, completedReview, { startedAt });
-  return { ...completedReview, plan };
+  return { ...completedReview, plan, updateCheck: { status: 'updated', checkedAt: new Date().toISOString(), message: 'Your page review is ready.' } };
 }

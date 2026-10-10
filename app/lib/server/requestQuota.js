@@ -21,9 +21,9 @@ export async function consumeAiQuota(userId) {
   });
 }
 
-// Every page review includes reasoning and a bounded web search. Reserve their
-// smaller allowances atomically, before provider calls. A failed call still
-// consumes an attempt; retries are always an explicit user action.
+// New or meaningfully changed page reviews include reasoning and a bounded web
+// search. Unchanged update checks skip this allowance entirely. Reserve it
+// atomically before provider calls; a failed call still consumes an attempt.
 export async function consumePageReviewQuota(userId) {
   const windows = [
     { name: 'page-review-minute', duration: 60000, limit: 5 },

@@ -259,7 +259,7 @@ test('a failed publication preserves the selected edit; retry confirms only that
   await expect(page.getByRole('heading', { name: 'Collecting search data', exact: true })).toBeVisible();
   await expect(page.getByText('First comparison check: Nov 10, 2026', { exact: true })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Confirm published edits' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Analyze again', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Check for updates', exact: true })).toHaveCount(0);
   expect(state.calls.publications).toHaveLength(2);
   expect(state.calls.publications[1]).toEqual(state.calls.publications[0]);
   expect(state.calls.publications[1]).toMatchObject({ pageUrl, changeType: 'page_content', published: true, taskIds: [taskIds[0]], planRevision: 1 });
@@ -289,12 +289,12 @@ test('restored tracking belongs only to the exact selected page and does not blo
   const state = await setup(page, { active: progressRecord(pageUrl) });
   await expect(page.getByRole('heading', { name: 'Collecting search data', exact: true })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Confirm published edits' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Analyze again', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Check for updates', exact: true })).toHaveCount(0);
   await page.getByRole('combobox', { name: /^Choose a page to improve/ }).selectOption(otherUrl);
   await expect(page.getByRole('heading', { name: 'Collecting search data', exact: true })).toHaveCount(0);
   await expect(checkboxFor(page, 0)).toBeEnabled();
   await expect(checkboxFor(page, 0)).not.toBeChecked();
-  await expect(page.getByRole('button', { name: 'Analyze again', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Check for updates', exact: true })).toBeEnabled();
   await checkboxFor(page, 0).check();
   await page.getByRole('combobox', { name: /^Choose a page to improve/ }).selectOption(pageUrl);
   await expect(page.getByRole('heading', { name: 'Collecting search data', exact: true })).toBeVisible();
@@ -310,14 +310,14 @@ test('a completed comparison can start another review without losing published t
   const previous = progressRecord(pageUrl, 'ready');
   const state = await setup(page, { active: previous, failFirstCycle: true });
   await expect(page.getByRole('heading', { name: 'Comparison available', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Analyze again', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Check for updates', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Start another review', exact: true }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'Test next review unavailable.' })).toBeVisible();
   expect(state.active).toBe(previous);
   expect(state.history).toHaveLength(0);
   expect(state.calls.generations).toHaveLength(0);
   await page.getByRole('button', { name: 'Start another review', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Analyze again', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Check for updates', exact: true })).toBeEnabled();
   expect(state.calls.nextCycles).toEqual([{ pageUrl, implementedAt: previous.implementedAt }, { pageUrl, implementedAt: previous.implementedAt }]);
   expect(state.history).toEqual([{ ...previous, status: 'reviewed' }]);
   expect(state.calls.generations).toHaveLength(0);
@@ -329,13 +329,13 @@ test('a completed comparison can start another review without losing published t
   await tasksFor(page).getByText('Completed and dismissed (1)', { exact: true }).click();
   await expect(taskFor(page, 0).getByText('Published', { exact: true })).toBeVisible();
   await expect(taskFor(page, 0).getByRole('checkbox')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Analyze again', exact: true }).click();
+  await page.getByRole('button', { name: 'Check for updates', exact: true }).click();
   await expect.poll(() => state.calls.generations.length).toBe(1);
-  await expect(page.getByRole('button', { name: 'Analyze again', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Check for updates', exact: true })).toBeEnabled();
   expect(state.plans.get(pageUrl).tasks[0].publication.implementedAt).toBe(previous.implementedAt);
   expect(state.plans.get(pageUrl).tasks[1].status).toBe('todo');
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Analyze again', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Check for updates', exact: true })).toBeEnabled();
   expect(state.calls.generations).toHaveLength(1);
   expect(state.history[0].assessment).toEqual(previous.assessment);
 });
@@ -345,10 +345,10 @@ test('publication and analysis stay disabled until existing progress has been ch
   try {
     await expect(checkboxFor(page, 0)).toBeDisabled();
     await expect(publishButton(page)).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Analyze again', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Check for updates', exact: true })).toBeDisabled();
     expect(state.calls.generations).toHaveLength(0);
     expect(state.calls.publications).toHaveLength(0);
   } finally { state.releaseProgress(); }
   await expect(checkboxFor(page, 0)).toBeEnabled();
-  await expect(page.getByRole('button', { name: 'Analyze again', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Check for updates', exact: true })).toBeEnabled();
 });

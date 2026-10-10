@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ create: vi.fn(), options: vi.fn(), query: vi.fn(), property: 'https://example.test/' }));
+const mocks = vi.hoisted(() => ({ create: vi.fn(), options: vi.fn(), query: vi.fn(), inspect: vi.fn(), property: 'https://example.test/' }));
 vi.mock('../app/lib/firebaseAdmin', async () => {
   const { fakeFirestore } = await import('./fakeFirestore');
   return { ...fakeFirestore(), auth: {
     verifyIdToken: vi.fn(async token => { if (!['alice', 'bob'].includes(token)) throw Error('invalid'); return { uid: token }; }),
   } };
 });
-vi.mock('../app/lib/server/gscConnection', () => ({ getGscConnection: vi.fn(async () => ({ siteUrl: mocks.property, query: mocks.query })) }));
+vi.mock('../app/lib/server/gscConnection', () => ({ getGscConnection: vi.fn(async () => ({ siteUrl: mocks.property, query: mocks.query, inspect: mocks.inspect })) }));
 vi.mock('../app/lib/server/publicFetch', () => ({ publicFetch: vi.fn() }));
 vi.mock('openai', () => ({ default: class { constructor(options) { mocks.options(options); this.responses = { create: mocks.create }; } } }));
 
@@ -19,6 +19,7 @@ import { validateReviewSuggestions } from '../app/lib/server/manualPageReview';
 import { consumePageReviewQuota } from '../app/lib/server/requestQuota';
 import { GET as savedPlan } from '../app/api/page-review/plan/route';
 import { PAGE_REVIEW_MODEL } from '../app/lib/pageReviewPolicy';
+import { seoImplementationId } from '../app/lib/pageTaskFlow';
 
 const pageUrl = 'https://example.test/Services?Topic=Design';
 const pageHtml = '<html><head><title>Custom Web Design | Example Studio</title><meta name="description" content="Custom websites and ongoing maintenance for local businesses."></head><body><main><h1>Web design for local businesses</h1><p>Example Studio builds custom websites for local businesses. Read about the design process, project planning and ongoing website maintenance. Contact Example Studio to discuss your website.</p></main></body></html>';
@@ -79,7 +80,7 @@ const request = (body = {}, uid = 'alice', signal) => new Request('https://simpl
 });
 
 beforeEach(async () => {
-  reset(); mocks.property = 'https://example.test/'; mocks.create.mockReset(); mocks.options.mockReset(); mocks.query.mockReset().mockResolvedValue({ rows: [] }); publicFetch.mockReset();
+  reset(); mocks.property = 'https://example.test/'; mocks.create.mockReset(); mocks.options.mockReset(); mocks.query.mockReset().mockResolvedValue({ rows: [] }); mocks.inspect.mockReset(); publicFetch.mockReset();
   process.env.OPENAI_API_KEY = 'isolated-test-key';
   delete process.env.NEXT_PUBLIC_ENABLE_ACCESS_REQUEST;
   await db.collection('onboarding').doc('alice').set({ isComplete: true, gscProperty: mocks.property, revampRunId: 'new-website' });
@@ -281,7 +282,7 @@ describe('evidence-backed assessment integration', () => {
         if (mode === 'provider-failure') throw Error('private-provider-error');
         return completion(incomplete);
       });
-      expect((await suggestions(request())).status).toBe(mode === 'provider-failure' ? 503 : 502);
+      expect((await suggestions(request({ goal: 'Explain the website planning process.' }))).status).toBe(mode === 'provider-failure' ? 503 : 502);
       const response = await savedPlan(new Request(`https://simplseo.test/api/page-review/plan?pageUrl=${encodeURIComponent(pageUrl)}`, { headers: { Authorization: 'Bearer alice' } }));
       expect((await response.json()).plan).toEqual(generated.plan);
     }
@@ -290,7 +291,7 @@ describe('evidence-backed assessment integration', () => {
   it('retains omitted earlier tasks and uses them as private review context', async () => {
     const first = await (await suggestions(request())).json();
     mocks.create.mockImplementation(async body => body.tools ? researchCompletion() : completion(keepAssessment));
-    const next = await (await suggestions(request())).json();
+    const next = await (await suggestions(request({ goal: 'Explain the website planning process.' }))).json();
     expect(next.plan.tasks).toHaveLength(1);
     expect(next.plan.tasks[0].id).toBe(first.plan.tasks[0].id);
     expect(next.plan.tasks[0].status).toBe('todo');
@@ -495,17 +496,157 @@ describe('evidence-backed assessment integration', () => {
 
 });
 
+describe('checking saved reviews for updates', () => {
+  const recordFor = plan => db.collection('pageReviewPlans').doc(plan.id);
+  const inspections = verdict => ({ inspectionResult: { indexStatusResult: { verdict, coverageState: 'Submitted and indexed', lastCrawlTime: '2026-10-01T12:00:00Z' } } });
+
+  it('preserves the exact plan, resolved task and original review dates without AI or its quota', async () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-10T16:00:00Z'));
+    const first = await (await suggestions(request())).json();
+    const preserved = { ...first.plan, revision: 2, tasks: first.plan.tasks.map(task => ({ ...task, status: 'dismissed' })) };
+    await recordFor(first.plan).update({ revision: 2, tasks: preserved.tasks });
+    // Exhaust the remaining paid-review allowance, which must not block reuse.
+    for (let index = 0; index < 19; index += 1) { vi.advanceTimersByTime(60000); await consumePageReviewQuota('alice'); }
+    await expect(consumePageReviewQuota('alice')).rejects.toMatchObject({ status: 429 });
+    delete process.env.OPENAI_API_KEY;
+    const result = await (await suggestions(request())).json();
+    expect(result.updateCheck).toMatchObject({ status: 'unchanged', message: 'Your saved plan is up to date.' });
+    expect(result.updateCheck.limitation).toContain('remain unavailable');
+    expect(result.plan).toEqual(preserved);
+    expect(result.provenance).toEqual(first.provenance);
+    expect(result.evidence).toEqual(first.plan.review.evidence);
+    expect(result.checkContext.currentPage.fetchedAt).not.toBe(first.currentPage.fetchedAt);
+    expect(result.checkContext.evidence.fetchedAt).not.toBe(first.evidence.fetchedAt);
+    expect((await recordFor(first.plan).get()).data().revision).toBe(2);
+    expect(mocks.create).toHaveBeenCalledTimes(2);
+  });
+
+  it('reuses legacy version-six snapshots despite new timestamps and saved query sample flags', async () => {
+    const rows = Array.from({ length: 55 }, (_, index) => ({ keys: [`website phrase ${index}`], clicks: 0, impressions: 100 - index, ctr: 0, position: 12 }));
+    mocks.query.mockImplementation(async body => ({ rows: body.dimensions ? rows : [] }));
+    const first = await (await suggestions(request())).json();
+    const legacy = structuredClone(first.plan.review); delete legacy.updateBaseline;
+    expect(legacy.evidence.current.queries).toHaveLength(40);
+    await recordFor(first.plan).update({ review: legacy });
+    rows.reverse(); // Same Google rows in a different response order.
+    const result = await (await suggestions(request())).json();
+    expect(result.updateCheck.status).toBe('unchanged');
+    expect(result.plan.review).toEqual(legacy);
+    expect(result.plan.revision).toBe(first.plan.revision);
+    expect(mocks.create).toHaveBeenCalledTimes(2);
+  });
+
+  it('detects changes outside the saved query sample using the complete new-review baseline', async () => {
+    const rows = Array.from({ length: 55 }, (_, index) => ({ keys: [`website phrase ${index}`], clicks: 0, impressions: 100 - index, ctr: 0, position: 12 }));
+    mocks.query.mockImplementation(async body => ({ rows: body.dimensions ? rows : [] }));
+    const first = await (await suggestions(request())).json();
+    rows[54].position = 18;
+    const result = await (await suggestions(request())).json();
+    expect(result.updateCheck.status).toBe('updated');
+    expect(result.plan.revision).toBe(first.plan.revision + 1);
+    expect(mocks.create).toHaveBeenCalledTimes(4);
+  });
+
+  it.each(['page', 'goal', 'keywords', 'metrics', 'history_window', 'index', 'model', 'policy'])('runs a grounded new review for changed %s inputs', async change => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-10T16:00:00Z'));
+    mocks.inspect.mockResolvedValue(inspections('PASS'));
+    const first = await (await suggestions(request())).json();
+    const body = {};
+    if (change === 'page') publicFetch.mockResolvedValue(htmlResponse(pageHtml.replace('local businesses.', 'businesses in the local community.')));
+    if (change === 'goal') body.goal = 'Help visitors understand project planning.';
+    if (change === 'keywords') body.focusKeywords = ['website planning'];
+    if (change === 'metrics') mocks.query.mockImplementation(async input => ({ rows: input.dimensions ? [] : [{ clicks: 2, impressions: 40, ctr: 0.05, position: 20 }] }));
+    if (change === 'history_window') vi.advanceTimersByTime(86400000);
+    if (change === 'index') mocks.inspect.mockResolvedValue(inspections('NEUTRAL'));
+    if (change === 'model' || change === 'policy') {
+      const old = structuredClone(first.plan.review);
+      if (change === 'model') old.provenance.model = 'old-model';
+      else old.provenance.reviewVersion = 5;
+      await recordFor(first.plan).update({ review: old });
+    }
+    const result = await (await suggestions(request(body))).json();
+    expect(result.updateCheck.status).toBe('updated');
+    expect(result.plan.revision).toBe(first.plan.revision + 1);
+    expect(mocks.create).toHaveBeenCalledTimes(4);
+  });
+
+  it('detects a changed linked service page even when the selected page remains identical', async () => {
+    const linked = 'https://example.test/services/web-design';
+    const main = pageHtml.replace('</main>', `<a href="${linked}">Web design service</a></main>`);
+    let child = pageHtml;
+    publicFetch.mockImplementation(async url => htmlResponse(url === pageUrl ? main : child, { url }));
+    const first = await (await suggestions(request())).json();
+    child = pageHtml.replace('Custom Web Design', 'Website Planning');
+    const result = await (await suggestions(request())).json();
+    expect(result.provenance.contentFingerprint).toBe(first.provenance.contentFingerprint);
+    expect(result.updateCheck.status).toBe('updated');
+    expect(mocks.create).toHaveBeenCalledTimes(4);
+  });
+
+  it.each(['search', 'inspection', 'linked_html'])('keeps a saved review honestly incomplete after a failed %s check', async failure => {
+    const linked = 'https://example.test/services/web-design';
+    const main = pageHtml.replace('</main>', `<a href="${linked}">Web design service</a></main>`);
+    publicFetch.mockImplementation(async url => htmlResponse(url === pageUrl ? main : pageHtml, { url }));
+    mocks.inspect.mockResolvedValue(inspections('PASS'));
+    const first = await (await suggestions(request())).json();
+    if (failure === 'search') mocks.query.mockRejectedValue(Error('private-google-error'));
+    if (failure === 'inspection') mocks.inspect.mockRejectedValue(Error('private-inspection-error'));
+    if (failure === 'linked_html') publicFetch.mockImplementation(async url => { if (url === linked) throw Error('private-fetch-error'); return htmlResponse(main); });
+    const result = await (await suggestions(request())).json();
+    expect(result.updateCheck.status).toBe('incomplete');
+    expect(result.updateCheck.message).toContain('saved plan is unchanged');
+    expect(result.plan).toEqual(first.plan);
+    expect(mocks.create).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(result)).not.toContain('private-');
+  });
+
+  it('returns current checklist statuses changed while evidence was being checked', async () => {
+    const first = await (await suggestions(request())).json();
+    const tasks = first.plan.tasks.map(task => ({ ...task, status: 'done', statusUpdatedAt: '2026-10-10T17:00:00Z' }));
+    mocks.query.mockImplementationOnce(async () => { await recordFor(first.plan).update({ tasks, revision: 2 }); return { rows: [] }; });
+    const result = await (await suggestions(request())).json();
+    expect(result.updateCheck.status).toBe('unchanged');
+    expect(result.plan.tasks).toEqual(tasks);
+    expect(result.plan.revision).toBe(2);
+    expect(mocks.create).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['review', 'setup', 'publication'])('rejects an in-flight check when %s changes instead of claiming a stale plan is current', async mutation => {
+    const first = await (await suggestions(request())).json();
+    mocks.query.mockImplementationOnce(async () => {
+      if (mutation === 'review') await recordFor(first.plan).update({ review: { ...first.plan.review, ownerGoal: 'A newly saved goal.' }, revision: 2 });
+      if (mutation === 'setup') await db.collection('onboarding').doc('alice').update({ revampArchivePending: true });
+      if (mutation === 'publication') await db.collection('implementedSeoTips').doc(seoImplementationId('alice', pageUrl)).set({ userId: 'alice', pageUrl, status: 'implemented', websiteRunId: 'new-website', gscProperty: mocks.property });
+      return { rows: [] };
+    });
+    const response = await suggestions(request());
+    expect(response.status).toBe(409);
+    expect(mocks.create).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not save a new review if publication was confirmed while the model was running', async () => {
+    const first = await (await suggestions(request())).json();
+    mocks.create.mockImplementation(async body => {
+      if (body.tools) return researchCompletion();
+      await db.collection('implementedSeoTips').doc(seoImplementationId('alice', pageUrl)).set({ userId: 'alice', pageUrl, status: 'implemented', websiteRunId: 'new-website', gscProperty: mocks.property });
+      return completion(assessment);
+    });
+    expect((await suggestions(request({ goal: 'Explain project planning.' }))).status).toBe(409);
+    expect((await recordFor(first.plan).get()).data().review).toEqual(first.plan.review);
+  });
+});
+
 describe('page-review spending boundaries', () => {
   it('allows twenty researched reviews per user per day and blocks the next request before provider spending', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-10-10T16:00:00Z'));
     mocks.create.mockImplementation(async body => body.tools ? researchCompletion() : completion(keepAssessment));
     for (let index = 0; index < 20; index += 1) {
-      expect((await suggestions(request())).status).toBe(200);
+      expect((await suggestions(request({ goal: `Explain planning option ${index}.` }))).status).toBe(200);
       vi.advanceTimersByTime(60000);
     }
     expect(mocks.create).toHaveBeenCalledTimes(40);
-    const response = await suggestions(request());
+    const response = await suggestions(request({ goal: 'Explain another planning option.' }));
     expect(response.status).toBe(429);
     expect((await response.json()).error).not.toMatch(/turn off|disable|research allowance/i);
     expect(mocks.create).toHaveBeenCalledTimes(40);

@@ -389,7 +389,7 @@ test('legacy drafts, missing v5 strategy and unresolved evidence cannot enable s
   await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
   await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
   for (let index = 0; index < 7; index += 1) {
-    await page.getByRole('button', { name: index === 0 ? 'Analyze this page' : 'Analyze again' }).click();
+    await page.getByRole('button', { name: 'Analyze this page' }).click();
     await expect(page.getByRole('alert').filter({ hasText: 'A complete, supported page assessment was not returned' })).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toHaveCount(0);
@@ -406,7 +406,7 @@ test('editing the business goal keeps the previous assessment until a new review
   await page.getByLabel('What should this page help visitors do?', { exact: false }).fill('Explain my current website design service.');
   await expect(page.getByRole('region', { name: 'Page assessment' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toBeVisible();
-  await page.getByRole('button', { name: 'Analyze again' }).click();
+  await page.getByRole('button', { name: 'Check for updates' }).click();
   await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toBeVisible();
   expect(calls.generations.map(call => ({ focusKeywords: call.focusKeywords, includeResearch: call.includeResearch }))).toEqual([{ focusKeywords: [], includeResearch: true }, { focusKeywords: [], includeResearch: true }]);
   expect(calls.generations[1].goal).toBe('Explain my current website design service.');
@@ -690,7 +690,7 @@ test('business goal waits for the current analysis and editing it retains the sa
   await expect(page.getByRole('region', { name: 'Page assessment' })).toBeVisible();
   await openDetails(page, 'Tell us more about this page (optional)');
   await page.getByLabel('What should this page help visitors do?', { exact: false }).fill('Explain my existing website design service.');
-  await page.getByRole('button', { name: 'Analyze again' }).click();
+  await page.getByRole('button', { name: 'Check for updates' }).click();
   await expect(page.getByRole('heading', { name: 'Make the opening heading more specific' })).toBeVisible();
   await expect.poll(() => calls.generations[0]?.goal).toBe('Explain my existing website design service.');
   await openDetails(page, 'Tell us more about this page (optional)');
@@ -712,7 +712,7 @@ test('invalid action evidence, unlisted destinations and unsafe inspection links
   await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
   await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
   for (let index = 0; index < 3; index += 1) {
-    await page.getByRole('button', { name: index === 0 ? 'Analyze this page' : 'Analyze again' }).click();
+    await page.getByRole('button', { name: 'Analyze this page' }).click();
     await expect(page.getByRole('alert').filter({ hasText: 'A complete, supported page assessment was not returned' })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Page assessment' })).toHaveCount(0);
     await expect(page.getByRole('region', { name: 'Track a published page-content change' })).toHaveCount(0);
@@ -745,7 +745,7 @@ test('automatic focus and multiple saved tasks survive reload, page switches, fa
   expect(calls.generations).toHaveLength(1);
   const failed = route => route.fulfill({ status: 503, json: { error: 'Analysis temporarily unavailable. Your saved tasks are unchanged.' } });
   await page.route('**/api/page-review/suggestions', failed);
-  await page.getByRole('button', { name: 'Analyze again' }).click();
+  await page.getByRole('button', { name: 'Check for updates' }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'Analysis temporarily unavailable' })).toBeVisible();
   await expect(tasks.getByRole('article')).toHaveCount(3);
   await page.unroute('**/api/page-review/suggestions', failed);
@@ -782,7 +782,7 @@ test('reanalysis retains earlier tasks and metadata wording when the latest revi
   const tasks = page.getByRole('region', { name: 'Saved page tasks' });
   await expect(tasks.getByRole('article')).toHaveCount(1);
   second = true;
-  await page.getByRole('button', { name: 'Analyze again' }).click();
+  await page.getByRole('button', { name: 'Check for updates' }).click();
   await openDetails(page, 'Full analysis and sources');
   await expect(page.getByRole('heading', { name: 'Keep your current title and description', exact: true })).toBeVisible();
   await expect(tasks.getByRole('article')).toHaveCount(1);

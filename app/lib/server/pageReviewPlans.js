@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { db } from '../firebaseAdmin';
 import { propertyContainsUrl } from '../revampState';
+import { seoImplementationId } from '../pageTaskFlow';
 import { RequestError } from './requestAuth';
 
 const COLLECTION = 'pageReviewPlans';
@@ -189,6 +190,35 @@ export async function readPageReviewPlan(userId, pageUrl) {
   });
 }
 
+async function assertNoActivePublication(transaction, userId, scope) {
+  const snapshot = await transaction.get(db.collection('implementedSeoTips').doc(seoImplementationId(userId, scope.pageUrl)));
+  const record = snapshot.data();
+  if (record && (record.userId !== userId || record.pageUrl !== scope.pageUrl)) {
+    throw new RequestError('This page record conflicts with another record. Please contact support before continuing.', 409);
+  }
+  if (record && !record.preRevampArchived && record.status === 'implemented') {
+    throw new RequestError('This page already has a confirmed change being tracked. Review its progress before checking for new suggestions.', 409);
+  }
+}
+
+// A check for updates is read-only, but must honor the same setup/publication
+// boundaries as generation. Read the latest checklist in this transaction so a
+// concurrent owner checkbox edit is returned intact rather than overwritten.
+export async function readPageReviewPlanForUpdate(userId, provenance, { expectedReview } = {}) {
+  return db.runTransaction(async transaction => {
+    const scope = await readScope(transaction, userId, provenance.pageUrl, { write: true });
+    if (scope.property !== provenance.property || scope.websiteRunId !== provenance.websiteRunId) {
+      throw new RequestError('Your website setup changed while checking this page. Reload and try again.', 409);
+    }
+    const { plan } = await pageReviewPlanInTransaction(transaction, userId, scope);
+    await assertNoActivePublication(transaction, userId, scope);
+    if (expectedReview !== undefined && hash(plan?.review || null) !== hash(expectedReview)) {
+      throw new RequestError('A different review was saved while checking this page. Reload to see your current plan.', 409);
+    }
+    return publicPlan(plan);
+  });
+}
+
 // Called only by the authenticated generation service after strict validation.
 // startedAt is set on the server before analysis, never accepted from the client.
 export async function savePageReviewPlan(userId, review, { startedAt = review?.provenance?.generatedAt } = {}) {
@@ -207,6 +237,7 @@ export async function savePageReviewPlan(userId, review, { startedAt = review?.p
     const snapshot = await transaction.get(ref);
     const existing = snapshot.exists ? snapshot.data() : null;
     assertStoredScope(existing, userId, scope);
+    await assertNoActivePublication(transaction, userId, scope);
     if (existing && generationStartedAt < existing.generationStartedAt) {
       throw new RequestError('A newer review is already saved. Reload to see your current plan.', 409);
     }
