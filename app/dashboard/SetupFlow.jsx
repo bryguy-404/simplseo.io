@@ -112,7 +112,7 @@ export default function Dashboard() {
   const [gscAlert, setGscAlert] = useState(null);
   const [isLoadingGscData, setIsLoadingGscData] = useState(false);
   const [isRefreshingData, setIsRefreshingData] = useState(false); // ✅ NEW: Track refresh state
-  
+
   // Use AI-powered filtering for non-branded keywords
   const [nonBrandedKeywords, setNonBrandedKeywords] = useState([]);
   const [isFilteringKeywords, setIsFilteringKeywords] = useState(false);
@@ -195,15 +195,15 @@ export default function Dashboard() {
         const baseUrl = new URL(base);
         const baseHostname = baseUrl.hostname.replace(/^www\./, ""); // Normalize: remove www
         const baseOrigin = baseUrl.origin;
-        
+
         const normalized = new URL(raw, baseOrigin).toString();
         const cleaned = normalized.split("#")[0].replace(/\/$/, "");
         const cleanedUrl = new URL(cleaned);
         const cleanedHostname = cleanedUrl.hostname.replace(/^www\./, ""); // Normalize: remove www
-        
+
         // Compare hostnames (without www) instead of full origins
         if (cleanedHostname !== baseHostname) return null;
-        
+
         return cleaned;
       } catch {
         return null;
@@ -274,14 +274,14 @@ export default function Dashboard() {
     [user?.id, isLoadingCrawlReview, hasLoadedCrawlReview]
   );
   const hasFocusKeywords = focusKeywords.length > 0;
-  
+
   // Initialize feedback tracking on first dashboard visit
   useEffect(() => {
     if (user?.id) {
       initializeFeedbackTracking(user.id);
     }
   }, [user?.id]);
-  
+
   useEffect(() => {
     if (
       data?.siteCrawlStatus === "completed" ||
@@ -458,7 +458,7 @@ export default function Dashboard() {
         siteCrawlStatus: completedStatus,
         lastSiteCrawlAt: new Date().toISOString(),
       };
-      
+
       if (data?.postOnboardingStep === 'pages') {
         updatePayload.pagesStepCompleted = true;
         updatePayload.postOnboardingStep = 'keywords'; // Automatically move to keywords step
@@ -481,7 +481,7 @@ export default function Dashboard() {
 
       const savedCount = responseJson.saved || 0;
       const removedCount = responseJson.removed || 0;
-      
+
       if (savedCount > 0 && removedCount > 0) {
         toast.success(
           `Saved ${savedCount} page${savedCount !== 1 ? "s" : ""} and removed ${removedCount} page${removedCount !== 1 ? "s" : ""} from your content cache.`
@@ -613,7 +613,7 @@ export default function Dashboard() {
 
       // Clear the processed URLs from manualReviewUrls and clear the input field
       // Remove all processed URLs (both successful and failed) from the manual review URLs
-      setManualReviewUrls((prev) => 
+      setManualReviewUrls((prev) =>
         prev.filter((url) => !newManualUrls.includes(url))
       );
       setNewUrlInput("");
@@ -624,7 +624,7 @@ export default function Dashboard() {
           pagesStepCompleted: true,
           postOnboardingStep: 'keywords', // Automatically move to keywords step
         });
-        
+
         // Scroll to top when transitioning to keywords step
         setTimeout(() => {
           window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -635,9 +635,9 @@ export default function Dashboard() {
       toast.error("Failed to add URL", {
         description: error?.message || "Please try again.",
       });
-      
+
       // Still clear the URLs and input even on error
-      setManualReviewUrls((prev) => 
+      setManualReviewUrls((prev) =>
         prev.filter((url) => !newManualUrls.includes(url))
       );
       setNewUrlInput("");
@@ -645,20 +645,20 @@ export default function Dashboard() {
       setIsRecrawling(false);
     }
   };
-  
+
 
   const generateMetaDescription = useCallback(async (pageUrl) => {
     try {
       // Look up the saved focus keyword for this page
       const normalizedUrl = normalizeUrlForComparison(pageUrl);
       let focusKeywordForPage = null;
-      
+
       // DEBUG: Log the lookup process
       console.log(`🔍 [META DESC] Looking up focus keyword for: ${pageUrl}`);
       console.log(`🔍 [META DESC] Normalized URL: ${normalizedUrl}`);
       console.log(`🔍 [META DESC] focusKeywordByPage size: ${focusKeywordByPage.size}`);
       console.log(`🔍 [META DESC] focusKeywordByPage entries:`, Array.from(focusKeywordByPage.entries()));
-      
+
       for (const [pageKey, keyword] of focusKeywordByPage.entries()) {
         if (pageKey && pageKey !== "__unknown__") {
           const normalizedPageKey = normalizeUrlForComparison(pageKey);
@@ -670,7 +670,7 @@ export default function Dashboard() {
           }
         }
       }
-      
+
       if (!focusKeywordForPage) {
         console.warn(`⚠️ [META DESC] No focus keyword found for ${pageUrl}`);
       }
@@ -716,12 +716,12 @@ export default function Dashboard() {
       // Look up the saved focus keyword for this page
       const normalizedUrl = normalizeUrlForComparison(pageUrl);
       let focusKeywordForPage = null;
-      
+
       // DEBUG: Log the lookup process
       console.log(`🔍 [META TITLE] Looking up focus keyword for: ${pageUrl}`);
       console.log(`🔍 [META TITLE] Normalized URL: ${normalizedUrl}`);
       console.log(`🔍 [META TITLE] focusKeywordByPage size: ${focusKeywordByPage.size}`);
-      
+
       for (const [pageKey, keyword] of focusKeywordByPage.entries()) {
         if (pageKey && pageKey !== "__unknown__") {
           const normalizedPageKey = normalizeUrlForComparison(pageKey);
@@ -733,7 +733,7 @@ export default function Dashboard() {
           }
         }
       }
-      
+
       if (!focusKeywordForPage) {
         console.warn(`⚠️ [META TITLE] No focus keyword found for ${pageUrl}`);
       }
@@ -805,7 +805,7 @@ export default function Dashboard() {
     // 3. At least one focus keyword selected (so API has keywords to use)
     // 4. Post-onboarding flow complete (user finished selecting pages + keywords)
     const hasCompletedOnboarding = !data?.postOnboardingStep || data?.postOnboardingStep === 'complete';
-    
+
     if (aiTips.length > 0 && initialFocusKeywordsLoaded && focusKeywordByPage.size > 0 && hasCompletedOnboarding) {
       fetchTitlesAndDescriptions();
     }
@@ -824,7 +824,7 @@ export default function Dashboard() {
       try {
         const stored = await getFocusKeywords(user.id);
         console.log(`📦 [LOAD FOCUS KW] Raw from Firestore:`, stored);
-        
+
         if (Array.isArray(stored) && stored.length > 0) {
           const keywordList = [];
           const assignments = new Map();
@@ -993,7 +993,7 @@ export default function Dashboard() {
           if (prevKeywords.length === 0) {
             return formatted;
           }
-          
+
           // Merge: dashboard metrics for recent data, keep focus keywords for older data
           const existingMap = new Map();
           prevKeywords.forEach((kw) => {
@@ -1196,21 +1196,21 @@ export default function Dashboard() {
   // Define fetchAndMatchGSC before the useEffect that uses it
   const fetchAndMatchGSC = useCallback(async (token) => {
     if (!user?.id) return;
-    
+
     // Use the GSC property selected during onboarding
     const selectedProperty = data?.gscProperty;
-    
+
     if (selectedProperty) {
       // Store site URL in Firestore
       const tokenManager = createGSCTokenManager(user.id);
       await tokenManager.storeTokens(null, token, selectedProperty);
-      
+
       // Fetch dashboard metrics (always 28 days - optimal sweet spot)
       fetchDashboardMetrics(selectedProperty, token);
-      
+
       // Fetch chart trends (uses chartDateRange - can be changed by user)
       fetchChartTrends(selectedProperty, token, chartDateRange);
-      
+
       // Fetch focus keywords with fixed 90-day period (separate from dashboard metrics)
       fetchFocusKeywords(selectedProperty, token);
     } else {
@@ -1258,7 +1258,7 @@ export default function Dashboard() {
 
         const tokenManager = createGSCTokenManager(user.id);
         const accessToken = await tokenManager.getValidAccessToken();
-        
+
         if (!accessToken) {
           setIsGscConnected(false);
           return;
@@ -1384,12 +1384,12 @@ export default function Dashboard() {
   useEffect(() => {
     const filterKeywordsWithAI = async () => {
       if (!gscKeywords.length || !data?.businessName) return;
-      
+
       setIsFilteringKeywords(true);
       try {
         // Generate signature from keywords to detect when they change
         const keywordSignature = generateKeywordSignature(gscKeywords);
-        
+
         const cacheParams = {
           keywordsCount: gscKeywords.length,
           keywordSignature: keywordSignature, // Include signature to detect keyword changes
@@ -1478,12 +1478,12 @@ export default function Dashboard() {
 
   // Track previous business info to detect changes and clear cache
   const prevBusinessInfoRef = useRef({ businessName: null, businessType: null });
-  
+
   // Clear cache when business name or type changes
   useEffect(() => {
     const prevBusinessName = prevBusinessInfoRef.current.businessName;
     const prevBusinessType = prevBusinessInfoRef.current.businessType;
-    
+
     // Only clear cache if business info actually changed
     if (
       (data?.businessName && data.businessName !== prevBusinessName) ||
@@ -1492,7 +1492,7 @@ export default function Dashboard() {
       if (prevBusinessName || prevBusinessType) {
         console.log("🔄 Business info changed, cache will be invalidated on next fetch");
       }
-      
+
       // Update ref
       prevBusinessInfoRef.current = {
         businessName: data?.businessName || null,
@@ -1607,7 +1607,7 @@ export default function Dashboard() {
         // This should ALWAYS take priority, regardless of source (AI-generated or GSC-existing)
         const normalizedPageUrl = normalizeUrlForComparison(page.page);
         let assignedKeyword = null;
-        
+
         for (const [pageKey, keyword] of focusKeywordByPage.entries()) {
           if (pageKey && pageKey !== "__unknown__") {
             const normalizedPageKey = normalizeUrlForComparison(pageKey);
@@ -1617,12 +1617,12 @@ export default function Dashboard() {
             }
           }
         }
-        
+
         // Only use assigned keywords - no fallback to GSC matching
         // This ensures only pages where the user explicitly selected a focus keyword are marked
         let primaryKeyword = assignedKeyword;
         let focusKeywords = [];
-        
+
         if (assignedKeyword) {
           focusKeywords = [assignedKeyword];
           primaryKeyword = assignedKeyword;
@@ -1631,7 +1631,7 @@ export default function Dashboard() {
           // but don't mark it as a focus keyword
           primaryKeyword = page.keywords?.[0] || null;
         }
-        
+
         return {
           ...page,
           focusKeywords,
@@ -1647,7 +1647,7 @@ export default function Dashboard() {
         return b.impressions - a.impressions;
       });
   }, [lowCtrPages, focusKeywordSet, focusKeywordByPage]);
- 
+
   const focusKeywordsNotShownLowCtr = useMemo(() => {
     const shown = new Set();
     prioritizedLowCtrPages.forEach((page) => {
@@ -1742,7 +1742,7 @@ export default function Dashboard() {
       const existingKeywordsSet = new Set(
         gscKeywords.map(kw => `${kw.keyword.toLowerCase()}|${normalizePageKey(kw.page)}`)
       );
-      
+
       // Collect all keywords for gscKeywordsRaw (GSC + AI-generated selected keywords)
       const allKeywordsRaw = [...gscKeywords.map(kw => ({
         keyword: kw.keyword,
@@ -1753,7 +1753,7 @@ export default function Dashboard() {
         ctr: kw.ctr || "0%",
         source: kw.source || "gsc-existing",
       }))];
-      
+
       // Add AI-generated keywords that are selected but not in GSC data
       nextAssignments.forEach((keyword, pageKey) => {
         const source = nextSources.get(pageKey) || "gsc-existing";
@@ -1764,7 +1764,7 @@ export default function Dashboard() {
             const pageUrl = Array.from(groupedByPage.keys()).find(
               url => normalizePageKey(url) === pageKey
             ) || pageKey;
-            
+
             allKeywordsRaw.push({
               keyword,
               page: pageUrl === "__unknown__" ? null : pageUrl,
@@ -1777,7 +1777,7 @@ export default function Dashboard() {
           }
         }
       });
-      
+
       // Create snapshot of current FocusKeywordSelector state
       const snapshot = {
         groupedByPage: Array.from(groupedByPage.entries()).map(([page, keywords]) => ({
@@ -1819,7 +1819,7 @@ export default function Dashboard() {
             ctr: kw.ctr,
           }))
           .sort((a, b) => b.impressions - a.impressions);
-        
+
         pagesWithoutKeywords.push({
           pageUrl: pageUrl === "__unknown__" ? null : pageUrl,
           keywords: pageKeywords,
@@ -1833,11 +1833,11 @@ export default function Dashboard() {
       const pageUrl = Array.from(groupedByPage.keys()).find(
         url => normalizePageKey(url) === pageKey
       ) || pageKey;
-      
+
       const keywordData = gscKeywords.find(
         kw => kw.keyword?.toLowerCase() === keyword?.toLowerCase()
       );
-      
+
       selectedKeywordsSummary.push({
         pageUrl: pageUrl === "__unknown__" ? null : pageUrl,
         keyword: keyword,
@@ -1964,7 +1964,7 @@ export default function Dashboard() {
       const existingKeywordsSet = new Set(
         gscKeywords.map(kw => `${kw.keyword.toLowerCase()}|${normalizePageKey(kw.page)}`)
       );
-      
+
       // Collect all keywords for gscKeywordsRaw (GSC + AI-generated selected keywords)
       const allKeywordsRaw = [...gscKeywords.map(kw => ({
         keyword: kw.keyword,
@@ -1975,7 +1975,7 @@ export default function Dashboard() {
         ctr: kw.ctr || "0%",
         source: kw.source || "gsc-existing",
       }))];
-      
+
       // Add AI-generated keywords that are selected but not in GSC data
       nextAssignments.forEach((keyword, pageKey) => {
         const source = autoSources.get(pageKey) || "gsc-existing";
@@ -1986,7 +1986,7 @@ export default function Dashboard() {
             const pageUrl = Array.from(groupedByPage.keys()).find(
               url => normalizePageKey(url) === pageKey
             ) || pageKey;
-            
+
             allKeywordsRaw.push({
               keyword,
               page: pageUrl === "__unknown__" ? null : pageUrl,
@@ -1999,7 +1999,7 @@ export default function Dashboard() {
           }
         }
       });
-      
+
       // Create snapshot for auto-selected keywords
       const snapshot = {
         groupedByPage: Array.from(groupedByPage.entries()).map(([page, keywords]) => ({
@@ -2055,16 +2055,16 @@ export default function Dashboard() {
   const handleSubmitKeywords = async () => {
     // If focus keywords are already saved, just complete the flow
     if (focusKeywords.length > 0) {
-      updateData({ 
+      updateData({
         postOnboardingStep: 'complete',
         pagesStepCompleted: false // Reset this flag
       });
-      
+
       // Scroll to top when completing the flow
       setTimeout(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }, 100);
-      
+
       toast.success("Welcome to your SEO Dashboard!");
     } else {
       toast.error("Please select at least one focus keyword before continuing.");
@@ -2142,7 +2142,7 @@ export default function Dashboard() {
         )}
 
         {/* Website scan complete card - show in pages step OR when not in post-onboarding flow (but hide after completion) */}
-        {((postOnboardingStep === 'pages') || (!isInPostOnboardingFlow && postOnboardingStep !== 'complete')) && 
+        {((postOnboardingStep === 'pages') || (!isInPostOnboardingFlow && postOnboardingStep !== 'complete')) &&
          (data?.siteCrawlStatus === "completed" ||
           data?.siteCrawlStatus === "completed-with-errors" ||
           data?.siteCrawlStatus === "awaiting-review") && (
@@ -2160,7 +2160,7 @@ export default function Dashboard() {
                       : "Just now"}
                   </span>
                 </AlertDescription>
-                
+
                 <Alert className="w-full border-blue-200 bg-blue-50 dark:border-blue-900/40 dark:bg-blue-900/20">
                   <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
                   <AlertDescription className="!block text-sm text-blue-900 dark:text-blue-100 leading-relaxed">
@@ -2486,7 +2486,7 @@ export default function Dashboard() {
                 <p className="text-red-700 mb-4">
                   {gscAlert.description}
                 </p>
-                <Button 
+                <Button
                   onClick={() => {
                     if (gscAlert.type === "no-property-selected") {
                       router.push("/onboarding");
@@ -2543,7 +2543,7 @@ export default function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="date" />
                   <YAxis />
-                  <Tooltip 
+                  <Tooltip
                     formatter={(value) => value}
                     labelFormatter={(label) => `Date: ${label}`}
                   />
@@ -2569,10 +2569,10 @@ export default function Dashboard() {
           {data.businessType === "Dentist"
             ? "Add your business hours, services, and patient reviews to improve your local SEO as a dental practice."
             : `Add your business hours and location details to your website to improve your local SEO visibility in ${
-                data.businessLocation || "your area"  
+                data.businessLocation || "your area"
               }. Embed Google reviews to your website if you have any, this will help also with discoverability`}
         </AlertDescription>
-      </Alert> 
+      </Alert>
       {/* Getting Started Card */}
        {/* <Card>
         <CardHeader>
