@@ -2642,7 +2642,7 @@ export default function Dashboard() {
       {/* Top Row - Action Items */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 mt-6">
 
-        {/* Low CTR Fixes Card */}
+        {/* Improve a page Card */}
         <Card
           className={cn(
             "col-span-full md:col-span-1 h-full border-red-200 shadow-red-100 transition-all",
@@ -2653,7 +2653,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  Low CTR Fixes
+                  Improve a page
                   <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-medium">
                     High Priority
                   </span>

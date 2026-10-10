@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import { propertyContainsUrl } from '../../lib/revampState';
 import { usableSuggestion } from '../../lib/pageTaskFlow';
 import { Button } from '@/components/ui/button';
+import { pageIdentity } from './PageSearchActivity';
 
 const actions = {
   revise_metadata: 'Review a wording change',
@@ -12,7 +13,9 @@ const actions = {
   improve_content: 'Improve the page content first',
   review_page: 'Review another page',
   collect_data: 'Gather more evidence',
+  investigate_visibility: 'Check this page’s search visibility',
 };
+const metadataVerdicts = { keep: 'Keep your current title and description', revise: 'Review a title or description change', uncertain: 'More evidence is needed to judge the wording' };
 
 function webUrl(value) {
   try { const url = new URL(value); return ['https:', 'http:'].includes(url.protocol) && !url.username && !url.password; }
@@ -57,6 +60,7 @@ function targetPage(review) {
 export function usablePageAssessment(review) {
   const analysis = review?.analysis;
   if (!analysis || !Object.hasOwn(actions, analysis.action) ||
+    !Object.hasOwn(metadataVerdicts, analysis.metadataVerdict) || typeof analysis.metadataReason !== 'string' || !analysis.metadataReason.trim() ||
     !['summary', 'reason', 'nextStep'].every(key => typeof analysis[key] === 'string' && analysis[key].trim()) ||
     !Array.isArray(analysis.evidenceIds) || !Array.isArray(review.evidence?.facts) ||
     !['available', 'partial', 'unavailable'].includes(review.evidence.status) ||
@@ -69,9 +73,12 @@ export function usablePageAssessment(review) {
     ...(review.research.status === 'available' ? review.research.sources.filter(source => webUrl(source.url)).map(source => source.id) : []),
   ]);
   if (analysis.evidenceIds.some(id => typeof id !== 'string' || !knownIds.has(id))) return false;
+  if ((analysis.action === 'revise_metadata') !== (analysis.metadataVerdict === 'revise') ||
+    (analysis.action === 'keep_current' && analysis.metadataVerdict !== 'keep') ||
+    (analysis.action === 'investigate_visibility' && !analysis.evidenceIds.some(id => /^(?:S|Q|H)\d+$/.test(id)))) return false;
   if (analysis.action === 'review_page' && !targetPage(review)) return false;
   if (analysis.action !== 'revise_metadata') return !review.title && !review.description;
-  return usableSuggestion(review.title) && usableSuggestion(review.description) && Boolean(review.provenance) &&
+  return analysis.metadataVerdict === 'revise' && usableSuggestion(review.title) && usableSuggestion(review.description) && Boolean(review.provenance) &&
     Array.isArray(analysis.changedFields) && analysis.changedFields.length > 0 &&
     analysis.changedFields.every(field => ['title', 'description'].includes(field)) &&
     analysis.changedFields.every(field => typeof analysis.fieldReasons?.[field] === 'string' && analysis.fieldReasons[field].trim());
@@ -115,6 +122,8 @@ export default function PageReviewAssessment({ review, onReviewPage }) {
 
   return <section aria-label="Page assessment" className="mb-6 overflow-hidden rounded-xl border border-violet-200 bg-violet-50 dark:border-violet-800 dark:bg-violet-950/20">
     <div className="space-y-4 p-5 md:p-6">
+      <div className="border-b border-violet-200 pb-4 dark:border-violet-800"><p className="text-xs font-semibold uppercase tracking-wide text-violet-800 dark:text-violet-200">Review for {pageIdentity(evidence.pageUrl)}</p><a href={evidence.pageUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block max-w-full break-all text-sm underline underline-offset-4">{evidence.pageUrl}<span className="sr-only"> (opens in a new tab)</span></a></div>
+      <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 dark:border-sky-800 dark:bg-sky-950/30"><p className="text-xs font-semibold uppercase tracking-wide text-sky-800 dark:text-sky-200">Title and description</p><h3 className="mt-2 font-semibold text-sky-950 dark:text-sky-50">{metadataVerdicts[analysis.metadataVerdict]}</h3><p className="mt-2 text-sm leading-relaxed text-sky-900 dark:text-sky-100">{analysis.metadataReason}</p></div>
       <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-violet-800 dark:text-violet-200"><ClipboardCheck className="h-4 w-4" aria-hidden="true" />Recommended next step</p>
       <div className="space-y-2"><h2 className="text-xl font-semibold">{actions[analysis.action]}</h2><p className="font-medium leading-relaxed">{analysis.summary}</p><p className="text-sm leading-relaxed text-muted-foreground">{analysis.reason}</p></div>
       <div className="rounded-lg border border-violet-200 bg-background/70 p-4 dark:border-violet-800"><p className="mb-1 text-sm font-semibold">What to do next</p><p className="text-sm leading-relaxed">{analysis.nextStep}</p>
@@ -122,6 +131,7 @@ export default function PageReviewAssessment({ review, onReviewPage }) {
       </div>
       {evidence.status !== 'available' && <p className="text-sm text-muted-foreground">{evidence.status === 'unavailable' ? 'Search data was unavailable for this review. The recommendation uses the page content and any available research.' : 'Some search data was unavailable. The evidence below shows what this review could use.'}</p>}
       {researchFailed && <p role="status" className="text-sm text-muted-foreground">Web research {research.status === 'no_sources' ? 'returned no usable sources' : 'was unavailable'}. This review continues without competitor evidence.</p>}
+      {research.status === 'available' && <p className="text-xs text-muted-foreground">Web research included · {sources.length} {sources.length === 1 ? 'source' : 'sources'}. Open the evidence below to review them.</p>}
       {analysis.action === 'revise_metadata' && <div className="space-y-2 text-sm">
         {analysis.changedFields.map(field => <p key={field}><strong>{field === 'title' ? 'Why change the title:' : 'Why change the description:'}</strong> {analysis.fieldReasons[field]}</p>)}
       </div>}

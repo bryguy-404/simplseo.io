@@ -13,21 +13,21 @@ const currentPage = {
   textContent: 'Example Studio builds custom websites for local businesses. Our services include website planning, design and ongoing maintenance. Contact Example Studio to discuss your website.',
 };
 const evidence = {
-  facts: [{ id: 'P1', value: currentPage.htmlTitle }, { id: 'P2', value: currentPage.textContent }, { id: 'G1', impressions: 42, clicks: 2 }],
+  facts: [{ id: 'P1', value: currentPage.htmlTitle }, { id: 'P2', value: currentPage.textContent }, { id: 'S1', impressions: 42, clicks: 2 }],
   relatedPages: [{ pageUrl: 'https://studio.example.com/Services/Design?Region=North' }],
 };
 const noResearch = { status: 'not_requested', summary: '', sources: [] };
 const availableResearch = { status: 'available', summary: 'A comparable page explains its design process.', sources: [{ id: 'W1', url: 'https://other-studio.com/design', title: 'Design process' }] };
 const context = { currentPage, evidence, research: noResearch };
 const keep = () => ({
-  action: 'keep_current', summary: 'Keep your current wording',
+  action: 'keep_current', metadataVerdict: 'keep', metadataReason: 'The title and description accurately describe this page.', summary: 'Keep your current wording',
   reason: 'The title and description already describe this page clearly.',
   nextStep: 'Leave these fields as they are and review another page when useful.',
   evidenceIds: ['P1'], title: null, description: null,
   fieldReasons: { title: '', description: '' }, supportingQuotes: { title: '', description: '' }, targetPageUrl: null,
 });
 const titleEdit = () => ({
-  ...keep(), action: 'revise_metadata', summary: 'Name the website design service more clearly',
+  ...keep(), action: 'revise_metadata', metadataVerdict: 'revise', metadataReason: 'The generic service label can name the specific supported service.', summary: 'Name the website design service more clearly',
   reason: 'The page describes custom website design, while the current title only says website services.',
   nextStep: 'Review the more specific title and keep your description unchanged.', evidenceIds: ['P1', 'P2'],
   title: 'Custom Web Design | Example Studio', description: currentPage.seoMetaDescription,
@@ -49,15 +49,52 @@ const citation = (url = 'https://other-studio.com/design', title = 'Other studio
 describe('decision-first page review contract', () => {
   it('accepts keeping good wording as a successful review without an editable draft', () => {
     expect(validate(keep())).toEqual({ title: null, description: null, analysis: {
-      action: 'keep_current', summary: keep().summary, reason: keep().reason, nextStep: keep().nextStep,
+      action: 'keep_current', metadataVerdict: 'keep', metadataReason: keep().metadataReason, summary: keep().summary, reason: keep().reason, nextStep: keep().nextStep,
       evidenceIds: ['P1'], changedFields: [], fieldReasons: { title: '', description: '' }, targetPageUrl: null,
     } });
   });
 
-  it.each(['improve_content', 'collect_data'])('returns no metadata draft for %s', action => {
-    const result = validate({ ...keep(), action });
+  it.each(['improve_content', 'collect_data', 'investigate_visibility'])('returns no metadata draft for %s', action => {
+    const result = validate({ ...keep(), action, evidenceIds: action === 'investigate_visibility' ? ['P1', 'S1'] : ['P1'] });
     expect(result.title).toBeNull(); expect(result.description).toBeNull();
     expect(result.analysis.changedFields).toEqual([]);
+  });
+
+  it.each(['improve_content', 'review_page', 'collect_data', 'investigate_visibility'])('can keep good metadata while recommending %s', action => {
+    const result = validate({ ...keep(), action, evidenceIds: action === 'investigate_visibility' ? ['P1', 'S1'] : ['P1'], targetPageUrl: action === 'review_page' ? evidence.relatedPages[0].pageUrl : null });
+    expect(result.analysis).toMatchObject({ action, metadataVerdict: 'keep', metadataReason: keep().metadataReason });
+    expect(result.title).toBeNull(); expect(result.description).toBeNull();
+  });
+
+  it.each(['improve_content', 'review_page', 'collect_data', 'investigate_visibility'])('allows an uncertain metadata verdict for %s without fabricating an edit', action => {
+    const result = validate({ ...keep(), action, metadataVerdict: 'uncertain', evidenceIds: action === 'investigate_visibility' ? ['P1', 'S1'] : ['P1'],
+      metadataReason: 'The available page context does not establish whether different wording would be useful.',
+      targetPageUrl: action === 'review_page' ? evidence.relatedPages[0].pageUrl : null });
+    expect(result.analysis.metadataVerdict).toBe('uncertain');
+    expect(result.analysis.changedFields).toEqual([]);
+  });
+
+  it('requires a coherent independent metadata verdict and bounded reason', () => {
+    for (const metadataVerdict of [undefined, 'excellent', '', 'uncertain', 'revise']) {
+      expect(() => validate({ ...keep(), metadataVerdict })).toThrow();
+    }
+    for (const metadataVerdict of ['keep', 'uncertain']) {
+      expect(() => validate({ ...titleEdit(), metadataVerdict })).toThrow();
+    }
+    for (const action of ['improve_content', 'review_page', 'collect_data', 'investigate_visibility']) {
+      expect(() => validate({ ...keep(), action, metadataVerdict: 'revise' })).toThrow();
+    }
+    for (const metadataReason of [undefined, '', ' ', 'x'.repeat(261), '<script>run()</script>', 'Your title will improve rankings.', 'The page has 9999 clicks.']) {
+      expect(() => validate({ ...keep(), metadataReason })).toThrow();
+    }
+  });
+
+  it('requires an observed search/history source for a visibility investigation', () => {
+    const decision = { ...keep(), action: 'investigate_visibility' };
+    expect(() => validate(decision)).toThrow();
+    expect(() => validate({ ...decision, evidenceIds: ['P1', 'W1'] }, { ...context, research: availableResearch })).toThrow();
+    expect(() => validate({ ...decision, evidenceIds: ['P1', 'H99'] })).toThrow();
+    expect(validate({ ...decision, evidenceIds: ['P1', 'S1'] }).analysis.action).toBe('investigate_visibility');
   });
 
   it.each([
@@ -80,7 +117,7 @@ describe('decision-first page review contract', () => {
   });
 
   it('requires page evidence and rejects invented or unavailable research evidence IDs', () => {
-    for (const evidenceIds of [[], ['G1'], ['W1'], ['P99'], ['P1', 'G99'], ['P1', 'W1'], ['P1', 'P2', 'G1', 'P1', 'P2', 'G1']]) {
+    for (const evidenceIds of [[], ['S1'], ['W1'], ['P99'], ['P1', 'G99'], ['P1', 'W1'], ['P1', 'P2', 'S1', 'P1', 'P2', 'S1']]) {
       expect(() => validate({ ...keep(), evidenceIds })).toThrow();
     }
     expect(validate({ ...keep(), evidenceIds: ['P1', 'W1'] }, { ...context, research: availableResearch }).analysis.evidenceIds).toEqual(['P1', 'W1']);
@@ -130,6 +167,21 @@ describe('decision-first page review contract', () => {
     }
     expect(() => validate({ ...titleEdit(), fieldReasons: { ...titleEdit().fieldReasons, description: 'Reworded it' } })).toThrow();
     expect(() => validate({ ...titleEdit(), supportingQuotes: { ...titleEdit().supportingQuotes, description: 'Example Studio' } })).toThrow();
+  });
+
+  it('requires one continuous supporting quote rather than joining nonadjacent source sentences', () => {
+    const first = 'Example Studio builds custom websites for local businesses.';
+    const middle = 'Our services include website planning, design and ongoing maintenance.';
+    const last = 'Contact Example Studio to discuss your website.';
+    expect(currentPage.textContent).toBe(`${first} ${middle} ${last}`);
+
+    const revision = descriptionEdit();
+    // Both sentences are individually factual, but dropping the intervening
+    // sentence must not be represented as a single exact page quotation.
+    expect(() => validate({ ...revision, supportingQuotes: { title: '', description: `${first} ${last}` } })).toThrow();
+    const accepted = validate({ ...revision, supportingQuotes: { title: '', description: `${middle} ${last}` } });
+    expect(accepted.description).toBe(revision.description);
+    expect(accepted.analysis.changedFields).toEqual(['description']);
   });
 
   it('does not return an unusable metadata pair by preserving an absent other tag', () => {

@@ -23,7 +23,7 @@ const pageUrl = 'https://example.test/Services?Topic=Design';
 const pageHtml = '<html><head><title>Custom Web Design | Example Studio</title><meta name="description" content="Custom websites and ongoing maintenance for local businesses."></head><body><main><h1>Web design for local businesses</h1><p>Example Studio builds custom websites for local businesses. Read about the design process, project planning and ongoing website maintenance. Contact Example Studio to discuss your website.</p></main></body></html>';
 const draft = { title: 'Custom Web Design | Example Studio', description: 'Explore custom website design and ongoing maintenance from Example Studio. Learn about the process and contact us to discuss your website.' };
 const assessment = {
-  action: 'revise_metadata', summary: 'Explain what visitors can learn about the design process.',
+  action: 'revise_metadata', metadataVerdict: 'revise', metadataReason: 'The description omits the useful project planning information on the page.', summary: 'Explain what visitors can learn about the design process.',
   reason: 'The page explains project planning and the design process, but the description only mentions services.',
   nextStep: 'Review the new description, then publish it on your website if it accurately describes the page.',
   evidenceIds: ['P2', 'P3'], ...draft,
@@ -32,7 +32,7 @@ const assessment = {
   targetPageUrl: null,
 };
 const keepAssessment = {
-  action: 'keep_current', summary: 'Your current wording clearly describes this page.',
+  action: 'keep_current', metadataVerdict: 'keep', metadataReason: 'Both fields accurately describe the service and the business.', summary: 'Your current wording clearly describes this page.',
   reason: 'The title identifies the service and business, while the description accurately summarizes the website work offered.',
   nextStep: 'Keep this wording and review another page when you have a useful change to consider.',
   evidenceIds: ['P1', 'P2'], title: null, description: null,
@@ -61,7 +61,7 @@ beforeEach(async () => {
   delete process.env.NEXT_PUBLIC_ENABLE_ACCESS_REQUEST;
   await db.collection('onboarding').doc('alice').set({ isComplete: true, gscProperty: mocks.property, revampRunId: 'new-website' });
   publicFetch.mockImplementation(async () => htmlResponse());
-  mocks.create.mockResolvedValue(completion(assessment));
+  mocks.create.mockImplementation(async body => body.tools ? researchCompletion() : completion(assessment));
 });
 afterEach(() => { vi.useRealTimers(); });
 
@@ -92,16 +92,16 @@ describe('current website page review', () => {
     const result = await response.json();
     expect(result).toMatchObject({ ...draft, currentPage: { htmlTitle: 'Custom Web Design | Example Studio', url: pageUrl } });
     expect(publicFetch).toHaveBeenCalledWith(pageUrl);
-    expect(mocks.create).toHaveBeenCalledTimes(1);
-    const providerInput = mocks.create.mock.calls[0][0];
+    expect(mocks.create).toHaveBeenCalledTimes(2);
+    const providerInput = mocks.create.mock.calls[1][0];
     expect(providerInput).toMatchObject({ model: PAGE_REVIEW_MODEL, store: false, text: { format: { type: 'json_schema', strict: true } } });
     const facts = JSON.parse(providerInput.input[1].content);
     expect(facts.optionalFocusKeywords).toEqual([]);
     expect(facts.webpage.textContent).toContain('Example Studio');
     expect(providerInput.input[1].content).not.toMatch(/Forged|Old failed advice|Fake Company/);
     expect(result.analysis).toMatchObject({ action: 'revise_metadata', changedFields: ['description'] });
-    expect(result.evidence.facts.map(item => item.id)).toEqual(['P1', 'P2', 'P3', 'S1', 'S2']);
-    expect(result.research.status).toBe('not_requested');
+    expect(result.evidence.facts.map(item => item.id)).toEqual(expect.arrayContaining(['P1', 'P2', 'P3', 'S1', 'S2', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6']));
+    expect(result.research.status).toBe('available');
     expect([...records.keys()].filter(key => !key.startsWith('requestLimits/'))).toEqual(['onboarding/alice']);
   });
 
@@ -142,17 +142,17 @@ describe('current website page review', () => {
     const first = await (await suggestions(request())).json();
     await db.collection('onboarding').doc('alice').update({ revampRunId: 'next-website' });
     publicFetch.mockResolvedValue(htmlResponse(pageHtml.replace('Custom Web Design', 'Website Planning')));
-    mocks.create.mockResolvedValue(completion({ ...assessment, title: 'Website Planning | Example Studio' }));
+    mocks.create.mockImplementation(async body => body.tools ? researchCompletion() : completion({ ...assessment, title: 'Website Planning | Example Studio' }));
     const second = await (await suggestions(request())).json();
     expect(second.provenance.contentFingerprint).not.toBe(first.provenance.contentFingerprint);
     expect(second.provenance.websiteRunId).toBe('next-website');
     expect(second.currentPage.htmlTitle).toContain('Website Planning');
     expect(second.title).toBe('Website Planning | Example Studio');
-    expect(mocks.create).toHaveBeenCalledTimes(2);
+    expect(mocks.create).toHaveBeenCalledTimes(4);
   });
 
   it('discards a result if the website run changes during generation', async () => {
-    mocks.create.mockImplementation(async () => { await db.collection('onboarding').doc('alice').update({ revampRunId: 'changed-during-request' }); return completion(assessment); });
+    mocks.create.mockImplementation(async body => { if (body.tools) return researchCompletion(); await db.collection('onboarding').doc('alice').update({ revampRunId: 'changed-during-request' }); return completion(assessment); });
     const response = await suggestions(request());
     expect(response.status).toBe(409);
     expect((await response.json()).error).toContain('setup changed');
@@ -165,10 +165,10 @@ describe('current website page review', () => {
       { ...assessment, description: 'Guaranteed rankings and guaranteed results from our expert team. Contact us for a website today.' },
       { ...assessment, title: '', description: '' },
     ]) {
-      mocks.create.mockResolvedValue(completion(bad));
+      mocks.create.mockImplementation(async body => body.tools ? researchCompletion() : completion(bad));
       expect((await suggestions(request())).status).toBe(502);
     }
-    mocks.create.mockResolvedValue({ ...completion(assessment), status: 'incomplete', incomplete_details: { reason: 'max_output_tokens' } });
+    mocks.create.mockImplementation(async body => body.tools ? researchCompletion() : { ...completion(assessment), status: 'incomplete', incomplete_details: { reason: 'max_output_tokens' } });
     expect((await suggestions(request())).status).toBe(502);
   });
 
@@ -177,7 +177,7 @@ describe('current website page review', () => {
     const response = await suggestions(request());
     expect(response.status).toBe(503);
     expect((await response.json()).error).toMatch(/temporarily unavailable/);
-    expect(mocks.create).toHaveBeenCalledTimes(1);
+    expect(mocks.create).toHaveBeenCalledTimes(2);
   });
 
   it('bounds scraped content and refuses oversized keyword input', async () => {
@@ -193,22 +193,38 @@ describe('current website page review', () => {
 
 describe('evidence-backed assessment integration', () => {
   it('returns a useful keep-current decision without inventing a draft or an edit', async () => {
-    mocks.create.mockResolvedValue(completion(keepAssessment));
+    mocks.create.mockImplementation(async body => body.tools ? researchCompletion() : completion(keepAssessment));
     const response = await suggestions(request());
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('private, no-store');
     const result = await response.json();
-    expect(result).toMatchObject({ title: null, description: null, analysis: { action: 'keep_current', changedFields: [], evidenceIds: ['P1', 'P2'] }, provenance: { reviewVersion: 2, model: PAGE_REVIEW_MODEL } });
+    expect(result).toMatchObject({ title: null, description: null, analysis: { action: 'keep_current', changedFields: [], evidenceIds: ['P1', 'P2'] }, provenance: { reviewVersion: 3, model: PAGE_REVIEW_MODEL } });
     expect(result.evidence.current).toMatchObject({ totals: null, totalsStatus: 'no_data', queriesStatus: 'no_data' });
-    expect(mocks.create).toHaveBeenCalledTimes(1);
-    expect(mocks.query).toHaveBeenCalledTimes(4);
+    expect(mocks.create).toHaveBeenCalledTimes(2);
+    expect(mocks.query).toHaveBeenCalledTimes(8);
+    expect([...records.keys()].filter(key => !key.startsWith('requestLimits/'))).toEqual(['onboarding/alice']);
+  });
+
+  it('keeps accurate metadata while offering a visibility investigation as the useful next action', async () => {
+    const visibility = { ...keepAssessment, action: 'investigate_visibility',
+      summary: 'Check whether customers can find this service page.',
+      reason: 'The title describes the service, but the available search history remains sparse.',
+      nextStep: 'Inspect this exact URL in Search Console, then check whether relevant pages link to it.',
+      evidenceIds: ['P1', 'H1', 'H6'] };
+    mocks.create.mockImplementation(async body => body.tools ? researchCompletion() : completion(visibility));
+    const response = await suggestions(request());
+    expect(response.status).toBe(200);
+    const result = await response.json();
+    expect(result).toMatchObject({ title: null, description: null,
+      analysis: { action: 'investigate_visibility', metadataVerdict: 'keep', metadataReason: keepAssessment.metadataReason, changedFields: [] },
+      provenance: { reviewVersion: 3 } });
     expect([...records.keys()].filter(key => !key.startsWith('requestLimits/'))).toEqual(['onboarding/alice']);
   });
 
   it('uses strict bounded Responses output, private storage settings and no automatic retries', async () => {
     expect((await suggestions(request())).status).toBe(200);
     expect(mocks.options).toHaveBeenCalledExactlyOnceWith({ apiKey: 'isolated-test-key', maxRetries: 0, timeout: 45000 });
-    const [body, options] = mocks.create.mock.calls[0];
+    const [body, options] = mocks.create.mock.calls[1];
     expect(body).toMatchObject({ model: PAGE_REVIEW_MODEL, store: false, max_output_tokens: 3500, reasoning: { effort: 'low' },
       text: { format: { name: 'page_review', type: 'json_schema', strict: true, schema: { additionalProperties: false } } } });
     expect(body).not.toHaveProperty('tools');
@@ -217,7 +233,7 @@ describe('evidence-backed assessment integration', () => {
     expect(options.signal.aborted).toBe(false);
   });
 
-  it('sends only public webpage context to optional web search, then combines dated private evidence for analysis', async () => {
+  it('sends only public webpage context to automatic web search, then combines dated private evidence for analysis', async () => {
     const privatePhrase = 'private-customer-query-marker';
     mocks.query.mockImplementation(async body => body.dimensions?.[0] === 'query'
       ? { rows: [{ keys: [privatePhrase], clicks: 11, impressions: 12345, ctr: 11 / 12345, position: 13.25 }] }
@@ -249,7 +265,7 @@ describe('evidence-backed assessment integration', () => {
     expect(result.research.limitation).toContain('not a report of competitor Google rankings');
   });
 
-  it('finishes one page-only assessment when optional research fails, without hiding the missing research', async () => {
+  it('finishes one page-only assessment when automatic research fails, without hiding the missing research', async () => {
     mocks.create.mockRejectedValueOnce(new Error('private-search-provider-error')).mockResolvedValueOnce(completion(keepAssessment));
     const response = await suggestions(request({ includeResearch: true }));
     expect(response.status).toBe(200);
@@ -279,14 +295,14 @@ describe('evidence-backed assessment integration', () => {
     { ...completion(assessment), status: 'incomplete' },
     { status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: '{"action":' }] }] },
   ])('rejects ungrounded citations, fabricated support and incomplete/refused output %#', async providerResult => {
-    mocks.create.mockResolvedValue(providerResult);
+    mocks.create.mockImplementation(async body => body.tools ? researchCompletion() : providerResult);
     const response = await suggestions(request());
     expect(response.status).toBe(502);
     const result = await response.json();
     expect(result.error).toContain('clearly supported review');
     expect(result).not.toHaveProperty('title');
     expect(JSON.stringify(result)).not.toContain('private-provider-refusal');
-    expect(mocks.create).toHaveBeenCalledTimes(1);
+    expect(mocks.create).toHaveBeenCalledTimes(2);
   });
 
   it('keeps genuine totals while honestly representing a failed Google query sample', async () => {
@@ -299,13 +315,13 @@ describe('evidence-backed assessment integration', () => {
     const result = await response.json();
     expect(result.evidence.status).toBe('partial');
     expect(result.evidence.current).toMatchObject({ totals: { clicks: 3, impressions: 100 }, totalsStatus: 'available', queries: [], queriesStatus: 'unavailable' });
-    const supplied = JSON.parse(mocks.create.mock.calls[0][0].input[1].content);
+    const supplied = JSON.parse(mocks.create.mock.calls[1][0].input[1].content);
     expect(supplied.evidence.status).toBe('partial');
     expect(supplied.evidence.limitations.join(' ')).toContain('Missing metrics have not been treated as zero');
     expect(JSON.stringify(result)).not.toContain('private-google-provider-error');
   });
 
-  it('stops before analysis if the website run changes while optional research is running', async () => {
+  it('stops before analysis if the website run changes while automatic research is running', async () => {
     mocks.create.mockImplementationOnce(async () => {
       await db.collection('onboarding').doc('alice').update({ revampRunId: 'changed-during-research' });
       return researchCompletion();
@@ -313,6 +329,17 @@ describe('evidence-backed assessment integration', () => {
     const response = await suggestions(request({ includeResearch: true }));
     expect(response.status).toBe(409);
     expect((await response.json()).error).toContain('setup changed');
+    expect(mocks.create).toHaveBeenCalledTimes(1);
+    expect(mocks.create.mock.calls[0][0]).toHaveProperty('tools');
+  });
+
+  it('discards research if the connected property changes before the private analysis call', async () => {
+    mocks.create.mockImplementationOnce(async () => {
+      mocks.property = 'https://new-property.test/';
+      return researchCompletion();
+    });
+    const response = await suggestions(request());
+    expect(response.status).toBe(409);
     expect(mocks.create).toHaveBeenCalledTimes(1);
     expect(mocks.create.mock.calls[0][0]).toHaveProperty('tools');
   });
@@ -326,55 +353,51 @@ describe('evidence-backed assessment integration', () => {
     expect(mocks.create).toHaveBeenCalledTimes(1);
   });
 
-  it('rejects an invalid opt-in before any page fetch or provider work', async () => {
-    expect((await suggestions(request({ includeResearch: 'yes' }))).status).toBe(400);
-    expect(publicFetch).not.toHaveBeenCalled();
-    expect(mocks.query).not.toHaveBeenCalled();
-    expect(mocks.create).not.toHaveBeenCalled();
+  it.each([undefined, false, true])('always researches when the legacy includeResearch flag is %s', async includeResearch => {
+    const response = await suggestions(request({ includeResearch }));
+    expect(response.status).toBe(200);
+    expect(mocks.create).toHaveBeenCalledTimes(2);
+    expect(mocks.create.mock.calls[0][0].tools).toEqual([{ type: 'web_search', search_context_size: 'low' }]);
+    expect((await response.json()).research.status).toBe('available');
   });
+
 });
 
 describe('page-review spending boundaries', () => {
-  it('allows five researched reviews and twenty total reviews per user per day, with no provider call for a blocked request', async () => {
+  it('allows twenty researched reviews per user per day and blocks the next request before provider spending', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-10-10T16:00:00Z'));
     mocks.create.mockImplementation(async body => body.tools ? researchCompletion() : completion(keepAssessment));
-    for (let index = 0; index < 5; index += 1) {
-      expect((await suggestions(request({ includeResearch: true }))).status).toBe(200);
-      vi.advanceTimersByTime(60000);
-    }
-    expect(mocks.create).toHaveBeenCalledTimes(10);
-    const blockedResearch = await suggestions(request({ includeResearch: true }));
-    expect(blockedResearch.status).toBe(429);
-    expect(mocks.create).toHaveBeenCalledTimes(10);
-    for (let index = 0; index < 15; index += 1) {
+    for (let index = 0; index < 20; index += 1) {
       expect((await suggestions(request())).status).toBe(200);
       vi.advanceTimersByTime(60000);
     }
-    expect(mocks.create).toHaveBeenCalledTimes(25);
-    expect((await suggestions(request())).status).toBe(429);
-    expect(mocks.create).toHaveBeenCalledTimes(25);
+    expect(mocks.create).toHaveBeenCalledTimes(40);
+    const response = await suggestions(request());
+    expect(response.status).toBe(429);
+    expect((await response.json()).error).not.toMatch(/turn off|disable|research allowance/i);
+    expect(mocks.create).toHaveBeenCalledTimes(40);
     await db.collection('onboarding').doc('bob').set({ isComplete: true, gscProperty: mocks.property, revampRunId: 'bob-current-website' });
-    expect((await suggestions(request({ includeResearch: true }, 'bob'))).status).toBe(200);
-    expect(mocks.create).toHaveBeenCalledTimes(27);
+    expect((await suggestions(request({}, 'bob'))).status).toBe(200);
+    expect(mocks.create).toHaveBeenCalledTimes(42);
   });
 
-  it('counts unsuccessful provider attempts and stops a burst before its next paid call', async () => {
+  it('counts unsuccessful attempts and stops a burst before the next research or analysis call', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-10-10T16:00:00Z'));
     mocks.create.mockRejectedValue(new Error('provider failure'));
     for (let index = 0; index < 5; index += 1) expect((await suggestions(request())).status).toBe(503);
     expect((await suggestions(request())).status).toBe(429);
-    expect(mocks.create).toHaveBeenCalledTimes(5);
+    expect(mocks.create).toHaveBeenCalledTimes(10);
   });
 
   it('resets the daily allowance in its next UTC day bucket', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-10-10T16:00:00Z'));
-    for (let index = 0; index < 5; index += 1) { await consumePageReviewQuota('alice', true); vi.advanceTimersByTime(60000); }
-    await expect(consumePageReviewQuota('alice', true)).rejects.toMatchObject({ status: 429 });
+    for (let index = 0; index < 20; index += 1) { await consumePageReviewQuota('alice'); vi.advanceTimersByTime(60000); }
+    await expect(consumePageReviewQuota('alice')).rejects.toMatchObject({ status: 429 });
     vi.setSystemTime(new Date('2026-10-11T00:00:00Z'));
-    await expect(consumePageReviewQuota('alice', true)).resolves.toBeUndefined();
+    await expect(consumePageReviewQuota('alice')).resolves.toBeUndefined();
   });
 });
 

@@ -14,7 +14,6 @@ import {
   User,
   Menu,
   X,
-  AlertTriangle,
   Moon,
   Sun,
   TrendingUp,
@@ -99,8 +98,8 @@ const MainLayout = ({
     },
     {
       path: "/low-ctr",
-      label: "Low CTR Fixes",
-      icon: <AlertTriangle className="w-5 h-5" />,
+      label: "Improve a page",
+      icon: <Globe className="w-5 h-5" />,
     },
     // {
     //   path: "/website",

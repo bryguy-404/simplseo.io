@@ -461,7 +461,7 @@ export default function GenericKeywordsPage() {
       setAddedToFocusKeywords(prev => new Set([...prev, storyKey]));
       
       toast.success("Added to Focus Keywords!", {
-        description: "You can now optimize this page in Low CTR Fixes.",
+        description: "You can now optimize this page in Improve a page.",
       });
     } catch (error) {
       console.error("Error adding to focus keywords:", error);

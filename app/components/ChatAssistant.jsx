@@ -47,8 +47,8 @@ const ChatAssistant = ({
         help: "I can explain the scores, help you fix content issues, or show you how to make your pages match what people want."
       },
       '/low-ctr': {
-        title: 'Low CTR Fixes',
-        message: "I see you're on the Low CTR page! These pages get seen but not clicked. Need help understanding what you're seeing?",
+        title: 'Improve a page',
+        message: "You're reviewing a page and its search activity. Need help understanding the recommended next step?",
         help: "I can help you write better titles, improve descriptions, or fix why people aren't clicking."
       },
       '/top-keywords': {

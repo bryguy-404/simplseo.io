@@ -77,8 +77,7 @@ async function researchPage(openai, currentPage, signal) {
   }
 }
 
-export async function generatePageReviewSuggestions(userId, pageUrl, keywordInput, { includeResearch = false, signal } = {}) {
-  if (typeof includeResearch !== 'boolean') throw new RequestError('Choose whether to include web research.');
+export async function generatePageReviewSuggestions(userId, pageUrl, keywordInput, { signal } = {}) {
   const focusKeywords = normalizeKeywords(keywordInput);
   const review = await readCurrentPageForReview(userId, pageUrl);
   const { currentPage } = review;
@@ -87,14 +86,11 @@ export async function generatePageReviewSuggestions(userId, pageUrl, keywordInpu
     throw new RequestError('There is not enough readable page content to draft an accurate suggestion. This may be a JavaScript-only page. Review its title and description manually or make its main content available in the page HTML.', 422);
   }
   if (!process.env.OPENAI_API_KEY) throw new RequestError('Suggestions are temporarily unavailable. You can still review the current page content.', 503);
-  await consumePageReviewQuota(userId, includeResearch);
+  await consumePageReviewQuota(userId);
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 0, timeout: 45000 });
   const [evidence, research] = await Promise.all([
     collectPageReviewEvidence(userId, { pageUrl, property: review.provenance.property, currentPage, focusKeywords }),
-    includeResearch ? researchPage(openai, currentPage, signal) : Promise.resolve({
-      status: 'not_requested', summary: '', sources: [], checkedAt: null,
-      limitation: 'Web research was not requested. This review uses your website and available Search Console evidence.',
-    }),
+    researchPage(openai, currentPage, signal),
   ]);
   await assertReviewStillCurrent(userId, review.provenance);
   if (signal?.aborted) throw new RequestError('The page review was cancelled.', 409);
@@ -109,5 +105,5 @@ export async function generatePageReviewSuggestions(userId, pageUrl, keywordInpu
   try { result = validatePageAssessment(responseText(response), { currentPage, evidence, research }); }
   catch { throw new RequestError('The service did not return a clearly supported review. Your website has not been changed. Please try again.', 502); }
   await assertReviewStillCurrent(userId, review.provenance);
-  return { ...result, currentPage, evidence, research, provenance: { ...review.provenance, generatedAt: new Date().toISOString(), reviewVersion: 2, model: PAGE_REVIEW_MODEL } };
+  return { ...result, currentPage, evidence, research, provenance: { ...review.provenance, generatedAt: new Date().toISOString(), reviewVersion: 3, model: PAGE_REVIEW_MODEL } };
 }

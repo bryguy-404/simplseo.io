@@ -1,5 +1,7 @@
 # Phase 4: evidence before recommendations
 
+**Current work:** Bryan requested a refinement of the existing-page workflow after trying the live release. Implementation and release evidence for that refinement are recorded below. Earlier optional-research and two-window descriptions document the initial release, not the refined contract.
+
 Bryan authorized implementation on October 10, 2026 after reviewing the first live draft. The draft was a weak paraphrase, not a justified improvement. No website edit is required to complete that review checkpoint. Keep the public URL, Firebase/Firestore, Vercel, manual publishing, immutable history and disabled automatic outcome decisions.
 
 ## Scope and sequence
@@ -49,3 +51,27 @@ Phase 4's existing-page review is deployed and verified; Bryan's recommendation-
 - The existing verifier now supports Phase 4: `node scripts/verify-phase3-release.cjs UID EXACT_PROPERTY --draft [--research]`. The retained `--draft` name means one explicit assessment request; non-revision actions are valid. Research requires explicit opt-in. It never publishes or confirms an edit.
 - A deployment-scoped error-level log query covering the 20-minute release/verification window returned zero records. This bounded check does not establish future scheduled-collector health.
 - Temporary local test servers were shut down after testing. Bryan's next checkpoint is the homepage/service-page review above; a real edit and its future observation period remain intentionally open.
+
+## Refinement: a useful next action for every reviewed page
+
+Bryan authorized this refinement after testing the live homepage and service page. Both returned keep-current decisions, while the interface hid the page's search numbers. The goal is to make the recommendation understandable and actionable without manufacturing title edits.
+
+- Rename the destination to **Improve a page**, retaining `/low-ctr` for existing links. Show page identity and page-level clicks/appearances before analysis, plus a small table of actual searches with their own clicks/appearances. The selector shows known totals; unavailable or omitted data is never presented as zero.
+- Load authenticated, read-only activity through `/api/page-review/activity`. Request exact-page totals separately from query rows. Read six adjacent 28-day periods (168 days), reusing the newest two totals and adding only four older total requests. Query rows remain limited to 20 per recent period. Historical URL observations may include earlier website versions; the current wording's age is unknown.
+- Review version 3 separates `metadataVerdict` and `metadataReason` from the next page action. Suitable wording can accompany a content improvement, visibility investigation, or review of another observed page. Sustained sparse activity calls for a specific diagnostic step rather than an unsupported cosmetic rewrite or generic waiting instruction. Only `revise_metadata` returns publishable metadata; no other action creates an implementation record.
+- Attempt public web research automatically for each analysis through the same OpenAI API account. Public page context alone enters search. Actual sources, time and failure status remain visible; no third-party SEO provider, rank database or automatic website edit is added. The existing five-per-minute and 20-per-UTC-day review limits now include research, with at most two search tool calls per review. The separate five-per-day optional-research limit is removed. Failed attempts still count; retries remain explicit.
+- Keep the current public URL and Firebase/Vercel stack. Releases are made from tested commits on `codex/phase3-current-website` through Vercel. Deployment does not push or merge `main`.
+
+### Refinement verification and user checkpoint
+
+Release gates: strict verdict/action validation; authenticated exact-page and website-run boundaries; incomplete/malformed/failed metrics; six dated history periods; mandatory research with an honest failure path; stale selection resets; mobile/desktop readability; meaningful AI evaluation cases including persistent low visibility and page-content gaps. Record actual results after execution.
+
+Bryan's checkpoint after release: open the same live URL, choose the homepage and service page, compare their page-specific numbers and reported searches, then analyze each. Check whether the separate wording assessment and recommended next action explain what to do. A recommendation may keep the tags and still propose a concrete investigation or content improvement. Do not confirm an edit until it is actually published. Phase 5 remains deferred until this workflow is useful.
+
+### Refinement implementation evidence
+
+- All 311 unit/API tests across 22 files pass, including exact activity scope, six periods, unavailable metrics, metadata/action consistency, mandatory research, cancellation, quota boundaries and version 3 manual-confirmation compatibility. An independent backend review found no blocking issue.
+- A six-request controlled Sol evaluation passed five cases initially: persistent weak visibility, a content gap, an observed related service page, appropriate wording with stable activity, and missing business context. The metadata-repair case failed validation. A single-case diagnostic rerun showed that the model had joined nonadjacent source passages into one supporting quote. The validator correctly rejected it. The prompt now explicitly requires one uninterrupted source substring; the subsequent single-case evaluation passed. A unit regression covers that failure. This is a small usefulness/contract check, not evidence of ranking improvement or a measured general success rate.
+- The isolated production build succeeded. Core changed UI/backend lint has no errors; full existing lint retains 11 baseline warnings. Explicit JSX lint additionally exposes pre-existing apostrophe errors in untouched portions of the legacy ChatAssistant and existing image/hook warnings. These are not new errors from this refinement.
+- Browser checks use the compiled demo-only build, with all UI source identical to the release candidate. The final supporting-quotation prompt clarification was tested separately by unit and live model checks; the production deployment build compiles that final server text.
+- All 35 browser/API/rules scenarios pass in 22.7 seconds. Desktop dark/light and mobile screens, selected-page/query/history displays, and the separate verdict/action result were visually inspected. The first run had one ambiguous date-text test selector after adding history; scoping it to the intended result section fixed the test without an application change.

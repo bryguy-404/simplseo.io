@@ -1,7 +1,8 @@
 // Read-only release checks for one explicitly supplied production account.
 // Usage: node scripts/verify-phase3-release.cjs <uid> <exact-property> [--draft] [--research]
-// --draft makes one explicit review request (one paid model call by default).
-// --research requires --draft and adds the bounded optional web-research call.
+// --draft makes one explicit review request, including automatic bounded web
+// research and one assessment. --research is retained as a compatibility flag
+// requiring --draft; research is already included in every current review.
 // Neither flag confirms an edit; keeping current wording is a valid review.
 // Login, OAuth refresh and the optional AI request may update their normal
 // session/credential/quota metadata; website work and history must not change.
@@ -29,7 +30,7 @@ const validMetrics = row => row && Number.isFinite(row.clicks) && Number.isFinit
   && (row.impressions === 0 ? row.ctr === null && row.position === null
     : Number.isFinite(row.ctr) && row.ctr >= 0 && row.ctr <= 1 && Number.isFinite(row.position) && row.position >= 1);
 const recentTimestamp = value => typeof value === 'string' && Number.isFinite(Date.parse(value)) && Math.abs(Date.now() - Date.parse(value)) < 5 * 60 * 1000;
-const REVIEW_ACTIONS = ['revise_metadata', 'keep_current', 'improve_content', 'review_page', 'collect_data'];
+const REVIEW_ACTIONS = ['revise_metadata', 'keep_current', 'improve_content', 'review_page', 'collect_data', 'investigate_visibility'];
 const textWithin = (value, min, max) => typeof value === 'string' && value.trim().length >= min && value.length <= max;
 
 async function main() {
@@ -37,7 +38,6 @@ async function main() {
   assert(/^[A-Za-z0-9_-]{1,128}$/.test(uid || '') && property && flags.every(flag => ['--draft', '--research'].includes(flag))
     && new Set(flags).size === flags.length && (!flags.includes('--research') || flags.includes('--draft')),
   'Provide an exact UID and property; --research requires --draft, and no other or duplicate flags are accepted.');
-  const includeResearch = flags.includes('--research');
   assert(process.env.FIREBASE_PROJECT_ID === PROJECT, 'The configured Firebase project must be the existing production project.');
   assert(!process.env.FIRESTORE_EMULATOR_HOST && !process.env.FIREBASE_AUTH_EMULATOR_HOST, 'Remove emulator settings before production verification.');
   let homepage;
@@ -103,7 +103,7 @@ async function main() {
     assert(provenance.contentFingerprint === fingerprint, 'The content fingerprint does not match the returned current website content.');
   }
 
-  function verifyReviewEvidence(evidence, startedAt) {
+  function verifyReviewEvidence(evidence, startedAt, hasPageContent = true) {
     const allowedWindows = [expectedWindow(startedAt), expectedWindow(new Date())];
     assert(evidence?.source === 'google_search_console' && evidence.property === property && evidence.pageUrl === property
       && recentTimestamp(evidence.fetchedAt) && ['available', 'partial', 'unavailable'].includes(evidence.status)
@@ -124,23 +124,43 @@ async function main() {
         && new Set(period.queries.map(row => row.query)).size === period.queries.length, 'Review totals or query observations are invalid.');
       statuses.push(period.totalsStatus, period.queriesStatus);
     }
+    assert(Array.isArray(evidence.history) && evidence.history.length === 6, 'The URL history does not contain six observation windows.');
+    for (const [index, period] of evidence.history.entries()) {
+      assert(period.window?.startDate === shiftDay(evidence.window.startDate, -28 * index)
+        && period.window?.endDate === shiftDay(evidence.window.endDate, -28 * index)
+        && ['available', 'no_data', 'unavailable'].includes(period.totalsStatus), 'The URL history windows are not adjacent, complete or newest first.');
+      const totalsValid = period.totalsStatus === 'available' ? validMetrics(period.totals) && period.totals.impressions > 0
+        : period.totalsStatus === 'no_data' ? period.totals === null || (validMetrics(period.totals) && period.totals.impressions === 0)
+          : period.totals === null;
+      assert(totalsValid, 'Historical URL metrics do not preserve missing data and unavailable reads.');
+      if (index < 2) {
+        const recent = index === 0 ? evidence.current : evidence.previous;
+        assert(period.totalsStatus === recent.totalsStatus
+          && JSON.stringify(period.totals) === JSON.stringify(recent.totals), 'Recent totals disagree with the same history window.');
+      } else statuses.push(period.totalsStatus);
+    }
     const successes = statuses.filter(status => status !== 'unavailable').length;
-    assert(evidence.status === (successes === 4 ? 'available' : successes ? 'partial' : 'unavailable')
+    assert(evidence.status === (successes === 8 ? 'available' : successes ? 'partial' : 'unavailable')
       && evidence.selectedPhrase?.value === '' && evidence.selectedPhrase?.source === 'none'
       && Array.isArray(evidence.relatedPages) && evidence.relatedPages.length === 0 && evidence.relatedPagesStatus === 'not_requested'
       && Array.isArray(evidence.limitations) && evidence.limitations.length > 0 && evidence.limitations.every(value => textWithin(value, 1, 1000)),
     'Review evidence availability or the no-keyword verification scope is invalid.');
-    assert(Array.isArray(evidence.facts) && evidence.facts.length >= 3 && evidence.facts.length <= 25
-      && evidence.facts.every(fact => /^(?:P[1-3]|S[12]|Q(?:[1-9]|1[0-9]|20))$/.test(fact.id)
+    assert(Array.isArray(evidence.facts) && evidence.facts.length >= (hasPageContent ? 3 : 0) && evidence.facts.length <= 31
+      && evidence.facts.every(fact => /^(?:P[1-3]|S[12]|H[1-6]|Q(?:[1-9]|1[0-9]|20))$/.test(fact.id)
         && fact.kind === (fact.id.startsWith('P') ? 'page' : 'search') && textWithin(fact.label, 1, 200) && textWithin(fact.text, 1, 5000))
       && new Set(evidence.facts.map(fact => fact.id)).size === evidence.facts.length
-      && ['P1', 'P2', 'P3'].every(id => evidence.facts.some(fact => fact.id === id)), 'Review source facts are missing or invalid.');
+      && (hasPageContent ? ['P1', 'P2', 'P3'].every(id => evidence.facts.some(fact => fact.id === id)) : evidence.facts.every(fact => fact.kind === 'search')),
+    'Review source facts are missing or invalid.');
+    for (const [index, period] of evidence.history.entries()) {
+      assert(evidence.facts.some(fact => fact.id === `H${index + 1}`) === (period.totalsStatus !== 'unavailable'),
+        'A historical source fact misrepresents an unavailable observation.');
+    }
   }
 
   function verifyResearch(research) {
     assert(research && textWithin(research.limitation, 1, 1000) && Array.isArray(research.sources)
-      && (includeResearch ? ['available', 'unavailable'].includes(research.status) : research.status === 'not_requested'),
-    'Research status does not match the explicit opt-in.');
+      && ['available', 'unavailable'].includes(research.status),
+    'The review did not report its automatic research attempt.');
     if (research.status === 'available') {
       assert(recentTimestamp(research.checkedAt) && textWithin(research.summary, 1, 3500)
         && research.sources.length > 0 && research.sources.length <= 5
@@ -156,7 +176,7 @@ async function main() {
       'Web research did not return usable, dated public sources.');
     } else {
       assert(research.summary === '' && research.sources.length === 0
-        && (research.status === 'not_requested' ? research.checkedAt === null : recentTimestamp(research.checkedAt)),
+        && recentTimestamp(research.checkedAt),
       'Missing research was presented as sourced research.');
     }
   }
@@ -166,6 +186,9 @@ async function main() {
     const sourceIds = new Set([...draft.evidence.facts, ...(draft.research.status === 'available' ? draft.research.sources : [])].map(source => source.id));
     assert(analysis && REVIEW_ACTIONS.includes(analysis.action) && textWithin(analysis.summary, 1, 120)
       && textWithin(analysis.reason, 1, 420) && textWithin(analysis.nextStep, 1, 260)
+      && ['keep', 'revise', 'uncertain'].includes(analysis.metadataVerdict) && textWithin(analysis.metadataReason, 1, 260)
+      && (analysis.action === 'revise_metadata') === (analysis.metadataVerdict === 'revise')
+      && (analysis.action !== 'keep_current' || analysis.metadataVerdict === 'keep')
       && Array.isArray(analysis.evidenceIds) && analysis.evidenceIds.length >= 1 && analysis.evidenceIds.length <= 5
       && analysis.evidenceIds.every(id => sourceIds.has(id)) && analysis.evidenceIds.some(id => /^P[1-3]$/.test(id))
       && new Set(analysis.evidenceIds).size === analysis.evidenceIds.length && Array.isArray(analysis.changedFields)
@@ -217,7 +240,7 @@ async function main() {
 
     stage = 'new route authorization';
     const routes = [
-      ['dashboard/overview', 'GET'], ['page-review/content', 'POST'],
+      ['dashboard/overview', 'GET'], ['page-review/content', 'POST'], ['page-review/activity', 'POST'],
       ['page-review/suggestions', 'POST'], ['page-review/confirm', 'POST'],
     ];
     // Confirmation is probed only anonymously or with a mismatched supplied UID.
@@ -259,23 +282,32 @@ async function main() {
     assert(content.success === true, 'The current homepage could not be read.');
     verifyCurrentPage(content.data, content.provenance, before.setup.revampRunId);
 
+    stage = 'read-only homepage search history';
+    const activityStartedAt = new Date();
+    const activityResponse = await api('page-review/activity', { method: 'POST', headers, body: { pageUrl: property } });
+    assert(activityResponse.ok && activityResponse.headers.get('cache-control') === 'private, no-store', 'The homepage activity request failed or returned cacheable private data.');
+    const activity = await activityResponse.json();
+    assert(activity.success === true && activity.provenance?.property === property && activity.provenance.pageUrl === property
+      && activity.provenance.websiteRunId === before.setup.revampRunId, 'The homepage activity belongs to a different property, URL or website version.');
+    verifyReviewEvidence(activity.evidence, activityStartedAt, false);
+
     let draftMetadata = { requested: false };
     if (flags.includes('--draft')) {
       stage = 'one explicit current-page review';
       const reviewStartedAt = new Date();
       const draftResponse = await api('page-review/suggestions', { method: 'POST', headers, timeout: 175000,
-        body: { pageUrl: property, focusKeywords: [], includeResearch } });
+        body: { pageUrl: property, focusKeywords: [] } });
       assert(draftResponse.ok, 'The one requested review did not return a usable response. No retry or confirmation was attempted.');
       const draft = await draftResponse.json();
       verifyCurrentPage(draft.currentPage, draft.provenance, before.setup.revampRunId, true);
-      assert(draft.provenance.reviewVersion === 2 && /^gpt-[\w.-]{1,80}$/.test(draft.provenance.model), 'The assessment is not from the current review implementation.');
+      assert(draft.provenance.reviewVersion === 3 && /^gpt-[\w.-]{1,80}$/.test(draft.provenance.model), 'The assessment is not from the current review implementation.');
       verifyReviewEvidence(draft.evidence, reviewStartedAt);
       verifyResearch(draft.research);
       verifyAssessment(draft);
-      draftMetadata = { requested: true, requests: 1, model: draft.provenance.model, action: draft.analysis.action,
+      draftMetadata = { requested: true, requests: 1, model: draft.provenance.model, action: draft.analysis.action, metadataVerdict: draft.analysis.metadataVerdict,
         ...(draft.analysis.action === 'revise_metadata' ? { titleLength: draft.title.length, descriptionLength: draft.description.length, changedFields: draft.analysis.changedFields } : {}),
         evidenceStatus: draft.evidence.status, evidenceSourceCount: draft.evidence.facts.length,
-        researchRequested: includeResearch, researchStatus: draft.research.status, researchSourceCount: draft.research.sources.length,
+        historyWindows: draft.evidence.history.length, researchAutomatic: true, researchStatus: draft.research.status, researchSourceCount: draft.research.sources.length,
         generatedAt: draft.provenance.generatedAt };
     }
 
@@ -303,6 +335,7 @@ async function main() {
       isIndexingReport: false, currentHtmlStatus: contentResponse.status,
       currentHtmlTitle: content.data.htmlTitle.replace(/[\u0000-\u001f\u007f-\u009f]/g, '').slice(0, 180),
       htmlFetchedAt: content.data.fetchedAt, exactHomepageVerified: true,
+      activityStatus: activity.evidence.status, activityWindows: activity.evidence.history.length,
       draft: draftMetadata, activeChanges: progress.records.length, automaticOutcomesEnabled: false, notificationsEnabled: false,
       historyRunsAvailable: history.runs.length, authorizedConfirmationAttempted: false,
     };

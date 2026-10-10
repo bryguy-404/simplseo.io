@@ -37,13 +37,17 @@ describe('exact-page evidence scope and dates', () => {
   it('requests separate exact-page totals and bounded query rows in adjacent finalized windows', async () => {
     const result = await collect();
     expect(getGscConnection).toHaveBeenCalledExactlyOnceWith('alice');
-    expect(query).toHaveBeenCalledTimes(4);
+    expect(query).toHaveBeenCalledTimes(8);
     const requests = query.mock.calls.map(([body]) => body);
-    for (const [index, body] of requests.entries()) {
+    for (const [index, body] of requests.slice(0, 4).entries()) {
       expect(body).toMatchObject({ ...(index < 2 ? window : previousWindow), type: 'web', dataState: 'final', aggregationType: 'auto' });
       expect(body.dimensionFilterGroups).toEqual([{ groupType: 'and', filters: [{ dimension: 'page', operator: 'equals', expression: pageUrl }] }]);
       if (index % 2) expect(body).toMatchObject({ dimensions: ['query'], rowLimit: 20 });
       else { expect(body.rowLimit).toBe(1); expect(body).not.toHaveProperty('dimensions'); }
+    }
+    for (const [index, body] of requests.slice(4).entries()) {
+      expect(body).toEqual({ ...result.history[index + 2].window, type: 'web', dataState: 'final', aggregationType: 'auto', rowLimit: 1,
+        dimensionFilterGroups: [{ groupType: 'and', filters: [{ dimension: 'page', operator: 'equals', expression: pageUrl }] }] });
     }
     expect(result).toMatchObject({ source: 'google_search_console', property, pageUrl, window, previousWindow, fetchedAt: now.toISOString(), status: 'available' });
     expect(result.current.totals).toEqual(metrics);
@@ -102,7 +106,7 @@ describe('missing, zero and unavailable evidence remain distinct', () => {
     expect(result.facts.find(fact => fact.id === 'S1').text).toContain('0 clicks');
   });
 
-  it('returns only page facts when all four Google requests fail without leaking errors', async () => {
+  it('returns only page facts when all eight Google requests fail without leaking errors', async () => {
     query.mockRejectedValue(new Error('private-token provider diagnostics'));
     const result = await collect();
     expect(result.status).toBe('unavailable');
@@ -111,7 +115,7 @@ describe('missing, zero and unavailable evidence remain distinct', () => {
     expect(result.facts[0].text).toBe(currentPage.htmlTitle);
     expect(result.facts[2].text).toContain('Our design process');
     expect(JSON.stringify(result)).not.toMatch(/private-token|provider diagnostics/);
-    expect(query).toHaveBeenCalledTimes(4);
+    expect(query).toHaveBeenCalledTimes(8);
   });
 
   it('retains page facts and safely reports an unavailable connection without querying', async () => {
@@ -134,15 +138,81 @@ describe('missing, zero and unavailable evidence remain distinct', () => {
     expect(result.status).toBe('partial');
     expect(result.current).toMatchObject({ totals: metrics, queriesStatus: 'available' });
     expect(result.previous).toEqual({ totals: metrics, queries: [], totalsStatus: 'available', queriesStatus: 'unavailable' });
-    expect(result.facts.map(fact => fact.id)).toEqual(['P1', 'P2', 'P3', 'S1', 'S2', 'Q1']);
+    expect(result.facts.map(fact => fact.id)).toEqual(['P1', 'P2', 'P3', 'S1', 'S2', 'Q1', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6']);
   });
 
   it('treats a synchronous provider exception as a failed query without skipping the remaining requests', async () => {
     query.mockImplementation(body => { if (!body.dimensions) throw new Error('failure'); return { rows: [] }; });
     const result = await collect();
-    expect(query).toHaveBeenCalledTimes(4);
+    expect(query).toHaveBeenCalledTimes(8);
     expect(result.status).toBe('partial');
     expect(result.current).toMatchObject({ totalsStatus: 'unavailable', queriesStatus: 'no_data' });
+  });
+});
+
+describe('six-window URL history', () => {
+  it('returns six adjacent 28-day periods, newest first, with the first two sharing exact page totals', async () => {
+    const result = await collect();
+    expect(result.history.map(period => period.window)).toEqual([
+      window, previousWindow,
+      { startDate: '2026-07-16', endDate: '2026-08-12' },
+      { startDate: '2026-06-18', endDate: '2026-07-15' },
+      { startDate: '2026-05-21', endDate: '2026-06-17' },
+      { startDate: '2026-04-23', endDate: '2026-05-20' },
+    ]);
+    expect(result.history[0]).toEqual({ window, totals: result.current.totals, totalsStatus: result.current.totalsStatus });
+    expect(result.history[1]).toEqual({ window: previousWindow, totals: result.previous.totals, totalsStatus: result.previous.totalsStatus });
+    expect(query.mock.calls.filter(([body]) => !body.dimensions)).toHaveLength(6);
+    expect(query.mock.calls.filter(([body]) => body.dimensions?.[0] === 'query')).toHaveLength(2);
+    expect(result.facts.filter(fact => fact.id.startsWith('H')).map(fact => fact.id)).toEqual(['H1', 'H2', 'H3', 'H4', 'H5', 'H6']);
+    expect(result.limitations.join(' ')).toContain('may span earlier website versions');
+    expect(result.limitations.join(' ')).toContain('age of the current title, description and page content is unknown');
+  });
+
+  it('distinguishes older explicit zero, absent data and failed windows without dropping successful recent data', async () => {
+    const original = query.getMockImplementation();
+    query.mockImplementation(async body => {
+      if (body.startDate === '2026-07-16') return { rows: [{ clicks: 0, impressions: 0, ctr: 0, position: 0 }] };
+      if (body.startDate === '2026-06-18') return {};
+      if (body.startDate === '2026-05-21') throw new Error('hidden historical failure');
+      return original(body);
+    });
+    const result = await collect();
+    expect(result.status).toBe('partial');
+    expect(result.current.totals).toEqual(metrics);
+    expect(result.history[2]).toMatchObject({ totals: { clicks: 0, impressions: 0, ctr: null, position: null }, totalsStatus: 'no_data' });
+    expect(result.history[3]).toMatchObject({ totals: null, totalsStatus: 'no_data' });
+    expect(result.history[4]).toMatchObject({ totals: null, totalsStatus: 'unavailable' });
+    expect(result.history[5]).toMatchObject({ totals: metrics, totalsStatus: 'available' });
+    expect(result.facts.find(fact => fact.id === 'H3').text).toContain('0 clicks');
+    expect(result.facts.find(fact => fact.id === 'H4').text).toContain('no total rows');
+    expect(result.facts.find(fact => fact.id === 'H5')).toBeUndefined();
+    expect(JSON.stringify(result)).not.toContain('hidden historical failure');
+  });
+
+  it('keeps known history available even when both recent periods fail', async () => {
+    const original = query.getMockImplementation();
+    query.mockImplementation(async body => {
+      if ([window.startDate, previousWindow.startDate].includes(body.startDate)) throw new Error('recent failure');
+      return original(body);
+    });
+    const result = await collect();
+    expect(result.status).toBe('partial');
+    expect(result.current.totalsStatus).toBe('unavailable');
+    expect(result.history.slice(2).every(period => period.totalsStatus === 'available')).toBe(true);
+    expect(result.facts.filter(fact => fact.id.startsWith('H')).map(fact => fact.id)).toEqual(['H3', 'H4', 'H5', 'H6']);
+  });
+
+  it('does not claim to inspect metadata when used for activity without scraped page content', async () => {
+    const result = await collect({ currentPage: undefined });
+    expect(result.facts.some(fact => fact.kind === 'page')).toBe(false);
+    expect(result.facts.some(fact => fact.id === 'H6')).toBe(true);
+    expect(JSON.stringify(result)).not.toContain('No HTML title was found');
+    getGscConnection.mockRejectedValue(new Error('offline'));
+    const unavailable = await collect({ currentPage: undefined });
+    expect(unavailable.history).toHaveLength(6);
+    expect(unavailable.history.every(period => period.totals === null && period.totalsStatus === 'unavailable')).toBe(true);
+    expect(unavailable.facts).toEqual([]);
   });
 });
 
@@ -188,8 +258,8 @@ describe('malformed data cannot become recommendation evidence', () => {
 describe('selected-phrase provenance and alternative-page scope', () => {
   it('adds only one exact-phrase lookup and preserves the selected phrase and related URL', async () => {
     const result = await collect({ focusKeywords: [phrase, 'Another phrase'] });
-    expect(query).toHaveBeenCalledTimes(5);
-    expect(query.mock.calls[4][0]).toEqual({
+    expect(query).toHaveBeenCalledTimes(9);
+    expect(query.mock.calls[8][0]).toEqual({
       ...window, type: 'web', dataState: 'final', aggregationType: 'auto', dimensions: ['page'], rowLimit: 5,
       dimensionFilterGroups: [{ groupType: 'and', filters: [{ dimension: 'query', operator: 'equals', expression: phrase }] }],
     });
@@ -241,7 +311,7 @@ describe('selected-phrase provenance and alternative-page scope', () => {
   it('skips optional lookup for empty input and rejects unbounded input before any connection', async () => {
     const result = await collect({ focusKeywords: ['  '] });
     expect(result.selectedPhrase).toEqual({ value: '', source: 'none' });
-    expect(query).toHaveBeenCalledTimes(4);
+    expect(query).toHaveBeenCalledTimes(8);
     getGscConnection.mockClear();
     await expect(collect({ focusKeywords: ['x'.repeat(121)] })).rejects.toMatchObject({ status: 400 });
     await expect(collect({ focusKeywords: 'a phrase' })).rejects.toMatchObject({ status: 400 });

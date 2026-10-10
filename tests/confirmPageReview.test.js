@@ -60,6 +60,22 @@ describe('server-confirmed manual page changes', () => {
     expect(stored).not.toHaveProperty('id');
   });
 
+  it('accepts a v3 metadata edit while rejecting a no-edit v3 assessment before a confirmation write', async () => {
+    const v3Provenance = { ...provenance, reviewVersion: 3, model: 'gpt-6.1-sol', generatedAt: '2026-10-10T16:00:00.000Z' };
+    const noEdit = await confirm(request({ title: null, description: null, provenance: v3Provenance }));
+    expect(noEdit.status).toBe(400);
+    expect(records.has(recordPath)).toBe(false);
+    expect(publicFetch).not.toHaveBeenCalled();
+
+    const confirmed = await confirm(request({ provenance: v3Provenance }));
+    expect(confirmed.status).toBe(200);
+    const result = await confirmed.json();
+    expect(result.record).toMatchObject({ ...draft, pageUrl, websiteRunId: provenance.websiteRunId,
+      gscProperty: provenance.property, confirmationMethod: 'user-confirmed', status: 'implemented' });
+    expect(result.record.confirmedPageObservation.finalUrl).toBe(pageUrl);
+    expect(records.get(recordPath).implementedAt).not.toBe(v3Provenance.generatedAt);
+  });
+
   it('rejects stale website runs and wrong properties without writing a record', async () => {
     for (const changes of [{ websiteRunId: 'old-website' }, { property: 'https://elsewhere.test/' }]) {
       expect((await confirm(request({ provenance: { ...provenance, ...changes } }))).status).toBe(409);

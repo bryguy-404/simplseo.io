@@ -9,15 +9,28 @@ let docId;
 const suggestion = { title: 'Website design for local businesses | Example', description: 'Explore thoughtful website design for local businesses. See our work and discuss a site that fits your customers.' };
 function idFor(url) { let hash = 0; for (let i = 0; i < url.length; i++) hash = ((hash << 5) - hash + url.charCodeAt(i)) | 0; return `${uid}_${Math.abs(hash).toString(16).padStart(8, '0').substring(0, 8)}`; }
 const metadata = url => ({ htmlTitle: 'Current website title', seoMetaDescription: 'Current page description', h1: 'Website design', textContent: 'We build useful websites for local businesses.', headings: [{ tag: 'h1', text: 'Website design' }], url, finalUrl: url, fetchedAt: '2026-10-10T15:00:00.000Z', source: 'live_website' });
+function historyFor() {
+  return Array.from({ length: 6 }, (_, index) => {
+    const end = new Date('2026-10-07T12:00:00Z'); end.setUTCDate(end.getUTCDate() - index * 28);
+    const start = new Date(end); start.setUTCDate(start.getUTCDate() - 27);
+    return { window: { startDate: start.toISOString().slice(0, 10), endDate: end.toISOString().slice(0, 10) }, totals: { clicks: 1, impressions: 30, ctr: 1 / 30, position: 11 }, totalsStatus: 'available' };
+  });
+}
 function assessmentFor(url, action = 'revise_metadata') {
   return {
     ...(action === 'revise_metadata' ? suggestion : { title: null, description: null }),
     currentPage: metadata(url),
     provenance: { property, websiteRunId: 'page-task-run', pageUrl: url, finalUrl: url, contentFingerprint: 'fixture-content', generatedAt: new Date().toISOString() },
-    analysis: { action, summary: action === 'revise_metadata' ? 'Name the service already described on this page.' : 'No supported wording change is justified by the current evidence.', reason: action === 'revise_metadata' ? 'The heading names website design, but the current title only says “Current website title”.' : 'There is too little search activity to identify a specific wording problem.', nextStep: action === 'revise_metadata' ? 'Review the wording below and publish it only if it fits your business.' : 'Keep this wording while you collect more search activity.', evidenceIds: ['P1', 'G1'], changedFields: action === 'revise_metadata' ? ['title', 'description'] : [], fieldReasons: { title: 'Name the website design service.', description: 'Summarize the actual service described on the page.' }, targetPageUrl: null },
-    evidence: { source: 'google_search_console', property, pageUrl: url, window: { startDate: '2026-09-10', endDate: '2026-10-07' }, previousWindow: { startDate: '2026-08-13', endDate: '2026-09-09' }, fetchedAt: '2026-10-10T15:00:00.000Z', status: 'available', current: { totals: { impressions: 30, clicks: 1, ctr: 1 / 30, position: 11 }, totalsStatus: 'available', queries: [], queriesStatus: 'available' }, previous: { totals: { impressions: 25, clicks: 1, ctr: 1 / 25, position: 12 }, totalsStatus: 'available', queries: [], queriesStatus: 'available' }, relatedPages: [], selectedPhrase: { value: '', source: 'none' }, limitations: ['Search Console can omit some queries. A change in traffic does not prove causation.'], facts: [{ id: 'P1', kind: 'page', label: 'Page heading', text: 'The main heading is Website design.' }, { id: 'G1', kind: 'search', label: 'Recent appearances', text: 'Google reported 30 appearances in the recent period.' }] },
-    research: { status: 'not_requested', summary: '', sources: [], checkedAt: null, limitation: '' },
+    analysis: { action, metadataVerdict: action === 'revise_metadata' ? 'revise' : 'keep', metadataReason: action === 'revise_metadata' ? 'The wording can describe the existing service more clearly.' : 'The current wording does not need another rewrite.', summary: action === 'revise_metadata' ? 'Name the service already described on this page.' : 'No supported wording change is justified by the current evidence.', reason: action === 'revise_metadata' ? 'The heading names website design, but the current title only says “Current website title”.' : 'There is too little search activity to identify a specific wording problem.', nextStep: action === 'revise_metadata' ? 'Review the wording below and publish it only if it fits your business.' : 'Keep this wording while you collect more search activity.', evidenceIds: ['P1', 'S1'], changedFields: action === 'revise_metadata' ? ['title', 'description'] : [], fieldReasons: { title: 'Name the website design service.', description: 'Summarize the actual service described on the page.' }, targetPageUrl: null },
+    evidence: { source: 'google_search_console', property, pageUrl: url, window: { startDate: '2026-09-10', endDate: '2026-10-07' }, previousWindow: { startDate: '2026-08-13', endDate: '2026-09-09' }, fetchedAt: '2026-10-10T15:00:00.000Z', status: 'available', current: { totals: { impressions: 30, clicks: 1, ctr: 1 / 30, position: 11 }, totalsStatus: 'available', queries: [], queriesStatus: 'no_data' }, previous: { totals: { impressions: 25, clicks: 1, ctr: 1 / 25, position: 12 }, totalsStatus: 'available', queries: [], queriesStatus: 'no_data' }, relatedPages: [], history: historyFor(), selectedPhrase: { value: '', source: 'none' }, limitations: ['Search Console can omit some queries. A change in traffic does not prove causation.'], facts: [{ id: 'P1', kind: 'page', label: 'Page heading', text: 'The main heading is Website design.' }, { id: 'S1', kind: 'search', label: 'Recent appearances', text: 'Google reported 30 appearances in the recent period.' }] },
+    research: { status: 'available', summary: 'Public website context was reviewed without making claims about competitor rankings.', sources: [{ id: 'W1', url: 'https://reference.test/service/', title: 'Service page context' }], checkedAt: '2026-10-10T15:00:00.000Z', limitation: 'Public context is not a Google ranking report.' },
   };
+}
+function activityFor(url, withQueries = false) {
+  const evidence = assessmentFor(url).evidence;
+  evidence.current.queries = withQueries ? [{ query: 'local websites', impressions: 7, clicks: 1, ctr: 1 / 7, position: 11 }] : [];
+  evidence.current.queriesStatus = withQueries ? 'available' : 'no_data';
+  return { success: true, evidence, provenance: { property, pageUrl: url, websiteRunId: 'page-task-run' } };
 }
 
 test.beforeAll(async () => {
@@ -40,8 +53,8 @@ test.beforeEach(async () => {
   await app.firestore().doc(`implementedSeoTips/${docId}`).set({ userId: uid, pageUrl, status: 'implemented', title: 'Old archived website title', implementedAt: '2025-01-01', preRevampArchived: true });
   await app.firestore().doc(`implementedSeoTips/${idFor(otherUrl)}`).delete();
 });
-async function setup(page, { failGeneration = false, withQueries = false, redirects = {}, staleConfirmation = false, assessment = null } = {}) {
-  const calls = { generations: [], content: [] };
+async function setup(page, { failGeneration = false, withQueries = false, redirects = {}, staleConfirmation = false, assessment = null, activity = null } = {}) {
+  const calls = { generations: [], content: [], activity: [] };
   await page.addInitScript(() => localStorage.setItem('hasSeenChatAssistant', 'true'));
   await page.route('**/*', async route => {
     const url = new URL(route.request().url());
@@ -53,6 +66,7 @@ async function setup(page, { failGeneration = false, withQueries = false, redire
     if (url.pathname === '/api/gsc/fetch-keywords') return json({ property, keywords: withQueries ? [{ page: pageUrl, keyword: 'local websites', impressions: 7, clicks: 1 }] : [] });
     if (url.pathname === '/api/focus-keywords') return json({ keywords: [] });
     if (url.pathname === '/api/page-review/content') { const body = route.request().postDataJSON(); calls.content.push(body.pageUrl); return json({ success: true, data: { ...metadata(body.pageUrl), finalUrl: redirects[body.pageUrl] || body.pageUrl } }); }
+    if (url.pathname === '/api/page-review/activity') { const body = route.request().postDataJSON(); calls.activity.push(body.pageUrl); return json(activity ? activity(body) : activityFor(body.pageUrl, withQueries)); }
     if (url.pathname === '/api/page-review/suggestions') {
       const body = route.request().postDataJSON(); calls.generations.push(body);
       return failGeneration ? json({ error: 'Draft service temporarily unavailable.' }, 503) : json(assessment ? assessment(body) : assessmentFor(body.pageUrl));
@@ -80,22 +94,26 @@ test('no-keyword task generates only on request, retries a failed save, preserve
   const calls = await setup(page);
   await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
   await expect(page.getByText('Current website title', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Improve a page', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Selected page and search activity' }).getByText('Clicks from Google', { exact: true })).toBeVisible();
   expect(calls.generations).toHaveLength(0);
   await page.screenshot({ path: 'test-results/design-current-page.png', fullPage: true });
   await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toBeDisabled();
   await page.getByRole('button', { name: 'Analyze this page' }).click();
   await expect(page.getByRole('heading', { name: 'Review a wording change', exact: true })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toHaveValue(suggestion.title);
-  expect(calls.generations).toEqual([{ pageUrl, focusKeywords: [], includeResearch: false }]);
+  expect(calls.generations).toEqual([{ pageUrl, focusKeywords: [], includeResearch: true }]);
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
   await page.screenshot({ path: 'test-results/design-draft-desktop.png', fullPage: true });
+  await page.getByRole('region', { name: 'Page assessment' }).screenshot({ path: 'test-results/refinement-assessment-desktop.png' });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
   await page.screenshot({ path: 'test-results/design-draft-mobile.png', fullPage: true });
+  await page.getByRole('region', { name: 'Page assessment' }).screenshot({ path: 'test-results/refinement-assessment-mobile.png' });
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.locator('button[title="Switch to light mode"]:visible').press('Space');
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
-  await expect(page.getByRole('heading', { name: 'Review a page', exact: true })).toHaveCSS('color', await page.locator('body').evaluate(el => getComputedStyle(el).color));
+  await expect(page.getByRole('heading', { name: 'Improve a page', exact: true })).toHaveCSS('color', await page.locator('body').evaluate(el => getComputedStyle(el).color));
   await page.screenshot({ path: 'test-results/design-draft-light.png', fullPage: true, animations: 'disabled' });
   await page.locator('button[title="Switch to dark mode"]:visible').press('Space');
   await page.getByRole('textbox', { name: 'Suggested page title (SEO title)' }).fill('');
@@ -186,23 +204,25 @@ test('exact-case page links and optional observed queries remain distinct', asyn
   await expect(page.getByText('Current website title', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Analyze this page' }).click();
   await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toBeVisible();
-  expect(calls.generations[0]).toEqual({ pageUrl: otherUrl, focusKeywords: [], includeResearch: false });
+  expect(calls.generations[0]).toEqual({ pageUrl: otherUrl, focusKeywords: [], includeResearch: true });
   await page.getByLabel('Page to review').selectOption(pageUrl);
   await expect(page.getByLabel('Search phrase to consider')).toHaveValue('local websites');
   await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toBeDisabled();
   await expect(page.getByText('Current website title', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Analyze this page' }).click();
   await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toBeVisible();
-  expect(calls.generations[1]).toEqual({ pageUrl, focusKeywords: ['local websites'], includeResearch: false });
+  expect(calls.generations[1]).toEqual({ pageUrl, focusKeywords: ['local websites'], includeResearch: true });
 });
 
 test('keeping current wording never offers a draft or confirmation', async ({ page }) => {
   const calls = await setup(page, { assessment: body => assessmentFor(body.pageUrl, 'keep_current') });
   await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
   await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
-  await expect(page.getByRole('checkbox', { name: 'Include web research' })).not.toBeChecked();
+  await expect(page.getByRole('checkbox', { name: 'Include web research' })).toHaveCount(0);
+  await expect(page.getByText('Web research is included', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Analyze this page' }).click();
   await expect(page.getByRole('heading', { name: 'Keep your current wording', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Keep your current title and description', exact: true })).toBeVisible();
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
   await page.screenshot({ path: 'test-results/phase4-keep-current.png', fullPage: true });
   await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toHaveCount(0);
@@ -210,10 +230,10 @@ test('keeping current wording never offers a draft or confirmation', async ({ pa
   await expect(page.getByRole('button', { name: 'Copy page title (SEO title)' })).toHaveCount(0);
   await page.getByText('Why this recommendation?', { exact: true }).click();
   await expect(page.getByText('The main heading is Website design.', { exact: true })).toBeVisible();
-  await expect(page.getByText('2026-09-10–2026-10-07', { exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Page assessment' }).getByText('2026-09-10–2026-10-07', { exact: true })).toBeVisible();
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
   await page.screenshot({ path: 'test-results/phase4-evidence-expanded.png', fullPage: true });
-  expect(calls.generations).toEqual([{ pageUrl, focusKeywords: [], includeResearch: false }]);
+  expect(calls.generations).toEqual([{ pageUrl, focusKeywords: [], includeResearch: true }]);
   expect((await app.firestore().doc(`implementedSeoTips/${docId}`).get()).data().preRevampArchived).toBe(true);
 });
 
@@ -227,7 +247,6 @@ test('unavailable research and search data are explicit and never shown as zero 
   } });
   await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
   await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
-  await page.getByRole('checkbox', { name: 'Include web research' }).check();
   await page.getByRole('button', { name: 'Analyze this page' }).click();
   await expect(page.getByRole('heading', { name: 'Gather more evidence', exact: true })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: 'Web research was unavailable' })).toBeVisible();
@@ -252,7 +271,6 @@ test('research sources and an allowed related page remain inspectable', async ({
   } });
   await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
   await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
-  await page.getByRole('checkbox', { name: 'Include web research' }).check();
   await page.getByRole('button', { name: 'Analyze this page' }).click();
   await expect(page.getByRole('heading', { name: 'Review another page', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Review recommended page', exact: true })).toBeVisible();
@@ -298,7 +316,7 @@ test('a legacy draft or unresolved evidence cannot enable saving', async ({ page
   await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toBeDisabled();
 });
 
-test('changing the phrase or research preference discards the previous assessment and draft', async ({ page }) => {
+test('changing the phrase discards the previous assessment and draft while research stays included', async ({ page }) => {
   const calls = await setup(page, { withQueries: true });
   await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
   await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
@@ -311,11 +329,114 @@ test('changing the phrase or research preference discards the previous assessmen
   await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toBeDisabled();
   await page.getByRole('button', { name: 'Analyze this page' }).click();
   await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toBeVisible();
-  await page.getByRole('checkbox', { name: 'Include web research' }).check();
-  await expect(page.getByRole('region', { name: 'Page assessment' })).toHaveCount(0);
-  await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toBeDisabled();
+  expect(calls.generations.map(call => ({ focusKeywords: call.focusKeywords, includeResearch: call.includeResearch }))).toEqual([{ focusKeywords: ['local websites'], includeResearch: true }, { focusKeywords: [], includeResearch: true }]);
+});
+
+test('selected page totals, query counts and six-period history load before any AI request', async ({ page }) => {
+  const calls = await setup(page, { activity: body => {
+    const result = activityFor(body.pageUrl, true);
+    result.evidence.current.queries = Array.from({ length: 7 }, (_, index) => ({ query: `website service ${index + 1}`, clicks: 1, impressions: 7, ctr: 1 / 7, position: 11 }));
+    return result;
+  } });
+  await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
+  const activity = page.getByRole('region', { name: 'Selected page and search activity' });
+  await expect(activity.getByRole('heading', { name: '/Case/?City=A', exact: true })).toBeVisible();
+  await expect(activity.locator('dd')).toHaveText(['1', '30']);
+  await expect(page.getByLabel('Page to review').locator(`option[value="${pageUrl}"]`)).toContainText('1 click · 30 appearances');
+  await expect(page.getByLabel('Page to review').locator(`option[value="${otherUrl}"]`)).toContainText('No reported data');
+  const queries = activity.getByRole('table', { name: 'Search phrases for the selected page' });
+  await expect(queries.getByRole('row')).toHaveCount(6);
+  await expect(queries.getByRole('row', { name: 'website service 1 1 7', exact: true })).toBeVisible();
+  await activity.getByRole('button', { name: 'Show all 7 searches' }).click();
+  await expect(queries.getByRole('row')).toHaveCount(8);
+  await expect(activity.locator('dd')).toHaveText(['1', '30']);
+  await activity.getByText('Search history · about six months', { exact: true }).click();
+  await expect(activity.getByRole('table', { name: 'Search history for the selected page' }).getByRole('row')).toHaveCount(7);
+  await expect(activity.getByText(/older numbers may describe its previous version/)).toBeVisible();
+  expect(calls.generations).toHaveLength(0);
+  expect(calls.activity).toEqual([pageUrl]);
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await page.screenshot({ path: 'test-results/phase4-page-activity.png', fullPage: true });
+});
+
+test('a late activity response cannot put the previous page’s counts on the selected page', async ({ page }) => {
+  await setup(page, { activity: body => {
+    const result = activityFor(body.pageUrl);
+    result.evidence.current = { totals: null, totalsStatus: 'no_data', queries: [], queriesStatus: 'no_data' };
+    return result;
+  } });
+  let releaseOld;
+  let markOldStarted;
+  let markOldFinished;
+  const oldStarted = new Promise(resolve => { markOldStarted = resolve; });
+  const oldFinished = new Promise(resolve => { markOldFinished = resolve; });
+  const released = new Promise(resolve => { releaseOld = resolve; });
+  await page.route('**/api/page-review/activity', async route => {
+    const body = route.request().postDataJSON();
+    if (body.pageUrl !== pageUrl) return route.fallback();
+    markOldStarted();
+    await released;
+    const old = activityFor(pageUrl); old.evidence.current.totals.impressions = 9999;
+    try { await route.fulfill({ status: 200, json: old }); } catch { /* The page switch aborts this request. */ }
+    markOldFinished();
+  });
+  await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
+  await oldStarted;
+  await page.getByLabel('Page to review').selectOption(otherUrl);
+  const activity = page.getByRole('region', { name: 'Selected page and search activity' });
+  await expect(activity.getByRole('heading', { name: '/case/?City=a', exact: true })).toBeVisible();
+  await expect(activity.getByText(/Google returned no page totals/)).toBeVisible();
+  releaseOld();
+  await oldFinished;
+  await expect(activity.locator('dd')).toHaveCount(0);
+  await expect(activity).not.toContainText('9,999');
+  await expect(activity.getByText(/Google returned no search phrases/)).toBeVisible();
+});
+
+test('unavailable or mismatched activity never becomes zero counts and can be retried', async ({ page }) => {
+  let attempt = 0;
+  await setup(page, { activity: body => {
+    attempt += 1;
+    const result = activityFor(body.pageUrl);
+    if (attempt === 1) result.provenance.websiteRunId = 'stale-website-run';
+    else result.evidence.current = { totals: null, totalsStatus: 'unavailable', queries: [], queriesStatus: 'unavailable' };
+    return result;
+  } });
+  let failFirstRead = true;
+  await page.route('**/api/page-review/activity', route => {
+    if (!failFirstRead) return route.fallback();
+    failFirstRead = false;
+    return route.fulfill({ status: 503, json: { error: 'Page activity is temporarily unavailable. Please retry.' } });
+  });
+  await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
+  const activity = page.getByRole('region', { name: 'Selected page and search activity' });
+  await expect(activity.getByRole('alert')).toContainText('Page activity is temporarily unavailable');
+  await expect(activity.locator('dd')).toHaveCount(0);
+  await activity.getByRole('button', { name: 'Retry page activity' }).click();
+  await expect(activity.getByRole('alert')).toContainText('this exact page could not be verified');
+  await expect(page.getByLabel('Page to review').locator(`option[value="${pageUrl}"]`)).toContainText('Activity unavailable');
+  await expect(activity.locator('dd')).toHaveCount(0);
+  await activity.getByRole('button', { name: 'Retry page activity' }).click();
+  await expect(activity.getByText(/Page totals are unavailable right now/)).toBeVisible();
+  await expect(activity.getByText('Search phrases are unavailable for this period.', { exact: true })).toBeVisible();
+  await expect(activity.locator('dd')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
+});
+
+test('keeping metadata can still recommend investigating visibility with the exact page context', async ({ page }) => {
+  await setup(page, { assessment: body => {
+    const review = assessmentFor(body.pageUrl, 'investigate_visibility');
+    review.analysis = { ...review.analysis, metadataVerdict: 'keep', metadataReason: 'The existing title describes the service accurately.', summary: 'Check why this page has little search visibility.', reason: 'Several periods show little activity, which a cosmetic rewrite would not explain.', nextStep: 'Inspect this URL in Search Console and review its internal links before changing the wording.' };
+    return review;
+  } });
+  await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
+  await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
   await page.getByRole('button', { name: 'Analyze this page' }).click();
-  await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toBeVisible();
-  expect(calls.generations.map(call => ({ focusKeywords: call.focusKeywords, includeResearch: call.includeResearch }))).toEqual([{ focusKeywords: ['local websites'], includeResearch: false }, { focusKeywords: [], includeResearch: false }, { focusKeywords: [], includeResearch: true }]);
+  const assessment = page.getByRole('region', { name: 'Page assessment' });
+  await expect(assessment.getByRole('heading', { name: 'Keep your current title and description', exact: true })).toBeVisible();
+  await expect(assessment.getByRole('heading', { name: 'Check this page’s search visibility', exact: true })).toBeVisible();
+  await expect(assessment.getByRole('link', { name: `${pageUrl} (opens in a new tab)`, exact: true })).toHaveAttribute('href', pageUrl);
+  await expect(assessment.getByText(/Inspect this URL in Search Console/)).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toHaveCount(0);
 });
