@@ -107,6 +107,8 @@ Later scope: recommend new service/location pages based on real differences and 
 
 Version 6 adds automatic search-focus selection and a saved plan for each exact page and website version. Beginners no longer need to select a keyword: the review selects a grounded discovery topic, distinguishes observed Search Console phrases from proposed topics, and asks a plain business question only when an essential fact is missing. Existing tasks survive refreshes and reanalysis; changed-page suggestions are flagged for review, completed/dismissed tasks remain recoverable, and a failed review does not replace the plan. Multiple useful edits can be published together. Checklist completion alone never starts a progress comparison.
 
+Version 6 is live from source `63355ad` as deployment `dpl_BST8ThfhXLbZnC7axxadHLam5pFA`. Validation passed 461 unit/API tests and all 44 browser scenarios, with four bounded synthetic model evaluations and one real-account review. The homepage automatically selected the observed phrase “web design south bend” and saved three tasks; a separate API read and live browser refresh restored the same plan. Seven anonymous and seven cross-account route checks passed; no published changes or archived records were altered.
+
 The initial audience is service businesses seeking inquiries, quotes or bookings. Restaurants and new-page recommendations remain later work. Bryan's next checkpoint is the homepage's automatic focus, the full prioritized list, and restoring that same list after refresh. See the version 6 release record in [Phase 4](PHASE4.md) for verification and deployment status.
 
 ## Phase 5 Pilot and product economics
