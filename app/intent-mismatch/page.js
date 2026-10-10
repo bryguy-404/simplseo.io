@@ -356,7 +356,7 @@ export default function IntentMismatch() {
             intentMismatches.push({
               keyword,
               pageUrl,
-              matchScore: Math.floor(Math.random() * 50) + 20,
+              matchScore: null,
               reason: "AI analysis failed - using fallback data",
               suggestion: "Review page content and ensure it matches search intent",
               suggestedFix: "Review page content and ensure it matches search intent",
@@ -387,7 +387,7 @@ export default function IntentMismatch() {
           intentMismatches.push({
             keyword,
             pageUrl,
-            matchScore: Math.floor(Math.random() * 50) + 20,
+            matchScore: null,
             reason: "AI analysis failed - using fallback data",
             suggestion: "Review page content and ensure it matches search intent",
             suggestedFix: "Review page content and ensure it matches search intent",
@@ -761,7 +761,7 @@ export default function IntentMismatch() {
               intentMismatches.push({
                 keyword,
                 pageUrl,
-                matchScore: Math.floor(Math.random() * 50) + 20,
+                matchScore: null,
                 reason: "AI analysis failed - using fallback data",
                 suggestion: "Review page content and ensure it matches search intent",
                 suggestedFix: "Review page content and ensure it matches search intent",
@@ -792,7 +792,7 @@ export default function IntentMismatch() {
             intentMismatches.push({
               keyword,
               pageUrl,
-              matchScore: Math.floor(Math.random() * 50) + 20,
+              matchScore: null,
               reason: "AI analysis failed - using fallback data",
               suggestion: "Review page content and ensure it matches search intent",
               suggestedFix: "Review page content and ensure it matches search intent",
@@ -923,6 +923,7 @@ export default function IntentMismatch() {
   };
 
   const getScoreBadge = (score) => {
+    if (score == null) return <Badge variant="outline">Analysis unavailable</Badge>;
     if (score < 40) {
       return <Badge variant="destructive" className="flex items-center gap-1">
         <AlertTriangle className="w-3 h-3" />
@@ -943,6 +944,7 @@ export default function IntentMismatch() {
 
   const filteredMismatches = mismatches.filter(mismatch => {
     if (filterScore === "all") return true;
+    if (mismatch.matchScore == null) return false;
     if (filterScore === "low") return mismatch.matchScore < 40;
     if (filterScore === "medium") return mismatch.matchScore >= 40 && mismatch.matchScore < 70;
     if (filterScore === "high") return mismatch.matchScore >= 70;
@@ -1118,7 +1120,7 @@ export default function IntentMismatch() {
     
     message += `
 🌐 **Page URL:** ${mismatch.pageUrl}
-📊 **Current Match Score:** ${mismatch.matchScore}/100
+📊 **Current Match Score:** ${mismatch.matchScore == null ? "Unavailable" : `${mismatch.matchScore}/100`}
 
 **Current Page Content:**
 - Title: "${mismatch.title || 'Not available'}"

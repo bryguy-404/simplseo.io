@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 export async function GET() {
+  if (process.env.NODE_ENV === "production") return Response.json({ error: "Not found" }, { status: 404 });
   try {
     // Test the full flow with a known good example
     const testData = {

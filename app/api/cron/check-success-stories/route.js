@@ -366,7 +366,7 @@ async function sendSuccessNotification(userEmail, opportunity) {
 export async function GET(req) {
   // Verify this is a cron request (Vercel adds a header)
   const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -395,6 +395,8 @@ export async function GET(req) {
     // Process each user
     for (const userDoc of usersSnapshot.docs) {
       const userId = userDoc.id;
+      const recovery = (await db.collection("onboarding").doc(userId).get()).data();
+      if (recovery?.progressReviewRequired || recovery?.revampStatus === "in-progress") continue;
 
       try {
         // Get user's created opportunities

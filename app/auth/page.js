@@ -294,7 +294,7 @@ const Auth = () => {
             </Button>
 
             {/* Email/Password form - Hidden but logic preserved for future use */}
-            <form onSubmit={handleSubmit} className="space-y-4 hidden">
+            <form onSubmit={handleSubmit} className={`space-y-4 ${process.env.NEXT_PUBLIC_SIMPLESEO_TEST_MODE === "1" ? "" : "hidden"}`}>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input

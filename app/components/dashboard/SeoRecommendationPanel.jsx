@@ -1,4 +1,5 @@
 "use client";
+import { writeSeoRecord } from "../../lib/writeSeoRecord";
 
 import { Copy, ChevronDown, History } from "lucide-react";
 import {
@@ -13,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { db } from "../../lib/firebaseConfig";
-import { doc, setDoc, getDoc, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, deleteDoc } from "firebase/firestore";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   fetchWithCache,
@@ -146,7 +147,7 @@ const SeoRecommendationPanel = ({
         // This creates an individual 7-day cycle for each tip
         const nextUpdateDue = new Date(implementedAt.getTime() + 7 * 24 * 60 * 60 * 1000);
         
-        await setDoc(
+        await writeSeoRecord(
           doc(db, "implementedSeoTips", docId),
           {
             userId: user.id,

@@ -1,3 +1,4 @@
+import { requireUser, errorResponse } from "../../../lib/server/requestAuth";
 import { NextResponse } from "next/server";
 import { db } from "../../../lib/firebaseAdmin";
 
@@ -12,7 +13,7 @@ const sanitizeUrlArray = (value = []) => {
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
+    const userId = await requireUser(req, searchParams.get("userId"));
 
     if (!userId) {
       return NextResponse.json(
@@ -144,6 +145,7 @@ export async function GET(req) {
       },
     });
   } catch (error) {
+    if (error.status) return errorResponse(error);
     console.error("❌ Failed to load crawl review data:", error);
     return NextResponse.json(
       { error: "Failed to load crawl review data" },
@@ -156,6 +158,7 @@ export async function POST(req) {
   try {
     const { userId, approvedUrls = [], excludedUrls = [], manualUrls = [] } =
       await req.json();
+    await requireUser(req, userId);
 
     if (!userId) {
       return NextResponse.json(
@@ -188,6 +191,7 @@ export async function POST(req) {
       },
     });
   } catch (error) {
+    if (error.status) return errorResponse(error);
     console.error("❌ Failed to save crawl review preferences:", error);
     return NextResponse.json(
       { error: "Failed to save crawl preferences" },

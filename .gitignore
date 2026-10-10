@@ -45,3 +45,8 @@ next-env.d.ts
 
 # Claude Code
 CLAUDE.md
+/playwright-report/
+/test-results/
+/firebase-debug.log
+/firestore-debug.log
+/recovery-backups/

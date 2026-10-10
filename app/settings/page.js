@@ -1,5 +1,7 @@
 "use client";
 
+import { authenticatedFetch } from "../lib/authenticatedFetch";
+
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useOnboarding } from "../contexts/OnboardingContext";
@@ -264,14 +266,14 @@ export default function Settings() {
     setIsLoadingContent(true);
     try {
       // Load pages
-      const pagesRes = await fetch(`/api/crawl-site/review?userId=${encodeURIComponent(user.id)}`);
+      const pagesRes = await authenticatedFetch(`/api/crawl-site/review?userId=${encodeURIComponent(user.id)}`);
       if (pagesRes.ok) {
         const pagesData = await pagesRes.json();
         setPages(pagesData.pages || []);
       }
 
       // Load focus keywords
-      const keywordsRes = await fetch(`/api/focus-keywords?userId=${encodeURIComponent(user.id)}`);
+      const keywordsRes = await authenticatedFetch(`/api/focus-keywords?userId=${encodeURIComponent(user.id)}`);
       let loadedKeywords = [];
       let snapshot = null;
       
@@ -949,7 +951,7 @@ export default function Settings() {
       }
       
       // Delete all user data from Firestore via API (uses Admin SDK)
-      const deleteRes = await fetch("/api/account/delete", {
+      const deleteRes = await authenticatedFetch("/api/account/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id }),

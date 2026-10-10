@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 export async function GET() {
+  if (process.env.NODE_ENV === "production") return Response.json({ error: "Not found" }, { status: 404 });
   const envCheck = {
     OPENAI_API_KEY: !!process.env.OPENAI_API_KEY,
     OPENAI_API_KEY_LENGTH: process.env.OPENAI_API_KEY?.length || 0,

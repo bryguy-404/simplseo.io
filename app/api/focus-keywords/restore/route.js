@@ -1,4 +1,5 @@
-"use server";
+import { requireUser, errorResponse, RequestError } from "../../../lib/server/requestAuth";
+import { ensureCurrentHistory } from "../../../lib/server/revampHistory";
 
 import { NextResponse } from "next/server";
 import { db } from "../../../lib/firebaseAdmin";
@@ -9,7 +10,9 @@ import { db } from "../../../lib/firebaseAdmin";
  */
 export async function POST(request) {
   try {
-    const { userId } = await request.json();
+    const { userId: requestedUid } = await request.json();
+    const userId = await requireUser(request, requestedUid);
+    await ensureCurrentHistory(userId);
 
     if (!userId) {
       return NextResponse.json(
@@ -29,6 +32,7 @@ export async function POST(request) {
     }
 
     const data = docRef.data();
+    if (data.preRevampArchived) throw new RequestError("Previous website keywords remain in read-only history.", 409);
     const snapshot = data.snapshot;
 
     if (!snapshot) {
@@ -104,6 +108,7 @@ export async function POST(request) {
       snapshotDate: snapshot.savedAt || "unknown",
     });
   } catch (error) {
+    if (error.status) return errorResponse(error);
     console.error("Failed to restore focus keywords:", error);
     return NextResponse.json(
       { error: "Failed to restore focus keywords", details: error.message },
@@ -116,8 +121,9 @@ export async function POST(request) {
  * GET endpoint to preview what will be restored (dry run)
  */
 export async function GET(request) {
+  try {
   const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
+  const userId = await requireUser(request, searchParams.get("userId"));
 
   if (!userId) {
     return NextResponse.json(
@@ -137,6 +143,7 @@ export async function GET(request) {
     }
 
     const data = docRef.data();
+    if (data.preRevampArchived) throw new RequestError("Previous website keywords remain in read-only history.", 409);
     const snapshot = data.snapshot;
     const currentKeywords = data.keywords || [];
 
@@ -196,10 +203,12 @@ export async function GET(request) {
       selectedByPageCount: snapshot.selectedByPage?.length || 0,
     });
   } catch (error) {
+    if (error.status) return errorResponse(error);
     console.error("Failed to preview restore:", error);
     return NextResponse.json(
       { error: "Failed to preview restore", details: error.message },
       { status: 500 }
     );
   }
+  } catch (error) { return errorResponse(error); }
 }

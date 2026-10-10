@@ -1,5 +1,7 @@
 "use client";
 
+import { authenticatedFetch } from "../lib/authenticatedFetch";
+
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -431,19 +433,14 @@ const OnboardingWizard = () => {
     }
   };
 
-  const submitOnboarding = () => {
+  const submitOnboarding = async () => {
     setIsSubmitting(true);
-
-    // Simulate API call
-    setTimeout(() => {
-      updateData({ 
-        isComplete: true,
-        postOnboardingStep: 'pages', // Start post-onboarding flow with pages step
-        pagesStepCompleted: false
-      });
-      router.push("/dashboard");
-      setIsSubmitting(false);
-    }, 1000);
+    try {
+      await updateData({ isComplete: true, postOnboardingStep: 'pages', pagesStepCompleted: false });
+      router.push('/dashboard');
+    } catch (error) {
+      window.alert('Your setup could not be saved. Please try again.');
+    } finally { setIsSubmitting(false); }
   };
 
   const getProgressPercent = () => {
@@ -846,7 +843,7 @@ const OnboardingWizard = () => {
                             if (googleAccessToken && user?.id) {
                               try {
                                 console.log("💾 Storing Google tokens for property:", value);
-                                const response = await fetch('/api/gsc/exchange-code', {
+                                const response = await authenticatedFetch('/api/gsc/exchange-code', {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({

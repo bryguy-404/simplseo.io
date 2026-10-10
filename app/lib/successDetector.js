@@ -22,6 +22,8 @@ function anonymizePageUrl(fullUrl) {
 
 // Check implemented tips and extract successful ones
 export async function detectAndSaveSuccessfulStrategies(userId) {
+  const recovery = (await db.collection("onboarding").doc(userId).get()).data();
+  if (recovery?.progressReviewRequired || recovery?.revampStatus === "in-progress") return { saved: 0, paused: true };
   try {
     // Get user's onboarding data for business context
     const onboardingDoc = await db.collection("onboarding").doc(userId).get();

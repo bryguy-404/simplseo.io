@@ -1,3 +1,4 @@
+import { requireUser, errorResponse } from "../../lib/server/requestAuth";
 import { NextResponse } from "next/server";
 import { XMLParser } from "fast-xml-parser";
 import * as cheerio from "cheerio";
@@ -211,6 +212,7 @@ export async function POST(req) {
       manualUrls: providedManual = null,
       mode = "confirmed",
     } = requestPayload;
+    await requireUser(req, userId);
 
     if (!userId || !websiteUrl) {
       return NextResponse.json(
@@ -598,21 +600,7 @@ export async function POST(req) {
     }
 
     const targetUrlSet = new Set(targetEntries.map((entry) => entry.url));
-    if (!isInitialReview) {
-      const existingSnapshot = await db
-        .collection("pageContentCache")
-        .where("userId", "==", userId)
-        .where("source", "==", "site-crawl")
-        .get();
-
-      for (const docSnap of existingSnapshot.docs) {
-        const data = docSnap.data();
-        if (!data?.pageUrl) continue;
-        if (!targetUrlSet.has(data.pageUrl)) {
-          await docSnap.ref.delete();
-        }
-      }
-    }
+    // A bounded scan cannot prove that absent URLs were retired. Preserve existing caches.
 
     if (isInitialReview) {
       await crawlDocRef.set(
@@ -685,6 +673,7 @@ export async function POST(req) {
       });
     }
   } catch (error) {
+    if (error.status) return errorResponse(error);
     console.error("❌ Site crawl failed:", error);
 
     try {

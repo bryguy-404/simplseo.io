@@ -1,107 +1,35 @@
-import { NextResponse } from "next/server";
-import { db } from "../../../lib/firebaseAdmin";
-
+import { db } from '../../../lib/firebaseAdmin';
+import { requireUser, RequestError, errorResponse } from '../../../lib/server/requestAuth';
+import { GOOGLE_CLIENT_ID } from '../../../lib/server/gscConnection';
 export async function POST(request) {
   try {
-    const { code, accessToken, refreshToken, property, userId } = await request.json();
-
-    // If we have an accessToken and property, store them directly
-    if (accessToken && property && userId) {
-      try {
-        console.log("🔐 About to store tokens in Firestore:", {
-          hasRefreshToken: !!refreshToken,
-          refreshTokenLength: refreshToken?.length,
-          hasAccessToken: !!accessToken,
-          accessTokenLength: accessToken?.length,
-          siteUrl: property,
-          userId: userId
-        });
-
-        // Use admin SDK to store tokens directly
-        const userRef = db.collection('users').doc(userId);
-        await userRef.set({
-          gscRefreshToken: refreshToken,
-          gscAccessToken: accessToken,
-          gscSiteUrl: property,
-          gscConnectedAt: new Date().toISOString(),
-          gscLastSync: new Date().toISOString(),
-        }, { merge: true });
-        
-        console.log("✅ Stored access token for property:", property);
-        return NextResponse.json({ success: true });
-      } catch (error) {
-        console.error("❌ Error storing tokens:", error);
-        return NextResponse.json({ error: "Failed to store tokens" }, { status: 500 });
-      }
+    const body = await request.json();
+    const uid = await requireUser(request, body.userId);
+    if (body.accessToken && body.property) {
+      const values = { gscAccessToken: body.accessToken, gscSiteUrl: body.property, gscConnectedAt: new Date().toISOString() };
+      if (body.refreshToken) values.gscRefreshToken = body.refreshToken;
+      await db.collection('users').doc(uid).set(values, { merge: true });
+      return Response.json({ success: true });
     }
-
-    // Original code exchange logic
-    if (!code) {
-      return NextResponse.json(
-        { error: "Authorization code is required" },
-        { status: 400 }
-      );
-    }
-
-    // Add debugging
-    console.log("🔍 Environment check:");
-    console.log("NODE_ENV:", process.env.NODE_ENV);
-    console.log("GOOGLE_CLIENT_SECRET exists:", !!process.env.GOOGLE_CLIENT_SECRET);
-    console.log("GOOGLE_CLIENT_SECRET length:", process.env.GOOGLE_CLIENT_SECRET?.length);
-    
-    if (!process.env.GOOGLE_CLIENT_SECRET) {
-      console.error("❌ GOOGLE_CLIENT_SECRET is not set!");
-      return NextResponse.json(
-        { error: "Server configuration error" },
-        { status: 500 }
-      );
-    }
-
-    // Exchange authorization code for tokens
-    const response = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        client_id: "956212275866-7dtgdq7b38b156riehghuvh8b8469ktg.apps.googleusercontent.com",
-        client_secret: process.env.GOOGLE_CLIENT_SECRET,
-        code: code,
-        grant_type: "authorization_code",
-        redirect_uri: process.env.NODE_ENV === "production" 
-          ? "https://simplseo-io.vercel.app/gsc-callback"
-          : "http://localhost:3000/gsc-callback",
-      }),
+    if (!body.code || !/^[a-f0-9]{64}$/.test(body.state || '')) throw new RequestError('Restart the Google connection.');
+    const stateRef = db.collection('gscOAuthStates').doc(body.state);
+    const state = await db.runTransaction(async tx => {
+      const value = (await tx.get(stateRef)).data();
+      if (!value || value.uid !== uid || value.expiresAt < Date.now()) throw new RequestError('Google connection expired. Try again.', 403);
+      tx.delete(stateRef); return value;
     });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error("❌ Token exchange failed:", errorData);
-      return NextResponse.json(
-        { error: "Failed to exchange authorization code" },
-        { status: response.status }
-      );
+    const response = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: GOOGLE_CLIENT_ID, client_secret: process.env.GOOGLE_CLIENT_SECRET || '', code: body.code, grant_type: 'authorization_code', redirect_uri: state.redirectUri }), signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new RequestError('Google connection could not be completed. Your previous connection is preserved.', 502);
+    const tokens = await response.json();
+    if (!tokens.access_token) throw new RequestError('Google did not return a connection.', 502);
+    const existing = (await db.collection('users').doc(uid).get()).data() || {};
+    const values = { gscAccessToken: tokens.access_token, gscExpiresAt: Date.now() + (tokens.expires_in || 3600) * 1000, gscConnectedAt: new Date().toISOString() };
+    if (tokens.refresh_token) values.gscRefreshToken = tokens.refresh_token;
+    if (body.property) {
+      if (existing.gscSiteUrl && body.property !== existing.gscSiteUrl && !tokens.refresh_token) throw new RequestError('Select the existing property or reconnect with full consent.', 409);
+      values.gscSiteUrl = body.property;
     }
-
-               const data = await response.json();
-           
-           console.log("🔍 Google OAuth response:", {
-             hasAccessToken: !!data.access_token,
-             hasRefreshToken: !!data.refresh_token,
-             refreshTokenLength: data.refresh_token?.length,
-             expiresIn: data.expires_in
-           });
-           
-           return NextResponse.json({
-             access_token: data.access_token,
-             refresh_token: data.refresh_token,
-             expires_in: data.expires_in,
-           });
-  } catch (error) {
-    console.error("❌ Error exchanging authorization code:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
-  }
-} 
+    await db.collection('users').doc(uid).set(values, { merge: true });
+    return Response.json({ access_token: tokens.access_token, refresh_token: tokens.refresh_token, expires_in: tokens.expires_in });
+  } catch (e) { return errorResponse(e); }
+}

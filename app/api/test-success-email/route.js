@@ -42,6 +42,7 @@ const createTransporter = () => {
 // Test endpoint to verify email sending works
 // Only available in development mode for safety
 export async function POST(req) {
+  if (process.env.NODE_ENV === "production") return Response.json({ error: "Not found" }, { status: 404 });
   // Block in production for security
   if (process.env.NODE_ENV === "production" && !process.env.ALLOW_TEST_EMAILS) {
     return NextResponse.json(
@@ -158,6 +159,7 @@ export async function POST(req) {
 
 // GET endpoint to check if the test is available
 export async function GET() {
+  if (process.env.NODE_ENV === "production") return Response.json({ error: "Not found" }, { status: 404 });
   const isProduction = process.env.NODE_ENV === "production";
   const allowTestEmails = process.env.ALLOW_TEST_EMAILS === "true";
 

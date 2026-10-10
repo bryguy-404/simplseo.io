@@ -7,11 +7,13 @@ export default function GSCCallback() {
     // Get the authorization code from URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get("code");
+    const state = urlParams.get("state");
     const error = urlParams.get("error");
 
     if (error) {
       // Handle OAuth error
       window.opener?.postMessage({
+        state,
         type: "GSC_AUTH_ERROR",
         error: error
       }, window.location.origin);
@@ -22,6 +24,7 @@ export default function GSCCallback() {
     if (code) {
       // Send the authorization code back to the parent window
       window.opener?.postMessage({
+        state,
         type: "GSC_AUTH_SUCCESS",
         code: code
       }, window.location.origin);
@@ -29,6 +32,7 @@ export default function GSCCallback() {
     } else {
       // No code found
       window.opener?.postMessage({
+        state,
         type: "GSC_AUTH_ERROR",
         error: "No authorization code received"
       }, window.location.origin);

@@ -1,4 +1,7 @@
 "use client";
+import { writeSeoRecord } from "../../lib/writeSeoRecord";
+
+import { authenticatedFetch } from "../../lib/authenticatedFetch";
 
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +11,7 @@ import { ChevronDown, ChevronRight, FileText, TrendingUp, AlertTriangle, CheckCi
 import { getPageContent } from "../../lib/pageScraper";
 import { useAuth } from "../../contexts/AuthContext";
 import { saveContentAuditResult, getContentAuditResult, saveAiSuggestions, getAiSuggestions, getFocusKeywords, saveFocusKeywords } from "../../lib/firestoreHelpers";
-import { doc, getDoc, setDoc, deleteField, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, deleteField, deleteDoc } from "firebase/firestore";
 import { db } from "../../lib/firebaseConfig";
 import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -981,7 +984,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
       };
 
       // Update the document with new tracking status
-      await setDoc(
+      await writeSeoRecord(
         doc(db, "implementedSeoTips", docId),
         {
           keywordHistory: updatedHistory,
@@ -1013,7 +1016,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
       );
 
       // Update focus keywords in the focus keywords collection
-      const existingResponse = await fetch(`/api/focus-keywords?userId=${user.id}`);
+      const existingResponse = await authenticatedFetch(`/api/focus-keywords?userId=${user.id}`);
       let existingKeywords = [];
       
       if (existingResponse.ok) {
@@ -1040,7 +1043,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
       ];
 
       // Save all keywords (existing + updated)
-      await fetch("/api/focus-keywords", {
+      await authenticatedFetch("/api/focus-keywords", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1055,13 +1058,13 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
         const encodedCacheKey = encodeURIComponent(cacheKey);
         
         await Promise.all([
-          setDoc(doc(db, "seoMetaTitles", encodedCacheKey), {
+          writeSeoRecord(doc(db, "seoMetaTitles", encodedCacheKey), {
             title: e3PivotNewMetaTitle,
             createdAt: new Date().toISOString(),
             focusKeywords: [e3PivotNewKeyword],
             pageUrl,
           }),
-          setDoc(doc(db, "seoMetaDescriptions", encodedCacheKey), {
+          writeSeoRecord(doc(db, "seoMetaDescriptions", encodedCacheKey), {
             description: e3PivotNewMetaDescription,
             createdAt: new Date().toISOString(),
             focusKeywords: [e3PivotNewKeyword],
@@ -1242,7 +1245,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
 
       // Reset the tracking cycle but keep the keyword
       // Save to implementedSeoTips (same collection as E1/E2)
-      await setDoc(
+      await writeSeoRecord(
         doc(db, "implementedSeoTips", docId),
         {
           rewriteHistory,
@@ -1328,7 +1331,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
 
       // Reset the tracking cycle but keep the keyword
       // Save to implementedSeoTips (same collection as E1)
-      await setDoc(
+      await writeSeoRecord(
         doc(db, "implementedSeoTips", docId),
         {
           rewriteHistory,
@@ -1541,7 +1544,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
       };
 
       // Update the document with new tracking status
-      await setDoc(
+      await writeSeoRecord(
         doc(db, "implementedSeoTips", docId),
         {
           metaOptimizationHistory: metaOptimizationHistory,
@@ -1578,13 +1581,13 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
         const encodedCacheKey = encodeURIComponent(cacheKey);
         
         await Promise.all([
-          setDoc(doc(db, "seoMetaTitles", encodedCacheKey), {
+          writeSeoRecord(doc(db, "seoMetaTitles", encodedCacheKey), {
             title: e1NewMetaTitle,
             createdAt: new Date().toISOString(),
             focusKeywords: propFocusKeyword ? [propFocusKeyword] : [],
             pageUrl,
           }),
-          setDoc(doc(db, "seoMetaDescriptions", encodedCacheKey), {
+          writeSeoRecord(doc(db, "seoMetaDescriptions", encodedCacheKey), {
             description: e1NewMetaDescription,
             createdAt: new Date().toISOString(),
             focusKeywords: propFocusKeyword ? [propFocusKeyword] : [],

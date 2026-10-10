@@ -1,4 +1,5 @@
 "use client";
+import { writeSeoRecord } from "../../lib/writeSeoRecord";
 
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { db } from "../../lib/firebaseConfig";
-import { doc, setDoc, deleteField, getDoc } from "firebase/firestore";
+import { doc, deleteField, getDoc } from "firebase/firestore";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   Collapsible,
@@ -143,7 +144,7 @@ export default function SuccessPanel({
       }
 
       // Save current stats to history and reset tracking
-      await setDoc(
+      await writeSeoRecord(
         doc(db, "implementedSeoTips", docId),
         {
           // Preserve success history
@@ -203,7 +204,7 @@ export default function SuccessPanel({
       const docId = createSafeDocId(user.id, pageUrl);
 
       // Enter passive monitoring state
-      await setDoc(
+      await writeSeoRecord(
         doc(db, "implementedSeoTips", docId),
         {
           passiveMonitoring: true,

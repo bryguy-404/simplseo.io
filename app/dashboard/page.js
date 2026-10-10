@@ -1,5 +1,8 @@
 "use client";
 
+import { reconnectGsc } from "../lib/reconnectGsc";
+import { authenticatedFetch } from "../lib/authenticatedFetch";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useAuth } from "../contexts/AuthContext";
@@ -214,7 +217,7 @@ export default function Dashboard() {
       if (!force && hasLoadedCrawlReview) return;
       try {
         setIsLoadingCrawlReview(true);
-        const res = await fetch(`/api/crawl-site/review?userId=${user.id}`);
+        const res = await authenticatedFetch(`/api/crawl-site/review?userId=${user.id}`);
         if (!res.ok) {
           throw new Error("Failed to load crawl pages");
         }
@@ -356,7 +359,7 @@ export default function Dashboard() {
         ])
       );
 
-      const res = await fetch("/api/crawl-site", {
+      const res = await authenticatedFetch("/api/crawl-site", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -426,7 +429,7 @@ export default function Dashboard() {
       setIsRecrawling(true);
 
       // Save approved pages to pageContentCache without recrawling
-      const res = await fetch("/api/crawl-site/save", {
+      const res = await authenticatedFetch("/api/crawl-site/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -589,7 +592,7 @@ export default function Dashboard() {
         .filter((page) => reviewSelections.get(page.pageUrl) === false)
         .map((page) => page.pageUrl);
 
-      await fetch("/api/crawl-site/review", {
+      await authenticatedFetch("/api/crawl-site/review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1324,7 +1327,7 @@ export default function Dashboard() {
         const priorityUrls = Array.from(
           new Set(topPages.map((page) => page.page).filter(Boolean))
         );
-        const res = await fetch("/api/crawl-site", {
+        const res = await authenticatedFetch("/api/crawl-site", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1513,98 +1516,10 @@ export default function Dashboard() {
   }, [data?.businessName, data?.businessType]);
 
   const requestGSCAuthToken = async () => {
-    // Reset error flag for new attempt
-    setHasShownGscError(false);
-    
-    // Clear existing GSC data first
     try {
-      const tokenManager = createGSCTokenManager(user.id);
-      await tokenManager.clearGSCData();
-    } catch (error) {
-      console.error("Failed to clear GSC data:", error);
-    }
-    
-    // Use authorization code flow to get refresh tokens
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-      `client_id=956212275866-7dtgdq7b38b156riehghuvh8b8469ktg.apps.googleusercontent.com&` +
-      `redirect_uri=${encodeURIComponent(window.location.origin + '/gsc-callback')}&` +
-      `response_type=code&` +
-      `scope=${encodeURIComponent(GSC_SCOPE)}&` +
-      `access_type=offline&` +
-      `prompt=consent&` +
-      `include_granted_scopes=true`;
-    
-    // Open popup for authorization
-    const popup = window.open(authUrl, 'gsc-auth', 'width=500,height=600');
-    
-    // Listen for the authorization code
-    const handleMessage = async (event) => {
-      if (event.origin !== window.location.origin) return;
-      
-      if (event.data.type === 'GSC_AUTH_SUCCESS' && event.data.code) {
-        console.log("🔐 Authorization code received:", event.data.code);
-        
-        try {
-          console.log("🔐 About to exchange code for tokens...");
-          
-          // Exchange code for tokens
-          const response = await fetch('/api/gsc/exchange-code', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: event.data.code })
-          });
-          
-          const tokenData = await response.json();
-          console.log("🔐 Token exchange response:", tokenData);
-          
-                           if (tokenData.access_token) {
-                   console.log("🔐 Token exchange successful:", {
-                     hasAccessToken: !!tokenData.access_token,
-                     hasRefreshToken: !!tokenData.refresh_token,
-                     refreshTokenLength: tokenData.refresh_token?.length
-                   });
-                   
-                   const tokenManager = createGSCTokenManager(user.id);
-                   
-                   console.log("🔐 About to store tokens:", {
-                     hasRefreshToken: !!tokenData.refresh_token,
-                     refreshTokenLength: tokenData.refresh_token?.length,
-                     hasAccessToken: !!tokenData.access_token,
-                     accessTokenLength: tokenData.access_token?.length
-                   });
-                   
-                   // Store tokens in Firestore
-                   await tokenManager.storeTokens(
-                     tokenData.refresh_token || null,
-                     tokenData.access_token,
-                     null // siteUrl will be set after matching
-                   );
-
-                   console.log("✅ Tokens stored in Firestore");
-
-                   setGscAccessToken(tokenData.access_token);
-                   setIsGscConnected(true);
-
-                  await setDoc(
-                    doc(db, "onboarding", user.id),
-                    { hasGSC: true },
-                    { merge: true }
-                  );
-
-                   fetchAndMatchGSC(tokenData.access_token);
-                 } else {
-                   console.error("❌ No access token in response:", tokenData);
-                 }
-        } catch (error) {
-          console.error("❌ Failed to exchange code for tokens:", error);
-        }
-        
-        popup.close();
-        window.removeEventListener('message', handleMessage);
-      }
-    };
-    
-    window.addEventListener('message', handleMessage);
+      const tokens = await reconnectGsc(data?.gscProperty);
+      setGscAccessToken(tokens.access_token); setIsGscConnected(true); await updateData({ hasGSC: true }); await fetchAndMatchGSC(tokens.access_token);
+    } catch (error) { window.alert(error.message); }
   };
 
   const gscKeywordsWithFocus = useMemo(
@@ -2178,7 +2093,7 @@ export default function Dashboard() {
   };
 
   const postOnboardingStep = data?.postOnboardingStep;
-  const isInPostOnboardingFlow = postOnboardingStep && postOnboardingStep !== 'complete';
+  const isInPostOnboardingFlow = !['in-progress', 'complete'].includes(data?.revampStatus) && postOnboardingStep && postOnboardingStep !== 'complete';
   const pagesStepCompleted = data?.pagesStepCompleted || false;
 
   return (
@@ -2191,6 +2106,12 @@ export default function Dashboard() {
       impressionTrends={gscImpressionTrends}
       isLoading={isLoadingGscData}
     >
+      {['in-progress', 'complete'].includes(data?.revampStatus) && <div className="border rounded-lg p-5 mb-6 space-y-2">
+        <h2 className="text-xl font-semibold">Website update monitoring</h2>
+        <p>Your dashboard is available while search data arrives. Historical performance metrics are unverified; automated outcome reviews are paused during recovery.</p>
+        <a href="/revamp" className="underline mr-4">Review website setup</a>
+        <a href="/revamp/history" className="underline">Previous website work</a>
+      </div>}
       {/* Welcome message - shown when flow is complete or not in post-onboarding flow */}
       {(!isInPostOnboardingFlow || postOnboardingStep === 'complete') && (
         <div className="mb-6 animate-in fade-in duration-500">
@@ -2478,7 +2399,7 @@ export default function Dashboard() {
         <section
           className={cn(
             "space-y-6 transition-all duration-300",
-            needsCrawlReview && !isInPostOnboardingFlow && "pointer-events-none opacity-40"
+            false
           )}
         >
           {isGscConnected && (
@@ -2560,7 +2481,7 @@ export default function Dashboard() {
         <section
           className={cn(
             "space-y-6 transition-all duration-300",
-            needsCrawlReview && "pointer-events-none opacity-40"
+            false
           )}
         >
 

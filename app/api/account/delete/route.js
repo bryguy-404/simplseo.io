@@ -1,3 +1,4 @@
+import { requireUser, errorResponse } from "../../../lib/server/requestAuth";
 import { NextResponse } from "next/server";
 import { db, auth } from "../../../lib/firebaseAdmin";
 import nodemailer from "nodemailer";
@@ -80,6 +81,7 @@ async function notifyAdminOfDeletion(userInfo) {
 export async function POST(req) {
   try {
     const { userId } = await req.json();
+    await requireUser(req, userId);
 
     if (!userId) {
       return NextResponse.json(
@@ -186,6 +188,11 @@ export async function POST(req) {
     } catch (error) {
       console.log("⚠️ Error deleting feedbackPrompt:", error.message);
     }
+
+    // Recovery history is a nested collection and must not survive account deletion.
+    await db.recursiveDelete(db.collection('users').doc(userId).collection('revampHistory'));
+    const oauthStates = await db.collection('gscOAuthStates').where('uid', '==', userId).get();
+    for (const state of oauthStates.docs) await state.ref.delete();
 
     // 3. Delete user profile data
     try {
@@ -551,6 +558,7 @@ export async function POST(req) {
       message: `Successfully deleted ${deleteCount} documents`,
     });
   } catch (error) {
+    if (error.status) return errorResponse(error);
     console.error("Error deleting user data:", error);
     return NextResponse.json(
       { error: "Failed to delete user data", details: error.message },

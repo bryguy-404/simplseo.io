@@ -26,7 +26,7 @@ export class GSCTokenManager {
 
       // Create the document data, preserving existing tokens if not provided
       const docData = {
-        gscRefreshToken: refreshToken !== null ? refreshToken : existingData.gscRefreshToken,
+        gscRefreshToken: refreshToken || existingData.gscRefreshToken || null,
         gscAccessToken: accessToken || existingData.gscAccessToken,
         gscConnectedAt: new Date().toISOString(),
         gscLastSync: new Date().toISOString(),
@@ -191,7 +191,7 @@ export class GSCTokenManager {
     } catch (error) {
       console.error("❌ Failed to refresh GSC access token:", error);
       // If refresh fails, clear the connection
-      await this.clearGSCData();
+      // Keep the stored connection on temporary failures.
       return null;
     }
   }

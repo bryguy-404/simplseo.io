@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint app functions/index.js",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@google-cloud/bigquery": "^8.1.1",
@@ -52,12 +54,14 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.64.0",
     "@tailwindcss/postcss": "^4.1.4",
     "@types/node": "22.14.1",
     "@types/react": "19.1.2",
     "dotenv": "^17.2.3",
     "eslint": "^9",
     "eslint-config-next": "15.3.6",
-    "tailwindcss": "^4.1.4"
+    "tailwindcss": "^4.1.4",
+    "vitest": "^5.0.3"
   }
 }

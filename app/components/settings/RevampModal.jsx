@@ -1,5 +1,6 @@
 "use client";
 
+import { authenticatedFetch } from "../../lib/authenticatedFetch";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "../../contexts/OnboardingContext";
@@ -19,7 +20,7 @@ import { AlertTriangle, Calendar, Globe, Rocket, ArrowLeft } from "lucide-react"
 export default function RevampModal({ open, onClose }) {
   const router = useRouter();
   const { user } = useAuth();
-  const { data, updateData } = useOnboarding();
+  const { data, updateData, reloadData } = useOnboarding();
 
   const [step, setStep] = useState(1);
   const [subState, setSubState] = useState(null); // "not-live", "new-domain", "warning"
@@ -72,10 +73,10 @@ export default function RevampModal({ open, onClose }) {
     setArchiveError(null);
 
     try {
-      const res = await fetch("/api/revamp/archive", {
+      const res = await authenticatedFetch("/api/revamp/archive", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id }),
+        body: JSON.stringify({ userId: user.id, revampDate }),
       });
 
       if (!res.ok) {
@@ -83,11 +84,7 @@ export default function RevampModal({ open, onClose }) {
         throw new Error(errorData.error || "Archive failed");
       }
 
-      await updateData({
-        revampStatus: "in-progress",
-        revampDate: revampDate,
-        revampInitiatedAt: new Date().toISOString(),
-      });
+      await reloadData();
 
       resetAndClose();
       router.push("/revamp");
@@ -301,15 +298,15 @@ export default function RevampModal({ open, onClose }) {
               <ul className="space-y-2 text-sm">
                 <li className="flex items-start gap-2">
                   <span className="text-amber-500 mt-0.5">•</span>
-                  <span>Your current tracked pages and data will be <strong>archived</strong>. You can still view them in Site History under Settings, but you will not be able to edit or take any actions on them.</span>
+                  <span>Your current tracked pages and data will be <strong>archived</strong>. You can still view them in Previous website work, but you will not be able to edit or take any actions on them.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-amber-500 mt-0.5">•</span>
-                  <span>Your account will be <strong>locked to the revamp setup flow</strong> until your new site is fully configured.</span>
+                  <span>Your dashboard and settings stay available during setup.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-amber-500 mt-0.5">•</span>
-                  <span>You will <strong>not be able to access the main dashboard</strong> until your new pages are tracked by Google Search Console and you have selected focus keywords for each page.</span>
+                  <span>Search data monitoring continues independently. Focus keywords are optional.</span>
                 </li>
               </ul>
 

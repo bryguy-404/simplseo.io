@@ -1,3 +1,6 @@
+import { writeSeoRecord } from "./writeSeoRecord";
+
+import { authenticatedFetch } from "./authenticatedFetch";
 import { doc, getDoc, setDoc, collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
 import { db } from "./firebaseConfig";
 
@@ -54,7 +57,7 @@ export const saveContentAuditResult = async (userId, pageUrl, auditResult) => {
   try {
     const docId = `${userId}_${encodeURIComponent(pageUrl)}`;
     const docRef = doc(db, "contentAuditResults", docId);
-    await setDoc(docRef, {
+    await writeSeoRecord(docRef, {
       ...auditResult,
       pageUrl,
       userId,
@@ -85,7 +88,7 @@ export const saveAiSuggestions = async (userId, pageUrl, suggestions) => {
   try {
     const docId = `${userId}_${encodeURIComponent(pageUrl)}`;
     const docRef = doc(db, "aiSuggestions", docId);
-    await setDoc(docRef, {
+    await writeSeoRecord(docRef, {
       ...suggestions,
       pageUrl,
       userId,
@@ -121,7 +124,7 @@ export const getCachedSitePages = async (userId, maxPages = 5) => {
 // Focus keyword helpers
 export const saveFocusKeywords = async (userId, keywords, snapshot = null) => {
   try {
-    const response = await fetch("/api/focus-keywords", {
+    const response = await authenticatedFetch("/api/focus-keywords", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -147,7 +150,7 @@ export const saveFocusKeywords = async (userId, keywords, snapshot = null) => {
 
 export const getFocusKeywords = async (userId) => {
   try {
-    const response = await fetch(
+    const response = await authenticatedFetch(
       `/api/focus-keywords?userId=${encodeURIComponent(userId)}`
     );
     if (!response.ok) {

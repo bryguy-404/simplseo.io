@@ -1,3 +1,4 @@
+import { requireUser, errorResponse } from "../../../lib/server/requestAuth";
 import { NextResponse } from "next/server";
 import { db, admin } from "../../../lib/firebaseAdmin";
 
@@ -20,6 +21,7 @@ export async function POST(req) {
       excludedUrls = [],
       manualUrls = [],
     } = await req.json();
+    await requireUser(req, userId);
 
     if (!userId) {
       return NextResponse.json(
@@ -255,6 +257,7 @@ export async function POST(req) {
       total: pagesToSave.length,
     });
   } catch (error) {
+    if (error.status) return errorResponse(error);
     console.error("❌ Failed to save pages:", error);
     return NextResponse.json(
       { error: "Failed to save pages", details: error.message },

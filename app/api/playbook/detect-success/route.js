@@ -53,7 +53,7 @@ export async function GET(req) {
     const secret = searchParams.get("secret");
 
     // Simple secret check for cron job security
-    if (secret !== process.env.CRON_SECRET) {
+    if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

@@ -1,5 +1,8 @@
 "use client";
 
+import { reconnectGsc } from "../lib/reconnectGsc";
+import { authenticatedFetch } from "../lib/authenticatedFetch";
+
 import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { db } from "../lib/firebaseConfig";
@@ -176,77 +179,10 @@ export default function LowCtrPage() {
   }, [user, timePeriod]); // Add timePeriod dependency
 
   const requestGSCAuthToken = async () => {
-    if (!user?.id) return;
-    
-    // Clear existing GSC data first
     try {
-      const tokenManager = createGSCTokenManager(user.id);
-      await tokenManager.clearGSCData();
-    } catch (error) {
-      console.error("Failed to clear GSC data:", error);
-    }
-    
-    // Use authorization code flow to get refresh tokens
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-      `client_id=956212275866-7dtgdq7b38b156riehghuvh8b8469ktg.apps.googleusercontent.com&` +
-      `redirect_uri=${encodeURIComponent(window.location.origin + '/gsc-callback')}&` +
-      `response_type=code&` +
-      `scope=${encodeURIComponent(GSC_SCOPE)}&` +
-      `access_type=offline&` +
-      `prompt=consent&` +
-      `include_granted_scopes=true`;
-    
-    // Open popup for authorization
-    const popup = window.open(authUrl, 'gsc-auth', 'width=500,height=600');
-    
-    // Listen for the authorization code
-    const handleMessage = async (event) => {
-      if (event.origin !== window.location.origin) return;
-      
-      if (event.data.type === 'GSC_AUTH_SUCCESS' && event.data.code) {
-        console.log("🔐 Authorization code received:", event.data.code);
-        
-        try {
-          // Exchange code for tokens
-          const response = await fetch('/api/gsc/exchange-code', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: event.data.code })
-          });
-          
-          const tokenData = await response.json();
-          
-          if (tokenData.access_token) {
-            const tokenManager = createGSCTokenManager(user.id);
-            
-            // Store tokens in Firestore
-            await tokenManager.storeTokens(
-              tokenData.refresh_token || null,
-              tokenData.access_token,
-              null // siteUrl will be set after matching
-            );
-
-            setIsGscConnected(true);
-
-            await setDoc(
-              doc(db, "onboarding", user.id),
-              { hasGSC: true },
-              { merge: true }
-            );
-
-            // Reload the page to fetch GSC data
-            window.location.reload();
-          }
-        } catch (error) {
-          console.error("❌ Failed to exchange code for tokens:", error);
-        }
-        
-        popup.close();
-        window.removeEventListener('message', handleMessage);
-      }
-    };
-    
-    window.addEventListener('message', handleMessage);
+      const tokens = await reconnectGsc();
+      setIsGscConnected(true); window.location.reload();
+    } catch (error) { window.alert(error.message); }
   };
 
   useEffect(() => {
@@ -392,7 +328,7 @@ export default function LowCtrPage() {
       if (!user?.id) return;
       
       try {
-        const response = await fetch(`/api/focus-keywords/restore?userId=${encodeURIComponent(user.id)}`);
+        const response = await authenticatedFetch(`/api/focus-keywords/restore?userId=${encodeURIComponent(user.id)}`);
         if (response.ok) {
           const data = await response.json();
           if (data.hasSnapshot && data.snapshotKeywordsCount > data.currentKeywordsCount) {
@@ -414,7 +350,7 @@ export default function LowCtrPage() {
     
     setIsRestoring(true);
     try {
-      const response = await fetch("/api/focus-keywords/restore", {
+      const response = await authenticatedFetch("/api/focus-keywords/restore", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id }),

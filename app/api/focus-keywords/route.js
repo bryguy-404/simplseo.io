@@ -1,11 +1,13 @@
-"use server";
+import { requireUser, errorResponse } from "../../lib/server/requestAuth";
+import { ensureCurrentHistory } from "../../lib/server/revampHistory";
 
 import { NextResponse } from "next/server";
 import { db } from "../../lib/firebaseAdmin";
 
 export async function GET(request) {
+  try {
   const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
+  const userId = await requireUser(request, searchParams.get("userId"));
 
   if (!userId) {
     return NextResponse.json(
@@ -21,6 +23,7 @@ export async function GET(request) {
     }
 
     const data = docRef.data();
+    if (data.preRevampArchived) return NextResponse.json({ keywords: [], updatedAt: data.updatedAt || null, snapshot: null, archived: true });
     const sanitizedKeywords = Array.isArray(data.keywords)
       ? data.keywords
           .map((entry) => {
@@ -49,17 +52,21 @@ export async function GET(request) {
       snapshot: data.snapshot || null, // Include snapshot if available
     });
   } catch (error) {
+    if (error.status) return errorResponse(error);
     console.error("Failed to load focus keywords:", error);
     return NextResponse.json(
       { error: "Failed to load focus keywords" },
       { status: 500 }
     );
   }
+  } catch (error) { return errorResponse(error); }
 }
 
 export async function POST(request) {
   try {
-    const { userId, keywords = [], snapshot = null } = await request.json();
+    const { userId: suppliedUserId, keywords = [], snapshot = null } = await request.json();
+    const userId = await requireUser(request, suppliedUserId);
+    await ensureCurrentHistory(userId);
 
     if (!userId) {
       return NextResponse.json(
@@ -112,6 +119,7 @@ export async function POST(request) {
 
     const updateData = {
       userId,
+      preRevampArchived: false,
       keywords: cleanedKeywords,
       updatedAt: new Date().toISOString(),
     };
@@ -134,6 +142,7 @@ export async function POST(request) {
       keywords: cleanedKeywords,
     });
   } catch (error) {
+    if (error.status) return errorResponse(error);
     console.error("Failed to save focus keywords:", error);
     return NextResponse.json(
       { error: "Failed to save focus keywords" },

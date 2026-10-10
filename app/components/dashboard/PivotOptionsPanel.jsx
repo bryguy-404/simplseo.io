@@ -1,4 +1,7 @@
 "use client";
+import { writeSeoRecord } from "../../lib/writeSeoRecord";
+
+import { authenticatedFetch } from "../../lib/authenticatedFetch";
 
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -22,7 +25,7 @@ import {
 // ChevronUp removed - now using ChevronRight/ChevronDown to match Content Audit Card
 import { toast } from "sonner";
 import { db } from "../../lib/firebaseConfig";
-import { doc, setDoc, getDoc, deleteField } from "firebase/firestore";
+import { doc, getDoc, deleteField } from "firebase/firestore";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   Collapsible,
@@ -891,7 +894,7 @@ const PivotOptionsPanel = ({
 
       // RESET tracking - Set new implementedAt and preStats (matching Content Audit E3 flow)
       // This keeps the page "implemented" but resets the progress to Day 0
-      await setDoc(
+      await writeSeoRecord(
         doc(db, "implementedSeoTips", docId),
         {
           keywordHistory: updatedHistory,
@@ -924,7 +927,7 @@ const PivotOptionsPanel = ({
       );
 
       // Update focus keywords - fetch existing and update
-      const existingResponse = await fetch(`/api/focus-keywords?userId=${user.id}`);
+      const existingResponse = await authenticatedFetch(`/api/focus-keywords?userId=${user.id}`);
       let existingKeywords = [];
       
       if (existingResponse.ok) {
@@ -958,7 +961,7 @@ const PivotOptionsPanel = ({
         }
       ];
 
-      await fetch("/api/focus-keywords", {
+      await authenticatedFetch("/api/focus-keywords", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1215,7 +1218,7 @@ const PivotOptionsPanel = ({
       };
 
       // Update the document with new tracking status
-      await setDoc(
+      await writeSeoRecord(
         doc(db, "implementedSeoTips", docId),
         {
           metaOptimizationHistory: metaOptimizationHistory,
@@ -1252,13 +1255,13 @@ const PivotOptionsPanel = ({
         const encodedCacheKey = encodeURIComponent(cacheKey);
         
         await Promise.all([
-          setDoc(doc(db, "seoMetaTitles", encodedCacheKey), {
+          writeSeoRecord(doc(db, "seoMetaTitles", encodedCacheKey), {
             title: optimizeMetaNewTitle,
             createdAt: new Date().toISOString(),
             focusKeywords: focusKeyword ? [focusKeyword] : [],
             pageUrl,
           }),
-          setDoc(doc(db, "seoMetaDescriptions", encodedCacheKey), {
+          writeSeoRecord(doc(db, "seoMetaDescriptions", encodedCacheKey), {
             description: optimizeMetaNewDescription,
             createdAt: new Date().toISOString(),
             focusKeywords: focusKeyword ? [focusKeyword] : [],
@@ -1361,7 +1364,7 @@ const PivotOptionsPanel = ({
       };
 
       // Reset tracking and start fresh 45-day cycle
-      await setDoc(
+      await writeSeoRecord(
         doc(db, "implementedSeoTips", docId),
         {
           // Set new implementation type for tracking

@@ -1,11 +1,14 @@
+import { requireUser, errorResponse } from "../../../lib/server/requestAuth";
 import { NextResponse } from "next/server";
-import { cachePageContent } from "../../../lib/firestoreMigrationHelpers";
+import { db } from "../../../lib/firebaseAdmin";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
 export async function POST(req) {
   try {
-    const { url, websiteUrl, userId } = await req.json();
+    const { url, userId: suppliedUserId } = await req.json();
+    const userId = await requireUser(req, suppliedUserId);
+    const websiteUrl = (await db.collection("onboarding").doc(userId).get()).data()?.websiteUrl;
 
     if (!url || !websiteUrl) {
       return NextResponse.json(
@@ -68,33 +71,9 @@ export async function POST(req) {
       }
 
       if (response.ok) {
-        // Scrape and cache page content (best-effort, don't block validation)
-        if (userId) {
-          try {
-            const scrapeRes = await fetch(`${BASE_URL}/api/scrape-content`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ pageUrl: fetchUrl }),
-            });
-
-            if (scrapeRes.ok) {
-              const scrapeJson = await scrapeRes.json();
-              if (scrapeJson?.data) {
-                await cachePageContent(userId, fetchUrl, {
-                  ...scrapeJson.data,
-                  source: "site-crawl",
-                  isNavLink: false,
-                  crawlOrder: null,
-                  crawlTags: ["manual", "revamp-added"],
-                });
-              }
-            }
-          } catch (scrapeError) {
-            console.warn("Scrape/cache failed for manually added URL:", scrapeError.message);
-          }
-        }
-
-        return NextResponse.json({ valid: true }, { status: 200 });
+        const finalUrl = new URL(response.url);
+        if (stripWww(finalUrl.hostname) !== stripWww(parsedSite.hostname)) return NextResponse.json({ valid: false, reason: 'This page redirects outside your website.' });
+        return NextResponse.json({ valid: true, url: fetchUrl, finalUrl: finalUrl.href });
       }
 
       return NextResponse.json(
@@ -114,6 +93,7 @@ export async function POST(req) {
       );
     }
   } catch (error) {
+    if (error.status) return errorResponse(error);
     console.error("URL validation failed:", error);
     return NextResponse.json(
       { error: "Validation failed", details: error.message },

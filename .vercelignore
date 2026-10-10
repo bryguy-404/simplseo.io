@@ -1,0 +1,16 @@
+.git
+.env*
+node_modules
+.next
+functions
+scripts
+tests
+docs
+playwright-report
+test-results
+coverage
+recovery-backups
+*-debug.log
+CHAT_REFERENCE.md
+CHAT_CONVERSATION_HISTORY_REFERENCE.md
+CLAUDE.md

@@ -90,7 +90,7 @@ export const AuthProvider = ({ children }) => {
 
       const credential = GoogleAuthProvider.credentialFromResult(result);
       const token = credential?.accessToken;
-      console.log("🔐 Google OAuth Token:", token);
+
       // Store token if needed
     } catch (error) {
       throw new Error(error.message || "Google login failed.");

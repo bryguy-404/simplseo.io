@@ -1,9 +1,21 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function recoveryWritesAllowed() {
+      let setupPath = /databases/$(database)/documents/onboarding/$(request.auth.uid);
+      let setup = exists(setupPath) ? get(setupPath).data : {};
+      let runId = setup.get('revampRunId', '');
+      return !exists(setupPath) || (
+        setup.get('revampArchivePending', null) == null &&
+        (runId == '' || get(/databases/$(database)/documents/users/$(request.auth.uid)/revampHistory/$(runId)).data.complete == true)
+      );
+    }
     // Allow users to read/write their own onboarding data
     match /onboarding/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['revampArchivePending', 'revampRunId', 'revampSchemaVersion', 'revampMonitoringEnabled', 'progressReviewRequired']);
+      allow delete: if request.auth != null && request.auth.uid == userId;
     }
     
     // Allow users to read/write their own user data (including GSC tokens)
@@ -23,12 +35,14 @@ service cloud.firestore {
     
     // Allow users to read/write their own implemented SEO tips
     match /implementedSeoTips/{docId} {
-      allow read, write: if request.auth != null && (
-        // New format: check userId field
-        (resource.data.userId == request.auth.uid) ||
-        // Old format: check if document ID starts with user ID
-        (docId.matches(request.auth.uid + '_.*'))
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid || docId.matches(request.auth.uid + '_.*')
       );
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid && recoveryWritesAllowed();
+      allow update: if request.auth != null && request.resource.data.get("userId", request.auth.uid) == request.auth.uid && (
+        resource.data.userId == request.auth.uid || docId.matches(request.auth.uid + '_.*')
+      ) && recoveryWritesAllowed();
+      allow delete: if request.auth != null && (resource.data.userId == request.auth.uid || docId.matches(request.auth.uid + "_.*")) && recoveryWritesAllowed();
     }
     
     // Allow users to read/write their own internal link suggestions
@@ -129,22 +143,26 @@ service cloud.firestore {
     
     // Allow users to read/write their own content audit results
     match /contentAuditResults/{docId} {
-      allow read, write: if request.auth != null && (
-        // New format: check userId field
-        (resource.data.userId == request.auth.uid) ||
-        // Old format: check if document ID starts with user ID
-        (docId.matches(request.auth.uid + '_.*'))
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid || docId.matches(request.auth.uid + '_.*')
       );
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid && recoveryWritesAllowed();
+      allow update: if request.auth != null && request.resource.data.get("userId", request.auth.uid) == request.auth.uid && (
+        resource.data.userId == request.auth.uid || docId.matches(request.auth.uid + '_.*')
+      ) && recoveryWritesAllowed();
+      allow delete: if request.auth != null && (resource.data.userId == request.auth.uid || docId.matches(request.auth.uid + "_.*")) && recoveryWritesAllowed();
     }
     
     // Allow users to read/write their own AI suggestions
     match /aiSuggestions/{docId} {
-      allow read, write: if request.auth != null && (
-        // New format: check userId field
-        (resource.data.userId == request.auth.uid) ||
-        // Old format: check if document ID starts with user ID
-        (docId.matches(request.auth.uid + '_.*'))
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid || docId.matches(request.auth.uid + '_.*')
       );
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid && recoveryWritesAllowed();
+      allow update: if request.auth != null && request.resource.data.get("userId", request.auth.uid) == request.auth.uid && (
+        resource.data.userId == request.auth.uid || docId.matches(request.auth.uid + '_.*')
+      ) && recoveryWritesAllowed();
+      allow delete: if request.auth != null && (resource.data.userId == request.auth.uid || docId.matches(request.auth.uid + "_.*")) && recoveryWritesAllowed();
     }
     
     // Training events - server-side only (no client access)

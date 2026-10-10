@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { saveOnboardingData, getOnboardingData } from "../lib/firestoreHelpers";
 import { useAuth } from "./AuthContext";
 
@@ -78,6 +78,8 @@ export const OnboardingProvider = ({ children }) => {
   const [data, setData] = useState(initialData);
   const [isLoaded, setIsLoaded] = useState(false);
   const { user } = useAuth();
+  const dataRef = useRef(data);
+  dataRef.current = data;
 
   useEffect(() => {
     const loadData = async () => {
@@ -128,27 +130,26 @@ export const OnboardingProvider = ({ children }) => {
     loadData();
   }, [user]);
 
-  const updateData = (newData) => {
-    setData((prevData) => {
-      const updated = { ...prevData, ...newData };
-      
-      if (user) {
-        // Only save to Firestore when onboarding is complete
-        if (updated.isComplete) {
-          console.log("✅ Onboarding complete - saving to Firestore");
-          saveOnboardingData(user.id, updated).catch((err) =>
-            console.error("❌ Failed to save onboarding data to Firestore:", err)
-          );
-          // Clear draft from localStorage since onboarding is complete
-          clearDraftFromLocalStorage(user.id);
-        } else {
-          // Save draft to localStorage only (not Firestore)
-          saveDraftToLocalStorage(user.id, updated);
-        }
+  const updateData = async (newData) => {
+    const previous = dataRef.current;
+    const updated = { ...previous, ...newData };
+    if (user) {
+      if (updated.isComplete) {
+        // After initial completion, only write changed fields; never stale monitoring data.
+        await saveOnboardingData(user.id, previous.isComplete ? newData : updated);
+        clearDraftFromLocalStorage(user.id);
+      } else {
+        saveDraftToLocalStorage(user.id, updated);
       }
-      
-      return updated;
-    });
+    }
+    dataRef.current = { ...dataRef.current, ...newData };
+    setData(dataRef.current);
+  };
+
+  const reloadData = async () => {
+    if (!user) return;
+    const stored = await getOnboardingData(user.id);
+    if (stored) { dataRef.current = { ...initialData, ...stored }; setData(dataRef.current); }
   };
 
   const resetData = () => {
@@ -164,7 +165,7 @@ export const OnboardingProvider = ({ children }) => {
   };
 
   return (
-    <OnboardingContext.Provider value={{ data, updateData, resetData, isLoaded }}>
+    <OnboardingContext.Provider value={{ data, updateData, resetData, reloadData, isLoaded }}>
       {children}
     </OnboardingContext.Provider>
   );
