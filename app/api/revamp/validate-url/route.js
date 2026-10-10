@@ -1,3 +1,4 @@
+import { publicFetch } from '../../../lib/server/publicFetch';
 import { requireUser, errorResponse } from "../../../lib/server/requestAuth";
 import { NextResponse } from "next/server";
 import { db } from "../../../lib/firebaseAdmin";
@@ -55,7 +56,7 @@ export async function POST(req) {
     // Check if the URL returns content (HEAD request with GET fallback)
     const fetchUrl = parsedUrl.href;
     try {
-      let response = await fetch(fetchUrl, {
+      let response = await publicFetch(fetchUrl, {
         method: "HEAD",
         redirect: "follow",
         signal: AbortSignal.timeout(10000),
@@ -63,7 +64,7 @@ export async function POST(req) {
 
       // Some servers don't support HEAD, try GET
       if (response.status === 405 || response.status === 403) {
-        response = await fetch(fetchUrl, {
+        response = await publicFetch(fetchUrl, {
           method: "GET",
           redirect: "follow",
           signal: AbortSignal.timeout(10000),

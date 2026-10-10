@@ -1,3 +1,4 @@
+import { scrapeContentResponse } from '../../../lib/server/scrapeContent';
 import { requireUser, errorResponse } from "../../../lib/server/requestAuth";
 import { NextResponse } from "next/server";
 import { db, admin } from "../../../lib/firebaseAdmin";
@@ -146,11 +147,7 @@ export async function POST(req) {
           page;
 
         // Scrape the page content
-        const scrapeRes = await fetch(`${SCRAPE_BASE_URL}/api/scrape-content`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pageUrl }),
-        });
+        const scrapeRes = await scrapeContentResponse(pageUrl);
 
         if (!scrapeRes.ok) {
           throw new Error(`Scrape failed with status ${scrapeRes.status}`);

@@ -1,3 +1,5 @@
+
+import { authenticatedFetch } from './authenticatedFetch';
 // ✅ app/lib/fetchSitemapUrls.js
 /**
  * Fetch sitemap URLs for a given site
@@ -11,7 +13,7 @@ export async function fetchSitemapUrls(siteUrl) {
   }
   
   try {
-    const res = await fetch("/api/sitemap", {
+    const res = await authenticatedFetch("/api/sitemap", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ siteUrl }),

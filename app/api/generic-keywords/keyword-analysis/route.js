@@ -1,6 +1,7 @@
+import { authenticatedRoute } from '../../../lib/server/authenticatedRoute';
 import { NextResponse } from "next/server";
 
-export async function POST(req) {
+async function handlePOST(req) {
   try {
     const { keyword, businessType, businessLocation, userId } = await req.json();
 
@@ -279,3 +280,5 @@ function getPageTypeFallback(keyword) {
   return { pageType: "Service Page", reason: "This keyword is best targeted with a dedicated service page.", suggestedUrl: `/${keyword.toLowerCase().replace(/\s+/g, '-')}`, priority: "High" };
 }
 
+
+export const POST = authenticatedRoute(handlePOST, { quota: 'ai' });

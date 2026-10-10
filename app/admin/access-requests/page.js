@@ -1,4 +1,6 @@
 "use client";
+import { authenticatedFetch } from '../../lib/authenticatedFetch';
+
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -12,48 +14,28 @@ import { Badge } from "@/components/ui/badge";
 
 export default function AdminAccessRequestsPage() {
   const router = useRouter();
-  const [adminSecret, setAdminSecret] = useState("");
+
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState("pending");
 
-  useEffect(() => {
-    // Check if admin secret is stored (just for UI, server will verify)
-    const storedSecret = localStorage.getItem("adminSecret");
-    if (storedSecret) {
-      setIsAuthenticated(true);
-      fetchRequests(storedSecret);
-    }
-  }, []);
+  useEffect(() => { localStorage.removeItem('adminSecret'); }, []);
 
   const handleLogin = async () => {
-    if (!adminSecret.trim()) {
-      toast.error("Please enter admin secret");
-      return;
-    }
-    
-    // Verify secret by trying to fetch requests
     try {
-      const response = await fetch(`/api/admin/approve?adminSecret=${adminSecret}&status=pending`);
+      const response = await authenticatedFetch('/api/admin/approve?status=pending');
       const data = await response.json();
-      
-      if (data.success || data.error !== "Unauthorized") {
-        setIsAuthenticated(true);
-        localStorage.setItem("adminSecret", adminSecret);
-        fetchRequests(adminSecret);
-      } else {
-        toast.error("Invalid admin secret");
-      }
-    } catch (error) {
-      toast.error("Failed to verify admin secret");
-    }
+      if (!response.ok) throw new Error(data.error || 'Administrator access required.');
+      setIsAuthenticated(true);
+      setRequests(data.requests || []);
+    } catch (error) { toast.error(error.message); }
   };
 
-  const fetchRequests = async (secret) => {
+  const fetchRequests = async (status = statusFilter) => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/admin/approve?adminSecret=${secret}&status=${statusFilter}`);
+      const response = await authenticatedFetch(`/api/admin/approve?status=${status}`);
       const data = await response.json();
       
       if (data.success) {
@@ -71,8 +53,7 @@ export default function AdminAccessRequestsPage() {
 
   const handleApprove = async (requestId) => {
     try {
-      const secret = localStorage.getItem("adminSecret");
-      const response = await fetch("/api/admin/approve", {
+      const response = await authenticatedFetch("/api/admin/approve", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -80,7 +61,6 @@ export default function AdminAccessRequestsPage() {
         body: JSON.stringify({
           requestId,
           action: "approve",
-          adminSecret: secret,
         }),
       });
 
@@ -90,7 +70,7 @@ export default function AdminAccessRequestsPage() {
         toast.success("Request approved!", {
           description: `Invitation code sent to ${data.email}`,
         });
-        fetchRequests(secret);
+        fetchRequests();
       } else {
         toast.error("Failed to approve request");
       }
@@ -102,8 +82,7 @@ export default function AdminAccessRequestsPage() {
 
   const handleReject = async (requestId) => {
     try {
-      const secret = localStorage.getItem("adminSecret");
-      const response = await fetch("/api/admin/approve", {
+      const response = await authenticatedFetch("/api/admin/approve", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -111,7 +90,6 @@ export default function AdminAccessRequestsPage() {
         body: JSON.stringify({
           requestId,
           action: "reject",
-          adminSecret: secret,
         }),
       });
 
@@ -119,7 +97,7 @@ export default function AdminAccessRequestsPage() {
       
       if (data.success) {
         toast.success("Request rejected");
-        fetchRequests(secret);
+        fetchRequests();
       } else {
         toast.error("Failed to reject request");
       }
@@ -135,24 +113,12 @@ export default function AdminAccessRequestsPage() {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Admin Access</CardTitle>
-            <CardDescription>Enter admin secret to access</CardDescription>
+            <CardDescription>Sign in with your administrator account, then verify access.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="secret">Admin Secret</Label>
-              <Input
-                id="secret"
-                type="password"
-                value={adminSecret}
-                onChange={(e) => setAdminSecret(e.target.value)}
-                placeholder="Enter admin secret"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleLogin();
-                }}
-              />
-            </div>
+            <Button variant="outline" onClick={() => router.push('/auth')} className="w-full">Sign in</Button>
             <Button onClick={handleLogin} className="w-full">
-              Login
+              Verify administrator access
             </Button>
           </CardContent>
         </Card>
@@ -175,7 +141,7 @@ export default function AdminAccessRequestsPage() {
               variant={statusFilter === "pending" ? "default" : "outline"}
               onClick={() => {
                 setStatusFilter("pending");
-                fetchRequests(localStorage.getItem("adminSecret"));
+                fetchRequests("pending");
               }}
             >
               Pending ({requests.filter(r => r.status === "pending").length})
@@ -184,7 +150,7 @@ export default function AdminAccessRequestsPage() {
               variant={statusFilter === "approved" ? "default" : "outline"}
               onClick={() => {
                 setStatusFilter("approved");
-                fetchRequests(localStorage.getItem("adminSecret"));
+                fetchRequests("approved");
               }}
             >
               Approved
@@ -193,7 +159,7 @@ export default function AdminAccessRequestsPage() {
               variant={statusFilter === "rejected" ? "default" : "outline"}
               onClick={() => {
                 setStatusFilter("rejected");
-                fetchRequests(localStorage.getItem("adminSecret"));
+                fetchRequests("rejected");
               }}
             >
               Rejected

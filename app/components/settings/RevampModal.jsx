@@ -64,7 +64,6 @@ export default function RevampModal({ open, onClose }) {
   };
 
   const handleCancel = async () => {
-    await updateData({ revampDate: null });
     resetAndClose();
   };
 

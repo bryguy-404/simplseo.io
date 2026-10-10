@@ -1,214 +1,23 @@
-import { NextResponse } from "next/server";
-import { db } from "../../../lib/firebaseAdmin";
+import { requireUser, RequestError, errorResponse } from '../../../lib/server/requestAuth';
+import { getGscConnection } from '../../../lib/server/gscConnection';
+import { propertyContainsUrl } from '../../../lib/revampState';
+import { searchWindow, keywordRows } from '../../../lib/searchWindow';
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const { userId, pageUrl, dateRange = "28", token, siteUrl } = await req.json();
-
-    console.log("🔍 [PAGE-KEYWORDS] Request received:", { userId, pageUrl, dateRange, hasToken: !!token, hasSiteUrl: !!siteUrl });
-
-    if (!pageUrl) {
-      return NextResponse.json(
-        { error: "Page URL is required" },
-        { status: 400 }
-      );
-    }
-
-    let accessToken = token;
-    let gscSiteUrl = siteUrl;
-
-    // If token and siteUrl are provided directly, use them (preferred)
-    // Otherwise, try to get from Firestore
-    if (!accessToken || !gscSiteUrl) {
-      if (!userId) {
-        return NextResponse.json(
-          { error: "User ID is required when token/siteUrl not provided" },
-          { status: 400 }
-        );
-      }
-
-      console.log("🔍 [PAGE-KEYWORDS] Fetching GSC data from Firestore for user:", userId);
-      
-      // Get GSC data from Firestore using Admin SDK
-      const gscDoc = await db.collection('gscTokens').doc(userId).get();
-      
-      if (!gscDoc.exists) {
-        console.log("❌ [PAGE-KEYWORDS] No GSC document found for user:", userId);
-        return NextResponse.json(
-          { error: "No GSC data found for user", details: "gscTokens document does not exist" },
-          { status: 404 }
-        );
-      }
-
-      const gscData = gscDoc.data();
-      accessToken = accessToken || gscData.accessToken;
-      gscSiteUrl = gscSiteUrl || gscData.siteUrl;
-
-      console.log("🔍 [PAGE-KEYWORDS] Got GSC data:", { hasAccessToken: !!accessToken, siteUrl: gscSiteUrl });
-    }
-
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: "No valid GSC access token found" },
-        { status: 401 }
-      );
-    }
-
-    if (!gscSiteUrl) {
-      return NextResponse.json(
-        { error: "No GSC site URL found" },
-        { status: 400 }
-      );
-    }
-
-    // Fetch GSC data for the specified date range
-    const today = new Date();
-    const startDate = new Date();
-    
-    if (dateRange === "all") {
-      startDate.setFullYear(today.getFullYear() - 1);
-    } else {
-      startDate.setDate(today.getDate() - parseInt(dateRange));
-    }
-
-    const formatDate = (d) => d.toISOString().split("T")[0];
-    const from = formatDate(startDate);
-    const to = formatDate(today);
-
-    console.log(`🔍 [PAGE-KEYWORDS] Fetching keywords for page ${pageUrl} from ${from} to ${to}`);
-
-    // Use dimensionFilterGroups to filter by specific page URL
-    const response = await fetch(
-      `https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(
-        gscSiteUrl
-      )}/searchAnalytics/query`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          startDate: from,
-          endDate: to,
-          dimensions: ["query"],
-          dimensionFilterGroups: [
-            {
-              filters: [
-                {
-                  dimension: "page",
-                  operator: "equals",
-                  expression: pageUrl,
-                },
-              ],
-            },
-          ],
-          rowLimit: 500, // Get more keywords to capture the "other" category
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ [PAGE-KEYWORDS] GSC API error: ${response.status} - ${errorText}`);
-      return NextResponse.json(
-        { error: `GSC API error: ${response.status}`, details: errorText },
-        { status: response.status }
-      );
-    }
-
-    const data = await response.json();
-
-    console.log(`🔍 [PAGE-KEYWORDS] GSC response:`, { rowCount: data.rows?.length || 0 });
-
-    if (data.rows && data.rows.length > 0) {
-      // First, map all rows to keyword objects
-      const allKeywords = data.rows.map((row) => ({
-        keyword: row.keys[0].replace(/^\[|\]$/g, ""),
-        clicks: row.clicks,
-        impressions: row.impressions,
-        position: row.position,
-        ctrRaw: row.ctr * 100,
-      }));
-
-      // DEDUPLICATE: Group by keyword (case-insensitive), combine metrics
-      const keywordMap = new Map();
-      for (const kw of allKeywords) {
-        const key = kw.keyword.toLowerCase().trim();
-        if (keywordMap.has(key)) {
-          const existing = keywordMap.get(key);
-          // Sum impressions and clicks
-          existing.impressions += kw.impressions;
-          existing.clicks += kw.clicks;
-          // Take the best (lowest) position
-          existing.position = Math.min(existing.position, kw.position);
-          // Recalculate CTR based on combined metrics
-          existing.ctrRaw = existing.impressions > 0 
-            ? (existing.clicks / existing.impressions) * 100 
-            : 0;
-        } else {
-          // Use the original casing from the first occurrence
-          keywordMap.set(key, { ...kw });
-        }
-      }
-
-      // Convert back to array and format
-      const sortedKeywords = Array.from(keywordMap.values())
-        .map((kw) => ({
-          ...kw,
-          position: Math.round(kw.position * 10) / 10, // Round to 1 decimal
-          ctr: `${kw.ctrRaw.toFixed(1)}%`,
-        }))
-        .sort((a, b) => b.impressions - a.impressions);
-
-      // Split into top performers (meaningful traffic) and others (testing keywords)
-      // Top performers: keywords with 5+ impressions OR any clicks
-      const topPerformers = sortedKeywords.filter(
-        (k) => k.impressions >= 5 || k.clicks > 0
-      );
-      
-      const otherKeywords = sortedKeywords.filter(
-        (k) => k.impressions < 5 && k.clicks === 0
-      );
-
-      // Calculate totals
-      const totalImpressions = sortedKeywords.reduce((sum, k) => sum + k.impressions, 0);
-      const totalClicks = sortedKeywords.reduce((sum, k) => sum + k.clicks, 0);
-
-      console.log(`✅ [PAGE-KEYWORDS] Fetched ${allKeywords.length} raw keywords, deduplicated to ${sortedKeywords.length} unique keywords (${topPerformers.length} top, ${otherKeywords.length} other)`);
-      
-      return NextResponse.json({ 
-        success: true, 
-        keywords: {
-          topPerformers,
-          otherKeywords,
-          totals: {
-            impressions: totalImpressions,
-            clicks: totalClicks,
-            totalKeywords: sortedKeywords.length,
-          }
-        }
-      });
-    } else {
-      console.log("⚠️ [PAGE-KEYWORDS] No keywords found for this page");
-      return NextResponse.json({ 
-        success: true, 
-        keywords: {
-          topPerformers: [],
-          otherKeywords: [],
-          totals: {
-            impressions: 0,
-            clicks: 0,
-            totalKeywords: 0,
-          }
-        }
-      });
-    }
-  } catch (error) {
-    console.error("❌ [PAGE-KEYWORDS] API error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch page keywords", details: error.message },
-      { status: 500 }
-    );
-  }
+    const body = await request.json();
+    const uid = await requireUser(request, body.userId);
+    let window;
+    try { window = searchWindow(body.dateRange); } catch (e) { throw new RequestError(e.message); }
+    const connection = await getGscConnection(uid);
+    if (!propertyContainsUrl(connection.siteUrl, body.pageUrl)) throw new RequestError('Choose a page in your connected Search Console property.');
+    const result = await connection.query({ ...window, dimensions: ['query'], dataState: 'final', type: 'web', rowLimit: 1000,
+      dimensionFilterGroups: [{ filters: [{ dimension: 'page', operator: 'equals', expression: body.pageUrl }] }] });
+    const rows = keywordRows(result.rows);
+    return Response.json({ success: true, source: 'google_search_console', property: connection.siteUrl, pageUrl: body.pageUrl,
+      ...window, fetchedAt: new Date().toISOString(), coverage: 'reported_queries', mayBeIncomplete: true,
+      keywords: { topPerformers: rows.filter(row => row.impressions >= 5 || row.clicks > 0),
+        otherKeywords: rows.filter(row => row.impressions < 5 && row.clicks === 0),
+        totals: { impressions: rows.reduce((sum, row) => sum + row.impressions, 0), clicks: rows.reduce((sum, row) => sum + row.clicks, 0), totalKeywords: rows.length } } });
+  } catch (e) { return errorResponse(e); }
 }

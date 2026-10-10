@@ -1,3 +1,4 @@
+import { authenticatedRoute } from '../../../lib/server/authenticatedRoute';
 // app/api/seo-assistant/route.js
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
@@ -319,7 +320,7 @@ const buildPageSummary = (page, expanded = false) => {
   };
 };
 
-export async function POST(req) {
+async function handlePOST(req) {
   const { message, conversationHistory = [], context, userId } = await req.json();
 
   // Get cached pages and implementation summary in parallel
@@ -617,3 +618,5 @@ ${renderedPageSummaries}
 
   return NextResponse.json({ reply });
 }
+
+export const POST = authenticatedRoute(handlePOST, { quota: 'ai' });

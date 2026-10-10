@@ -1,4 +1,5 @@
 "use client";
+import { searchWindow } from "../lib/searchWindow";
 
 import { reconnectGsc } from "../lib/reconnectGsc";
 import { authenticatedFetch } from "../lib/authenticatedFetch";
@@ -9,6 +10,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { db } from "../lib/firebaseConfig";
 import { createGSCTokenManager } from "../lib/gscTokenManager";
 import MainLayout from "../components/MainLayout";
+import PageProgress from "../components/dashboard/PageProgress";
 import { useRouter } from "next/navigation";
 import SeoRecommendationPanel from "../components/dashboard/SeoRecommendationPanel";
 import Link from "next/link";
@@ -546,7 +548,7 @@ export default function Dashboard() {
         }
 
         // 3. Scrape and verify content exists
-        const scrapeRes = await fetch("/api/scrape-content", {
+        const scrapeRes = await authenticatedFetch("/api/scrape-content", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ pageUrl: url }),
@@ -947,13 +949,7 @@ export default function Dashboard() {
   // Fetch dashboard metrics (always uses 28 days - optimal sweet spot)
   const fetchDashboardMetrics = useCallback(async (siteUrl, token) => {
     setIsLoadingGscData(true);
-    const today = new Date();
-    const startDate = new Date();
-    startDate.setDate(today.getDate() - parseInt(dateRange)); // Always 28 days
-
-    const formatDate = (d) => d.toISOString().split("T")[0];
-    const from = formatDate(startDate);
-    const to = formatDate(today);
+    const { startDate: from, endDate: to } = searchWindow(dateRange);
 
     try {
       // 🔹 Fetch keyword + page performance
@@ -970,12 +966,14 @@ export default function Dashboard() {
           body: JSON.stringify({
             startDate: from,
             endDate: to,
+            dataState: "final",
             dimensions: ["query", "page"],
             rowLimit: 500,
           }),
         }
       );
 
+      if (!keywordRes.ok) throw new Error("Search Console could not load. Try again.");
       const keywordJson = await keywordRes.json();
 
       if (keywordJson.rows) {
@@ -1070,17 +1068,7 @@ export default function Dashboard() {
   // Fetch chart trends (uses chartDateRange - can be changed by user)
   const fetchChartTrends = useCallback(async (siteUrl, token, range) => {
     setIsRefreshingData(true);
-    const today = new Date();
-    const startDate = new Date();
-    if (range === "all") {
-      startDate.setFullYear(today.getFullYear() - 1);
-    } else {
-      startDate.setDate(today.getDate() - parseInt(range));
-    }
-
-    const formatDate = (d) => d.toISOString().split("T")[0];
-    const from = formatDate(startDate);
-    const to = formatDate(today);
+    const { startDate: from, endDate: to } = searchWindow(range);
 
     try {
       // 🔹 Fetch daily impressions for the chart
@@ -1097,12 +1085,14 @@ export default function Dashboard() {
           body: JSON.stringify({
             startDate: from,
             endDate: to,
+            dataState: "final",
             dimensions: ["date"],
             rowLimit: 1000,
           }),
         }
       );
 
+      if (!trendsRes.ok) throw new Error("Search Console could not load. Try again.");
       const trendsJson = await trendsRes.json();
 
       if (trendsJson.rows) {
@@ -1131,13 +1121,7 @@ export default function Dashboard() {
   // Fetch focus keywords with 90-day period (separate from dashboard metrics)
   const fetchFocusKeywords = useCallback(async (siteUrl, token) => {
     try {
-      const today = new Date();
-      const startDate = new Date();
-      startDate.setDate(today.getDate() - 90); // Fixed 90-day period for focus keywords
-
-      const formatDate = (d) => d.toISOString().split("T")[0];
-      const from = formatDate(startDate);
-      const to = formatDate(today);
+      const { startDate: from, endDate: to } = searchWindow("90");
 
       const keywordRes = await fetch(
         `https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(
@@ -1152,12 +1136,14 @@ export default function Dashboard() {
           body: JSON.stringify({
             startDate: from,
             endDate: to,
+            dataState: "final",
             dimensions: ["query", "page"],
             rowLimit: 500,
           }),
         }
       );
 
+      if (!keywordRes.ok) throw new Error("Search Console could not load. Try again.");
       const keywordJson = await keywordRes.json();
 
       console.log("🔑 Focus Keywords API Response:", {
@@ -2108,10 +2094,11 @@ export default function Dashboard() {
     >
       {['in-progress', 'complete'].includes(data?.revampStatus) && <div className="border rounded-lg p-5 mb-6 space-y-2">
         <h2 className="text-xl font-semibold">Website update monitoring</h2>
-        <p>Your dashboard is available while search data arrives. Historical performance metrics are unverified; automated outcome reviews are paused during recovery.</p>
+        <p>Your dashboard is available while search data arrives. Previous website work is preserved as read-only history. Page progress shows dated comparisons when enough data is available.</p>
         <a href="/revamp" className="underline mr-4">Review website setup</a>
         <a href="/revamp/history" className="underline">Previous website work</a>
       </div>}
+      {!isInPostOnboardingFlow && <PageProgress />}
       {/* Welcome message - shown when flow is complete or not in post-onboarding flow */}
       {(!isInPostOnboardingFlow || postOnboardingStep === 'complete') && (
         <div className="mb-6 animate-in fade-in duration-500">

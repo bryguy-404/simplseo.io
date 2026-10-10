@@ -1,3 +1,4 @@
+import { authenticatedRoute } from '../../../lib/server/authenticatedRoute';
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { db } from "../../../lib/firebaseAdmin";
@@ -9,7 +10,7 @@ import { getPlaybookStrategies } from "../../../lib/playbookHelpers";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export async function POST(req) {
+async function handlePOST(req) {
   let {
     pageUrl,
     onboarding,
@@ -261,3 +262,5 @@ The previous title(s) maintained ranking but failed to generate clicks. Your job
 
   return NextResponse.json({ title: aiTitle });
 }
+
+export const POST = authenticatedRoute(handlePOST, { quota: 'ai' });

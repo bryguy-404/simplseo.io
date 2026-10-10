@@ -1,3 +1,4 @@
+import { authenticatedRoute } from '../../lib/server/authenticatedRoute';
 import { NextResponse } from "next/server";
 import { db } from "../../lib/firebaseAdmin";
 import { saveConversationSummary } from "../../lib/conversationSummarizer";
@@ -48,7 +49,7 @@ async function generateConversationTitle(messages) {
 }
 
 // GET - Fetch all conversations for a user
-export async function GET(req) {
+async function handleGET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get('userId');
@@ -117,7 +118,7 @@ export async function GET(req) {
 }
 
 // POST - Create a new conversation
-export async function POST(req) {
+async function handlePOST(req) {
   try {
     const { userId, title, messages, source } = await req.json();
 
@@ -239,3 +240,6 @@ export async function POST(req) {
     }, { status: 500 });
   }
 }
+
+export const GET = authenticatedRoute(handleGET);
+export const POST = authenticatedRoute(handlePOST, { quota: 'ai' });

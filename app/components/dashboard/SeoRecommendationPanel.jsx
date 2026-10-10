@@ -1,4 +1,5 @@
 "use client";
+import { authenticatedFetch } from "../../lib/authenticatedFetch";
 import { writeSeoRecord } from "../../lib/writeSeoRecord";
 
 import { Copy, ChevronDown, History } from "lucide-react";
@@ -66,14 +67,8 @@ const SeoRecommendationPanel = ({
   const [isOpen, setIsOpen] = useState(false);
   const [isImplemented, setIsImplemented] = useState(false);
   const [checking, setChecking] = useState(false);
-  const [postStats, setPostStats] = useState(null);
-  const [delta, setDelta] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingCheckboxValue, setPendingCheckboxValue] = useState(false);
-  const [showRefreshButton, setShowRefreshButton] = useState(false);
-  const [daysSinceImplementation, setDaysSinceImplementation] = useState(null);
-  const [fortyFiveDayProgress, setFortyFiveDayProgress] = useState(null);
-  const [totalDaysTarget, setTotalDaysTarget] = useState(45); // Default 45, can be extended (90, 135, etc.)
   const [currentH1, setCurrentH1] = useState(null);
   const [loadingH1, setLoadingH1] = useState(false);
   const [currentMetaTitle, setCurrentMetaTitle] = useState(null);
@@ -107,68 +102,44 @@ const SeoRecommendationPanel = ({
   };
 
   const handleImplementation = async (checked) => {
-    setIsImplemented(checked);
-
-    if (checked && user?.id && pageUrl) {
+    if (checking || !user?.id || !pageUrl) return;
+    if (!checked) {
+      setChecking(true);
       try {
-        // Get GSC data using the token manager
-        const { createGSCTokenManager } = await import("../../lib/gscTokenManager");
-        const tokenManager = createGSCTokenManager(user.id);
-        
-        let preStats = { impressions: 0, clicks: 0, ctr: 0, position: 0 };
-        let gscToken = null;
-        let siteUrl = null;
-
-        try {
-          // Get stored GSC data
-          const gscData = await tokenManager.getStoredGSCData();
-          if (gscData?.accessToken && gscData?.siteUrl) {
-            gscToken = gscData.accessToken;
-            siteUrl = gscData.siteUrl;
-            
-            // Get valid access token
-            const validToken = await tokenManager.getValidAccessToken();
-            if (validToken) {
-              const res = await fetch("/api/gsc/page-metrics", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ token: validToken, siteUrl, pageUrl }),
-              });
-              if (res.ok) preStats = await res.json();
-            }
-          }
-        } catch (error) {
-          console.error("Error getting GSC data:", error);
-        }
-
+        await writeSeoRecord(doc(db, 'implementedSeoTips', createSafeDocId(user.id, pageUrl)), {
+          userId: user.id, pageUrl, status: 'cancelled', cancelledAt: new Date().toISOString(),
+        }, { merge: true });
+        setIsImplemented(false);
+        window.dispatchEvent(new Event('seo-implementation-changed'));
+      } catch { toast.error('Unable to save. Your change is still marked as confirmed.'); }
+      finally { setChecking(false); }
+      return;
+    }
+    if (checked && user?.id && pageUrl) {
+      setChecking(true);
+      try {
         const docId = createSafeDocId(user.id, pageUrl);
         const implementedAt = new Date();
-        // Set nextUpdateDue to exactly 7 days after implementation
-        // This creates an individual 7-day cycle for each tip
-        const nextUpdateDue = new Date(implementedAt.getTime() + 7 * 24 * 60 * 60 * 1000);
-        
         await writeSeoRecord(
           doc(db, "implementedSeoTips", docId),
           {
             userId: user.id,
             pageUrl,
             implementedAt: implementedAt.toISOString(),
-            nextUpdateDue: nextUpdateDue.toISOString(), // Individual 7-day schedule
             title: suggestedTitle,
             description: suggestedDescription,
             status: "implemented",
-            preStats,
-            gscToken, // Save the token for the Firebase function
-            siteUrl,  // Save the site URL for the Firebase function
           },
           { merge: true }
         );
 
-        toast.success("SEO tip marked as implemented.");
+        setIsImplemented(true);
+        window.dispatchEvent(new Event('seo-implementation-changed'));
+        toast.success("Change confirmed. Page progress will show dated observations as they become available.");
       } catch (err) {
         console.error("Failed to save implementation:", err);
         toast.error("❌ Failed to save to Firestore.");
-      }
+      } finally { setChecking(false); }
     }
   };
 
@@ -211,12 +182,12 @@ const SeoRecommendationPanel = ({
         ...(previousAttempts.length > 0 ? { previousAttempts } : {}),
       };
 
-      const titleRes = await fetch("/api/seo-assistant/meta-title", {
+      const titleRes = await authenticatedFetch("/api/seo-assistant/meta-title", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const descRes = await fetch("/api/seo-assistant/meta-description", {
+      const descRes = await authenticatedFetch("/api/seo-assistant/meta-description", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -228,8 +199,8 @@ const SeoRecommendationPanel = ({
         : pageUrl;
       const encodedCacheKey = encodeURIComponent(cacheKey);
       
-      await deleteDoc(doc(db, "seoMetaTitles", encodedCacheKey));
-      await deleteDoc(doc(db, "seoMetaDescriptions", encodedCacheKey));
+      await deleteDoc(doc(db, "seoMetaTitles", user.id, "titles", encodedCacheKey));
+      await deleteDoc(doc(db, "seoMetaDescriptions", user.id, "descriptions", encodedCacheKey));
 
       toast.success("New AI suggestions will appear on next refresh.");
     } catch (err) {
@@ -260,12 +231,11 @@ const SeoRecommendationPanel = ({
         console.log(`🔍 [${pageUrl}] Fetching implementedSeoTips document:`, docId);
         const snapshot = await getDoc(doc(db, "implementedSeoTips", docId));
         const data = snapshot.data();
-        console.log(`🔍 [${pageUrl}] Document data:`, data);
         
         // Check if document exists and has a valid tracking status
         // Valid statuses: "implemented", "e1-tracking", "e2-tracking", etc.
         const validTrackingStatuses = ["implemented", "e1-tracking", "e2-tracking", "content-improving"];
-        if (!data || !data.status || !validTrackingStatuses.includes(data.status)) {
+        if (!data || data.preRevampArchived || !data.status || !validTrackingStatuses.includes(data.status)) {
           console.log(`🔍 [${pageUrl}] Document doesn't exist or status is not a valid tracking status`);
           return;
         }
@@ -292,42 +262,6 @@ const SeoRecommendationPanel = ({
           console.log(`🎯 [${pageUrl}] Content Audit tracking detected: ${data.implementationType || data.status}`);
         }
 
-        const implementedDate = new Date(data.implementedAt);
-        const today = new Date();
-        const days = Math.floor(
-          (today - implementedDate) / (1000 * 60 * 60 * 24)
-        );
-        setDaysSinceImplementation(Math.min(days, 7)); // cap at 7 days
-
-        const totalDays = Math.floor(
-          (today - implementedDate) / (1000 * 60 * 60 * 24)
-        );
-        setDaysSinceImplementation(Math.min(totalDays, 7)); // already exists
-        
-        // Check if user has extended the tracking period (clicked "Wait Another 45 Days")
-        const extendedTarget = data.extendedTotalDays || 45;
-        setTotalDaysTarget(extendedTarget);
-        setFortyFiveDayProgress(Math.min(totalDays, extendedTarget)); // 👈 cap at extended target (45, 90, 135, etc.)
-
-        if (data.preStats && data.postStats) {
-          setDelta({
-            impressions: data.postStats.impressions - data.preStats.impressions,
-            clicks: data.postStats.clicks - data.preStats.clicks,
-            ctr: (data.postStats.ctr - data.preStats.ctr).toFixed(2),
-            position: (data.postStats.position - data.preStats.position).toFixed(
-              2
-            ),
-          });
-        }
-
-        const daysSince =
-          (Date.now() - new Date(data.implementedAt).getTime()) /
-          (1000 * 60 * 60 * 24);
-        const zeroClicks = data?.postStats?.clicks === 0;
-
-        if (daysSince >= 45 && zeroClicks) {
-          setShowRefreshButton(true);
-        }
       } catch (error) {
         console.error(`❌ [${pageUrl}] Error fetching implementedSeoTips:`, error);
         console.error(`❌ [${pageUrl}] Error details:`, {
@@ -355,10 +289,6 @@ const SeoRecommendationPanel = ({
     keywordHistory?.length,
     keywordSource,
     focusKeyword,
-    daysSinceImplementation,
-    fortyFiveDayProgress,
-    totalDaysTarget,
-    showRefreshButton,
     loadingMetaTags,
     currentMetaTitle,
     currentMetaDescription,
@@ -395,7 +325,7 @@ const SeoRecommendationPanel = ({
       setLoadingH1(true);
       try {
         console.log(`🔍 Fetching H1 for: ${pageUrl}`);
-        const response = await fetch("/api/page-content/get-h1", {
+        const response = await authenticatedFetch("/api/page-content/get-h1", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -546,7 +476,7 @@ const SeoRecommendationPanel = ({
                   </span>
                 </div>
                 <p className="text-xs text-purple-600 dark:text-purple-400 mt-1 ml-5">
-                  Your implementation is being tracked. Check back in 7 days for initial results.
+                  Your change is saved. Check Page progress for dated search observations.
                 </p>
               </div>
             )}
@@ -584,7 +514,7 @@ const SeoRecommendationPanel = ({
                 ))}
               </div>
               <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
-                These keywords were previously tested but didn&apos;t perform as expected after 45+ days.
+                These keywords were used previously. Their historical performance results are unverified.
               </p>
             </div>
           )}
@@ -595,115 +525,15 @@ const SeoRecommendationPanel = ({
                 Keyword: <span className="font-semibold">{focusKeyword}</span>
               </p>
               <p className="text-xs text-blue-700 dark:text-blue-300">
-                Status: Not ranking yet (AI suggested)
+                Source: AI suggestion; ranking has not been verified
               </p>
             </div>
           )}
 
           <div className="space-y-4">
-            {/* Show "Waiting for Results" FIRST when implemented */}
-            {isImplemented && daysSinceImplementation !== null && (
-              <div className="space-y-4 w-full">
-                {/* 7-Day Progress */}
-                <div>
-                  <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-                    <span>{daysSinceImplementation >= 7 ? '✓ Results Ready!' : 'Waiting for Results (7 Days)'}</span>
-                    <span>{daysSinceImplementation}/7 days</span>
-                  </div>
-                  <div className="h-2 w-full rounded bg-muted/60">
-                    <div
-                      className={`h-2 rounded transition-all duration-500 ${daysSinceImplementation >= 7 ? 'bg-green-500' : 'bg-primary'}`}
-                      style={{
-                        width: `${(daysSinceImplementation / 7) * 100}%`,
-                      }}
-                    />
-                  </div>
-                  {daysSinceImplementation >= 7 ? (
-                    <div className="mt-2 p-2 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                      <p className="text-sm text-green-700 dark:text-green-300 font-medium">
-                        7 days have passed! Your SEO progress is now available.
-                      </p>
-                      <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                        Check the <strong>SEO Progress</strong> section below to see how your changes are performing.
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Your changes are being tracked! Google recommends waiting 7
-                      days to let your SEO changes take effect. We&apos;ll track
-                      performance and show results in the SEO Progress section
-                      once enough data is available.
-                    </p>
-                  )}
-                </div>
-
-                {/* Progress to New Ideas */}
-                {fortyFiveDayProgress !== null && (
-                  <div>
-                    <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-                      <span>
-                        Check Back for New Ideas ({totalDaysTarget} Days)
-                        {totalDaysTarget > 45 && (
-                          <span className="ml-1 text-amber-500 dark:text-amber-400">
-                            (Extended)
-                          </span>
-                        )}
-                      </span>
-                      <span>{fortyFiveDayProgress}/{totalDaysTarget} days</span>
-                    </div>
-                    <div className="h-2 w-full rounded bg-muted/60">
-                      <div
-                        className={`h-2 rounded transition-all duration-500 ${
-                          totalDaysTarget > 45 
-                            ? "bg-gradient-to-r from-primary/70 to-amber-500/70" 
-                            : "bg-primary/70"
-                        }`}
-                        style={{
-                          width: `${(fortyFiveDayProgress / totalDaysTarget) * 100}%`,
-                        }}
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {totalDaysTarget > 45 ? (
-                        <>
-                          You extended tracking to gather more data. We&apos;ll evaluate again at {totalDaysTarget} days.
-                        </>
-                      ) : (
-                        <>
-                          No clicks after {totalDaysTarget} days? You&apos;ll be able to refresh this
-                          recommendation and get updated suggestions tailored to
-                          your page
-                        </>
-                      )}
-                    </p>
-                  </div>
-                )}
-
-                {/* Continuous Progress Info - only show before 7 days */}
-                {daysSinceImplementation < 7 && (
-                  <div className="rounded border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-2 text-xs text-blue-700 dark:text-blue-300">
-                    <span className="font-medium">💡 Tip:</span> After 7 days, your progress will appear in the SEO Progress section below. 
-                    The system continues monitoring your performance daily, so check back regularly for ongoing updates!
-                  </div>
-                )}
-
-                {/* Try New Suggestions button - hidden for now
-                {showRefreshButton && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="outline" onClick={handleRefreshSuggestions}>
-                        🔁 Try New Suggestions
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      No clicks after 45 days. Click to get fresh AI title and
-                      description.
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-                */}
-              </div>
-            )}
+            {isImplemented && <p className="rounded border p-3 text-sm text-muted-foreground">
+              Your change is saved. Page progress compares two complete 28-day periods, with a reporting delay. Low traffic can make this comparison inconclusive; elapsed time alone does not establish a result.
+            </p>}
 
             {/* Meta Tags Section - Collapsible when implemented */}
             {isImplemented ? (
@@ -895,7 +725,7 @@ const SeoRecommendationPanel = ({
                         </div>
                       )}
                       <p className="text-xs text-muted-foreground mt-3">
-                        💡 <strong>Why:</strong> This keyword isn&apos;t ranking yet. Adding it to your H1 helps Google understand what this page is about.
+                        💡 <strong>Why:</strong> This is an AI suggestion. Use it only if it accurately describes the page; ranking has not been verified.
                       </p>
                     </div>
                     )}
@@ -1073,7 +903,7 @@ const SeoRecommendationPanel = ({
                       </div>
                     )}
                     <p className="text-xs text-muted-foreground mt-3">
-                      💡 <strong>Why:</strong> This keyword isn&apos;t ranking yet. Adding it to your H1 helps Google understand what this page is about.
+                      💡 <strong>Why:</strong> This is an AI suggestion. Use it only if it accurately describes the page; ranking has not been verified.
                     </p>
                   </div>
                 )}
@@ -1082,6 +912,7 @@ const SeoRecommendationPanel = ({
                   <Checkbox
                     id="implemented"
                     checked={isImplemented}
+                    disabled={checking}
                     onCheckedChange={onCheckboxChange}
                   />
                   <Label htmlFor="implemented">
@@ -1124,8 +955,6 @@ const SeoRecommendationPanel = ({
                 onClick={async () => {
                   setShowConfirmModal(false);
                   await handleImplementation(true);
-                  // Refresh the page so user can see the updated UI (SEO Progress card, etc.)
-                  window.location.reload();
                 }}
               >
                 Yes, I've updated it

@@ -1,3 +1,5 @@
+
+import { authenticatedFetch } from './authenticatedFetch';
 /**
  * Reusable page scraping utility for SEO analysis
  * Used by both Intent Mismatch and Content Audit features
@@ -7,7 +9,7 @@ export const scrapePageContent = async (pageUrl) => {
   try {
     console.log(`🔍 Scraping content for: ${pageUrl}`);
     
-    const scrapeResponse = await fetch("/api/scrape-content", {
+    const scrapeResponse = await authenticatedFetch("/api/scrape-content", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -47,7 +49,7 @@ export const scrapePageContent = async (pageUrl) => {
  * Uses new subcollection structure with fallback to old flat structure
  */
 export const getCachedPageContent = async (userId, pageUrl) => {
-  const { getCachedPageContent: getCached } = await import("./firestoreMigrationHelpers");
+  const { getCachedPageContent: getCached } = await import("./clientContentCache");
   return await getCached(userId, pageUrl);
 };
 
@@ -56,7 +58,7 @@ export const getCachedPageContent = async (userId, pageUrl) => {
  * Writes to both new subcollection and old flat structure
  */
 export const cachePageContent = async (userId, pageUrl, contentData) => {
-  const { cachePageContent: cacheContent } = await import("./firestoreMigrationHelpers");
+  const { cachePageContent: cacheContent } = await import("./clientContentCache");
   return await cacheContent(userId, pageUrl, contentData);
 };
 

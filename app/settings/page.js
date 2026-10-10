@@ -572,7 +572,7 @@ export default function Settings() {
     if (!user?.id) return;
     
     try {
-      const res = await fetch(`/api/content-keywords/edit?userId=${encodeURIComponent(user.id)}`);
+      const res = await authenticatedFetch(`/api/content-keywords/edit?userId=${encodeURIComponent(user.id)}`);
       if (res.ok) {
         const data = await res.json();
         setRateLimitInfo(data);
@@ -637,7 +637,7 @@ export default function Settings() {
 
     // Optional: Verify URL is crawlable before adding (same as dashboard)
     try {
-      const scrapeRes = await fetch("/api/scrape-content", {
+      const scrapeRes = await authenticatedFetch("/api/scrape-content", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pageUrl: normalized }),
@@ -819,7 +819,7 @@ export default function Settings() {
         })),
       };
 
-      const res = await fetch("/api/content-keywords/edit", {
+      const res = await authenticatedFetch("/api/content-keywords/edit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

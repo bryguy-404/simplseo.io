@@ -1,8 +1,8 @@
+import { authenticatedRoute } from '../../../lib/server/authenticatedRoute';
 import { NextResponse } from "next/server";
-import { createGSCTokenManager } from "../../../lib/gscTokenManager";
 import { db } from "../../../lib/firebaseAdmin";
 
-export async function POST(req) {
+async function handlePOST(req) {
   try {
     const { gscKeywords, businessType, businessLocation, websiteUrl, customBusinessType } = await req.json();
 
@@ -310,3 +310,5 @@ Return only the keywords, one per line, no explanations.`;
     return [];
   }
 }
+
+export const POST = authenticatedRoute(handlePOST, { quota: 'ai' });

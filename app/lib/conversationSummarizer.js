@@ -1,4 +1,4 @@
-"use server";
+// Internal server module; callable only through authenticated routes.
 
 import { db } from "./firebaseAdmin";
 import crypto from "crypto";

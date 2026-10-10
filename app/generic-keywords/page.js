@@ -1,4 +1,6 @@
 "use client";
+import { authenticatedFetch } from '../lib/authenticatedFetch';
+
 
 import { useAuth } from "../contexts/AuthContext";
 import { useEffect, useState, useMemo } from "react";
@@ -341,7 +343,7 @@ export default function GenericKeywordsPage() {
     if (!user?.id) return;
     
     try {
-      const response = await fetch(`/api/content-opportunities/mark-created?userId=${encodeURIComponent(user.id)}`);
+      const response = await authenticatedFetch(`/api/content-opportunities/mark-created?userId=${encodeURIComponent(user.id)}`);
       const result = await response.json();
       
       if (result.success) {
@@ -357,7 +359,7 @@ export default function GenericKeywordsPage() {
     if (!user?.id) return;
     
     try {
-      const response = await fetch(`/api/content-opportunities/skip?userId=${encodeURIComponent(user.id)}`);
+      const response = await authenticatedFetch(`/api/content-opportunities/skip?userId=${encodeURIComponent(user.id)}`);
       const result = await response.json();
       
       if (result.success) {
@@ -373,7 +375,7 @@ export default function GenericKeywordsPage() {
     if (!user?.id) return;
     
     try {
-      const response = await fetch("/api/content-opportunities/skip", {
+      const response = await authenticatedFetch("/api/content-opportunities/skip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id, keyword }),
@@ -400,7 +402,7 @@ export default function GenericKeywordsPage() {
     if (!user?.id) return;
     
     try {
-      const response = await fetch("/api/content-opportunities/skip", {
+      const response = await authenticatedFetch("/api/content-opportunities/skip", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id, keyword }),
@@ -866,7 +868,7 @@ export default function GenericKeywordsPage() {
         forceRefresh: requestBody.forceRefresh
       });
 
-      const response = await fetch("/api/generic-keywords/analyze", {
+      const response = await authenticatedFetch("/api/generic-keywords/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
@@ -999,7 +1001,7 @@ export default function GenericKeywordsPage() {
     setContentOutline(null);
     
     try {
-      const response = await fetch("/api/generic-keywords/content-outline", {
+      const response = await authenticatedFetch("/api/generic-keywords/content-outline", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2822,7 +2824,7 @@ ${contentOutline.internalLinks?.map(l => {
 
                 setIsMarkingAsCreated(true);
                 try {
-                  const response = await fetch("/api/content-opportunities/mark-created", {
+                  const response = await authenticatedFetch("/api/content-opportunities/mark-created", {
                     method: "POST",
                     headers: {
                       "Content-Type": "application/json",

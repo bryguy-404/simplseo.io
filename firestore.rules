@@ -1,207 +1,168 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function owner(uid) { return signedIn() && request.auth.uid == uid; }
+    function namedOwner(data) { return signedIn() && data.get('userId', '') == request.auth.uid; }
+    // Legacy UID-prefixed records remain readable, but an explicit different owner wins.
+    function ownsLegacy(id, data) {
+      return namedOwner(data) || (signedIn() && data.get('userId', request.auth.uid) == request.auth.uid && id.matches(request.auth.uid + '_.*'));
+    }
+    function readsLegacy(id) {
+      return signedIn() && ((resource == null && id.matches(request.auth.uid + '_.*')) || ownsLegacy(id, resource.data));
+    }
     function recoveryWritesAllowed() {
       let setupPath = /databases/$(database)/documents/onboarding/$(request.auth.uid);
       let setup = exists(setupPath) ? get(setupPath).data : {};
       let runId = setup.get('revampRunId', '');
-      return !exists(setupPath) || (
-        setup.get('revampArchivePending', null) == null &&
-        (runId == '' || get(/databases/$(database)/documents/users/$(request.auth.uid)/revampHistory/$(runId)).data.complete == true)
-      );
+      return setup.get('revampArchivePending', null) == null &&
+        (runId == '' || get(/databases/$(database)/documents/users/$(request.auth.uid)/revampHistory/$(runId)).data.complete == true);
     }
-    // Allow users to read/write their own onboarding data
-    match /onboarding/{userId} {
-      allow read, create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && request.auth.uid == userId &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['revampArchivePending', 'revampRunId', 'revampSchemaVersion', 'revampMonitoringEnabled', 'progressReviewRequired']);
-      allow delete: if request.auth != null && request.auth.uid == userId;
+    function onboardingFields() {
+      return ['name', 'businessName', 'websiteUrl', 'businessType', 'customBusinessType',
+        'businessLocation', 'servesMultipleCities', 'serviceCities', 'cmsPlatform',
+        'hasGSC', 'gscProperty', 'googleEmail', 'isComplete', 'privacyPolicyAccepted',
+        'postOnboardingStep', 'pagesStepCompleted', 'revampReminderDate'];
     }
-    
-    // Allow users to read/write their own user data (including GSC tokens)
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    function safeInitialOnboarding() {
+      let data = request.resource.data;
+      return data.keys().hasOnly(onboardingFields().concat([
+          'siteCrawlStatus', 'lastSiteCrawlAt', 'revampStatus', 'revampDate',
+          'revampInitiatedAt', 'revampPages', 'revampStep'])) &&
+        data.get('siteCrawlStatus', 'idle') == 'idle' && data.get('lastSiteCrawlAt', null) == null &&
+        data.get('revampStatus', 'idle') == 'idle' && data.get('revampDate', null) == null &&
+        data.get('revampInitiatedAt', null) == null && data.get('revampPages', []) == [] && data.get('revampStep', null) == null;
+    }
+    match /onboarding/{uid} {
+      allow read: if owner(uid);
+      allow create: if owner(uid) && safeInitialOnboarding();
+      // Only editable profile/preferences/navigation fields. Monitoring and recovery state are server-owned.
+      allow update: if owner(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(onboardingFields());
+      allow delete: if false; // Do not allow delete/recreate to remove recovery safeguards.
+    }
+
+    match /users/{uid} {
+      // Existing Google API clients still read this owner-only document. Token writes now use authenticated APIs.
+      allow read: if owner(uid);
+      allow write: if false;
+      match /feedbackPrompt/{id} { allow read, write: if owner(uid); }
+      match /revampHistory/{history=**} { allow read, write: if false; }
+    }
+    match /gscTokens/{uid} { allow read: if owner(uid); allow write: if false; }
       
-      // Allow users to read/write their own feedback prompt data
-      match /feedbackPrompt/{docId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+    // Authoritative observations/outcomes are added by server code. Historical client
+    // snapshots (preStats/postStats) are retained for compatibility and never trusted as measurements.
+    function trustedOutcomeFields() { return ['progressAssessment']; }
+    function credentialFields() { return ['gscToken', 'accessToken', 'refreshToken', 'gscAccessToken', 'gscRefreshToken']; }
+    function credentialUnchangedOrRemoved(key) {
+      return !(key in request.resource.data) || (key in resource.data && request.resource.data[key] == resource.data[key]);
+    }
+    function safeSeoCreate(id) {
+      return namedOwner(request.resource.data) && id.matches(request.auth.uid + '_.*') && recoveryWritesAllowed() &&
+        !request.resource.data.keys().hasAny(trustedOutcomeFields()) && !request.resource.data.keys().hasAny(credentialFields());
+    }
+    function safeSeoUpdate(id) {
+      return ownsLegacy(id, resource.data) && namedOwner(request.resource.data) && recoveryWritesAllowed() &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(trustedOutcomeFields()) &&
+        credentialUnchangedOrRemoved('gscToken') && credentialUnchangedOrRemoved('accessToken') &&
+        credentialUnchangedOrRemoved('refreshToken') && credentialUnchangedOrRemoved('gscAccessToken') && credentialUnchangedOrRemoved('gscRefreshToken');
+    }
+    match /implementedSeoTips/{id} {
+      allow read: if readsLegacy(id);
+      allow create: if safeSeoCreate(id);
+      allow update: if safeSeoUpdate(id);
+      allow delete: if false;
+    }
+    match /contentAuditResults/{id} {
+      allow read: if readsLegacy(id);
+      allow create: if safeSeoCreate(id);
+      allow update: if safeSeoUpdate(id);
+      allow delete: if false;
+    }
+    match /aiSuggestions/{id} {
+      allow read: if readsLegacy(id);
+      allow create: if safeSeoCreate(id);
+      allow update: if safeSeoUpdate(id);
+      allow delete: if false;
+    }
+
+    function safeCacheCreate(id) {
+      return signedIn() && id.matches(request.auth.uid + '_.*') &&
+        request.resource.data.get('userId', request.auth.uid) == request.auth.uid;
+    }
+    function safeCacheUpdate(id) {
+      return ownsLegacy(id, resource.data) &&
+        request.resource.data.get('userId', request.auth.uid) == request.auth.uid;
+    }
+    match /internalLinkSuggestions/{id} {
+      allow read: if readsLegacy(id);
+      allow delete: if ownsLegacy(id, resource.data);
+      allow create: if safeCacheCreate(id);
+      allow update: if safeCacheUpdate(id);
+    }
+    match /pageContentCache/{id} {
+      allow read: if owner(id) || readsLegacy(id);
+      allow create: if safeCacheCreate(id);
+      allow update: if safeCacheUpdate(id);
+      allow delete: if ownsLegacy(id, resource.data);
+      match /pages/{page} {
+        allow read, delete: if owner(id);
+        allow create, update: if owner(id) && request.resource.data.get('userId', id) == id;
+      }
+    }
+    match /intentMismatches/{id} {
+      allow read: if owner(id) || readsLegacy(id);
+      allow create: if safeCacheCreate(id);
+      allow update: if safeCacheUpdate(id);
+      allow delete: if ownsLegacy(id, resource.data);
+      match /analyses/{analysis} {
+        allow read, delete: if owner(id);
+        allow create, update: if owner(id) && request.resource.data.get('userId', id) == id;
       }
     }
     
-    // Allow users to read/write their own GSC tokens
-    match /gscTokens/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    // Ownerless flat URL-keyed meta caches cannot be safely attributed. Deny them;
+    // authenticated regeneration uses a UID-scoped cache instead.
+    match /seoMetaTitles/{id} {
+      allow read, delete: if namedOwner(resource.data);
+      allow create: if false;
+      allow update: if namedOwner(resource.data) && namedOwner(request.resource.data);
+      match /titles/{key} {
+        allow read, delete: if owner(id);
+        allow create, update: if owner(id) && request.resource.data.get('userId', id) == id;
+      }
     }
-    
-    // Allow users to read/write their own implemented SEO tips
-    match /implementedSeoTips/{docId} {
-      allow read: if request.auth != null && (
-        resource.data.userId == request.auth.uid || docId.matches(request.auth.uid + '_.*')
-      );
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid && recoveryWritesAllowed();
-      allow update: if request.auth != null && request.resource.data.get("userId", request.auth.uid) == request.auth.uid && (
-        resource.data.userId == request.auth.uid || docId.matches(request.auth.uid + '_.*')
-      ) && recoveryWritesAllowed();
-      allow delete: if request.auth != null && (resource.data.userId == request.auth.uid || docId.matches(request.auth.uid + "_.*")) && recoveryWritesAllowed();
-    }
-    
-    // Allow users to read/write their own internal link suggestions
-    match /internalLinkSuggestions/{docId} {
-      allow read, write: if request.auth != null && (
-        // New format: check userId field
-        (resource.data.userId == request.auth.uid) ||
-        // Old format: check if document ID starts with user ID
-        (docId.matches(request.auth.uid + '_.*'))
-      );
-    }
-    
-    // Allow users to read/write their own intent mismatches
-    match /intentMismatches/{docId} {
-      allow read, write: if request.auth != null && (
-        // New format: check userId field
-        (resource.data.userId == request.auth.uid) ||
-        // Old format: check if document ID starts with user ID
-        (docId.matches(request.auth.uid + '_.*'))
-      );
-    }
-    
-    // Allow users to read/write their own page content cache (backward-compatible)
-    // NEW structure: pageContentCache/{userId}/pages/{pageUrl}
-    match /pageContentCache/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      
-      match /pages/{pageUrl} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+    match /seoMetaDescriptions/{id} {
+      allow read, delete: if namedOwner(resource.data);
+      allow create: if false;
+      allow update: if namedOwner(resource.data) && namedOwner(request.resource.data);
+      match /descriptions/{key} {
+        allow read, delete: if owner(id);
+        allow create, update: if owner(id) && request.resource.data.get('userId', id) == id;
       }
     }
     
-    // OLD structure: pageContentCache/{userId}_{pageUrl} (backward compatibility)
-    match /pageContentCache/{docId} {
-      allow read, write: if request.auth != null && (
-        // Check if document ID starts with user ID (old format)
-        (docId.matches(request.auth.uid + '_.*'))
-      );
-    }
-    
-    // Allow users to read/write their own intent mismatches (backward-compatible)
-    // NEW structure: intentMismatches/{userId}/analyses/{cacheKey}
-    match /intentMismatches/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      
-      match /analyses/{cacheKey} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-    }
-    
-    // OLD structure: intentMismatches/{cacheKey} (backward compatibility)
-    match /intentMismatches/{docId} {
-      allow read, write: if request.auth != null && (
-        // New format: check userId field
-        (resource.data.userId == request.auth.uid) ||
-        // Old format: check if document ID starts with user ID
-        (docId.matches(request.auth.uid + '_.*'))
-      );
-    }
-    
-    // Allow users to read/write their own meta titles (backward-compatible)
-    // NEW structure: seoMetaTitles/{userId}/titles/{cacheKey}
-    match /seoMetaTitles/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      
-      match /titles/{cacheKey} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-    }
-    
-    // OLD structure: seoMetaTitles/{cacheKey} (backward compatibility)
-    match /seoMetaTitles/{cacheKey} {
-      allow read, write: if request.auth != null && (
-        // Check userId field if exists, or allow if no userId field (legacy data)
-        (!('userId' in resource.data)) || 
-        (resource.data.userId == request.auth.uid)
-      );
-    }
-    
-    // Allow users to read/write their own meta descriptions (backward-compatible)
-    // NEW structure: seoMetaDescriptions/{userId}/descriptions/{cacheKey}
-    match /seoMetaDescriptions/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      
-      match /descriptions/{cacheKey} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-    }
-    
-    // OLD structure: seoMetaDescriptions/{cacheKey} (backward compatibility)
-    match /seoMetaDescriptions/{cacheKey} {
-      allow read, write: if request.auth != null && (
-        // Check userId field if exists, or allow if no userId field (legacy data)
-        (!('userId' in resource.data)) || 
-        (resource.data.userId == request.auth.uid)
-      );
-    }
-    
-    // Allow users to read/write their own content audit results
-    match /contentAuditResults/{docId} {
-      allow read: if request.auth != null && (
-        resource.data.userId == request.auth.uid || docId.matches(request.auth.uid + '_.*')
-      );
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid && recoveryWritesAllowed();
-      allow update: if request.auth != null && request.resource.data.get("userId", request.auth.uid) == request.auth.uid && (
-        resource.data.userId == request.auth.uid || docId.matches(request.auth.uid + '_.*')
-      ) && recoveryWritesAllowed();
-      allow delete: if request.auth != null && (resource.data.userId == request.auth.uid || docId.matches(request.auth.uid + "_.*")) && recoveryWritesAllowed();
-    }
-    
-    // Allow users to read/write their own AI suggestions
-    match /aiSuggestions/{docId} {
-      allow read: if request.auth != null && (
-        resource.data.userId == request.auth.uid || docId.matches(request.auth.uid + '_.*')
-      );
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid && recoveryWritesAllowed();
-      allow update: if request.auth != null && request.resource.data.get("userId", request.auth.uid) == request.auth.uid && (
-        resource.data.userId == request.auth.uid || docId.matches(request.auth.uid + '_.*')
-      ) && recoveryWritesAllowed();
-      allow delete: if request.auth != null && (resource.data.userId == request.auth.uid || docId.matches(request.auth.uid + "_.*")) && recoveryWritesAllowed();
-    }
-    
-    // Training events - server-side only (no client access)
-    match /trainingEvents/{hashedUserId} {
-      allow read: if false; // No client reads
-      allow write: if false; // Server-side only
-      
-      match /events/{eventId} {
-        allow read: if false;
-        allow write: if false;
-      }
-    }
-    
-    // Playbook strategies - server-side only (no client access)
-    match /playbookStrategies/{hashedUserId} {
-      allow read: if false; // No client reads
-      allow write: if false; // Server-side only
-      
-      match /strategies/{strategyId} {
-        allow read: if false;
-        allow write: if false;
-      }
-    }
-    
-    // Conversation summaries - server-side only (no client access)
-    match /conversationSummaries/{hashedUserId} {
-      allow read: if false; // No client reads
-      allow write: if false; // Server-side only
-      
-      match /summaries/{summaryId} {
-        allow read: if false;
-        allow write: if false;
-      }
-    }
-    
-    // App config - server-side only (no client access)
-    match /appConfig/{configId} {
-      allow read: if false; // No client reads
-      allow write: if false; // Server-side only
-    }
+    // These collections are managed by authenticated server APIs. There is no
+    // generic users/{uid}/** grant: history and future private subcollections stay denied.
+    match /focusKeywords/{path=**} { allow read, write: if false; }
+    match /siteCrawls/{path=**} { allow read, write: if false; }
+    match /contentKeywordEdits/{path=**} { allow read, write: if false; }
+    match /conversations/{path=**} { allow read, write: if false; }
+    match /gscOAuthStates/{path=**} { allow read, write: if false; }
+    match /progressJobs/{path=**} { allow read, write: if false; }
+    match /requestLimits/{path=**} { allow read, write: if false; }
+    match /genericKeywordsCache/{path=**} { allow read, write: if false; }
+    match /skippedKeywords/{path=**} { allow read, write: if false; }
+    match /createdContentOpportunities/{path=**} { allow read, write: if false; }
+    match /trainingEvents/{path=**} { allow read, write: if false; }
+    match /playbookStrategies/{path=**} { allow read, write: if false; }
+    match /conversationSummaries/{path=**} { allow read, write: if false; }
+    match /appConfig/{path=**} { allow read, write: if false; }
+    match /accessRequests/{path=**} { allow read, write: if false; }
+    match /approvedUsers/{path=**} { allow read, write: if false; }
+    match /invitationCodes/{path=**} { allow read, write: if false; }
+    match /contactMessages/{path=**} { allow read, write: if false; }
+    match /deletedUsers/{path=**} { allow read, write: if false; }
+    match /{path=**} { allow read, write: if false; }
   }
-} 
+}

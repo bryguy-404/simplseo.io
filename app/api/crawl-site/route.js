@@ -1,3 +1,5 @@
+import { publicFetch } from '../../lib/server/publicFetch';
+import { scrapeContentResponse } from '../../lib/server/scrapeContent';
 import { requireUser, errorResponse } from "../../lib/server/requestAuth";
 import { NextResponse } from "next/server";
 import { XMLParser } from "fast-xml-parser";
@@ -71,7 +73,7 @@ const fetchSitemapUrls = async (origin) => {
 
   for (const sitemapUrl of possibleSitemaps) {
     try {
-      const res = await fetch(sitemapUrl, {
+      const res = await publicFetch(sitemapUrl, {
         cache: "no-store",
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -99,7 +101,7 @@ const fetchSitemapUrls = async (origin) => {
         for (const child of childSitemaps) {
           if (!child?.loc) continue;
           try {
-            const childRes = await fetch(child.loc, {
+            const childRes = await publicFetch(child.loc, {
               cache: "no-store",
               headers: {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -129,11 +131,7 @@ const fetchSitemapUrls = async (origin) => {
 
 const fetchNavLinks = async (homepageUrl) => {
   try {
-    const res = await fetch(`${SCRAPE_BASE_URL}/api/scrape-content`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pageUrl: homepageUrl }),
-    });
+    const res = await scrapeContentResponse(homepageUrl);
 
     if (!res.ok) {
       return [];
@@ -430,7 +428,7 @@ export async function POST(req) {
       
       try {
         // Fetch the page HTML directly to extract links
-        const pageRes = await fetch(url, {
+        const pageRes = await publicFetch(url, {
           headers: {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
@@ -458,11 +456,7 @@ export async function POST(req) {
         }
 
         // Now scrape the content using the API
-        const scrapeRes = await fetch(`${SCRAPE_BASE_URL}/api/scrape-content`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pageUrl: url }),
-        });
+        const scrapeRes = await scrapeContentResponse(url);
 
         if (!scrapeRes.ok) {
           throw new Error(`Scrape failed with status ${scrapeRes.status}`);
@@ -535,7 +529,7 @@ export async function POST(req) {
         if (crawledUrls.has(url)) continue;
 
         try {
-          const pageRes = await fetch(url, {
+          const pageRes = await publicFetch(url, {
             headers: {
               "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
               "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
@@ -560,11 +554,7 @@ export async function POST(req) {
             }
           }
 
-          const scrapeRes = await fetch(`${SCRAPE_BASE_URL}/api/scrape-content`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ pageUrl: url }),
-          });
+          const scrapeRes = await scrapeContentResponse(url);
 
           if (!scrapeRes.ok) continue;
 

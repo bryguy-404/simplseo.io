@@ -1,3 +1,5 @@
+import { authenticatedRoute } from '../../../lib/server/authenticatedRoute';
+import { randomInt } from 'node:crypto';
 import { NextResponse } from "next/server";
 import { db } from "../../../lib/firebaseAdmin";
 import nodemailer from "nodemailer";
@@ -9,11 +11,11 @@ function generateInvitationCode() {
   
   // Generate 4 characters, then dash, then 4 more
   for (let i = 0; i < 4; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+    code += chars.charAt(randomInt(chars.length));
   }
   code += "-";
   for (let i = 0; i < 4; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+    code += chars.charAt(randomInt(chars.length));
   }
   
   return code;
@@ -38,24 +40,15 @@ const createTransporter = () => {
       pass: process.env.SMTP_PASS,
     },
     tls: {
-      rejectUnauthorized: false,
+      rejectUnauthorized: true,
     },
   });
 };
 
-export async function POST(req) {
+async function handlePOST(req) {
   try {
-    // TODO: Add admin authentication here
-    // For now, you can add a simple secret key check:
-    const { requestId, action, adminSecret } = await req.json();
+    const { requestId, action, userId } = await req.json();
 
-    // Simple admin secret check (you should use proper auth in production)
-    if (adminSecret !== process.env.ADMIN_SECRET) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
 
     if (!requestId) {
       return NextResponse.json(
@@ -96,7 +89,7 @@ export async function POST(req) {
         status: "approved",
         approvedAt: new Date().toISOString(),
         invitationCode: invitationCode,
-        approvedBy: "admin", // TODO: Use actual admin user ID
+        approvedBy: userId,
       });
 
       // Create invitation code document
@@ -107,7 +100,7 @@ export async function POST(req) {
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
         used: false,
         usedAt: null,
-        approvedBy: "admin",
+        approvedBy: userId,
       });
 
       // Add to approvedUsers collection
@@ -116,7 +109,7 @@ export async function POST(req) {
         invitationCode: invitationCode,
         approvedAt: new Date().toISOString(),
         usedAt: null,
-        approvedBy: "admin",
+        approvedBy: userId,
       }, { merge: true });
 
       // Send email with invitation code
@@ -194,7 +187,7 @@ This invitation code expires in 30 days.
       await requestRef.update({
         status: "rejected",
         approvedAt: new Date().toISOString(),
-        approvedBy: "admin",
+        approvedBy: userId,
       });
 
       return NextResponse.json({
@@ -217,17 +210,9 @@ This invitation code expires in 30 days.
 }
 
 // GET endpoint to list all pending requests
-export async function GET(req) {
+async function handleGET(req) {
   try {
     const { searchParams } = new URL(req.url);
-    const adminSecret = searchParams.get("adminSecret");
-
-    if (adminSecret !== process.env.ADMIN_SECRET) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
 
     const status = searchParams.get("status") || "pending";
     
@@ -263,3 +248,6 @@ export async function GET(req) {
   }
 }
 
+
+export const GET = authenticatedRoute(handleGET, { admin: true });
+export const POST = authenticatedRoute(handlePOST, { admin: true });

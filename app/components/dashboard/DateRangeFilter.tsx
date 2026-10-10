@@ -27,7 +27,7 @@ const DateRangeFilter = ({ value, onValueChange, isLoading }: DateRangeFilterPro
         <SelectItem value="7">Last 7 days</SelectItem>
         <SelectItem value="28">Last 28 days</SelectItem>
         <SelectItem value="90">Last 3 months</SelectItem>
-        <SelectItem value="all">All time</SelectItem>
+        <SelectItem value="all">Last 12 months</SelectItem>
       </SelectContent>
     </Select>
   );

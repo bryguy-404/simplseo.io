@@ -1,4 +1,6 @@
-"use server";
+import { scrapeContentResponse } from '../../lib/server/scrapeContent';
+import { authenticatedRoute } from '../../lib/server/authenticatedRoute';
+
 
 import { NextResponse } from "next/server";
 import { db } from "../../lib/firebaseAdmin";
@@ -9,7 +11,7 @@ const SCRAPE_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:30
  * Re-crawl a single page to get fresh content
  * Used when pivoting to a new keyword to ensure AI suggestions use current page content
  */
-export async function POST(request) {
+async function handlePOST(request) {
   try {
     const { userId, pageUrl } = await request.json();
 
@@ -25,11 +27,7 @@ export async function POST(request) {
     console.log(`🔄 Re-crawling page for pivot: ${normalizedUrl}`);
 
     // Scrape the page content (use normalized URL)
-    const scrapeRes = await fetch(`${SCRAPE_BASE_URL}/api/scrape-content`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pageUrl: normalizedUrl }),
-    });
+    const scrapeRes = await scrapeContentResponse(normalizedUrl);
 
     if (!scrapeRes.ok) {
       const errorText = await scrapeRes.text();
@@ -81,3 +79,5 @@ export async function POST(request) {
     );
   }
 }
+
+export const POST = authenticatedRoute(handlePOST);

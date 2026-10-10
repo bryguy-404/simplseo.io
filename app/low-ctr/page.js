@@ -1,4 +1,5 @@
 "use client";
+import { searchWindow } from "../lib/searchWindow";
 
 import { reconnectGsc } from "../lib/reconnectGsc";
 import { authenticatedFetch } from "../lib/authenticatedFetch";
@@ -14,7 +15,6 @@ import SeoPerformanceCard from "../components/dashboard/SeoPerformanceCard";
 import SeoImpactLeaderboard from "../components/dashboard/SeoImpactLeaderboard";
 import SuccessPanel from "../components/dashboard/SuccessPanel";
 import { Button } from "@/components/ui/button";
-import { fetchWpPages } from "../lib/fetchWpPages";
 import {
   Card,
   CardContent,
@@ -86,36 +86,11 @@ const createSafeDocId = (userId, pageUrl) => {
   return finalId;
 };
 
-// ✅ Add filtering function at top
-const isRelevantPage = (url) =>
-  url.includes("bryandevelops.com/") &&
-  !url.includes("/tag/") &&
-  !url.includes("/category/") &&
-  !url.includes("/event") &&
-  !url.includes("/faq") &&
-  !url.includes("/author/") &&
-  !url.includes("/author/") &&
-  !url.includes("/topics/") &&
-  !url.includes("/rvm") &&
-  !url.includes("wordpress-maintenance-support") &&
-  !url.includes("post-format") &&
-  !url.includes("sample") &&
-  !url.includes("chat") &&
-  !url.includes("blockquote") &&
-  !url.includes("?") &&
-  !url.includes("carousel") &&
-  !url.includes("video") &&
-  !url.includes("status") &&
-  !url.includes("/wp-json") &&
-  !url.includes("/feed") &&
-  !url.match(/\/\d{4}\/\d{2}\/\d{2}/); // ✅ fixed
-
 export default function LowCtrPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const [lowCtrPages, setLowCtrPages] = useState([]);
   const [aiMetaByPage, setAiMetaByPage] = useState({});
-  const [sitemapUrls, setSitemapUrls] = useState([]);
   const [implementedPages, setImplementedPages] = useState([]);
   const [pageImplementationDates, setPageImplementationDates] = useState({});
   const [pivotedPagesData, setPivotedPagesData] = useState({}); // Track pivoted pages and their keyword history
@@ -168,7 +143,7 @@ export default function LowCtrPage() {
           return;
         }
 
-        fetchLowCtrPages(gscData.siteUrl, validToken);
+        await fetchLowCtrPages(gscData.siteUrl, validToken);
       } catch (error) {
         console.error("Error fetching GSC data:", error);
         setLoading(false);
@@ -184,16 +159,6 @@ export default function LowCtrPage() {
       setIsGscConnected(true); window.location.reload();
     } catch (error) { window.alert(error.message); }
   };
-
-  useEffect(() => {
-    const loadWpPages = async () => {
-      const domain = "bryandevelops.com";
-      const pages = await fetchWpPages(domain);
-      setSitemapUrls(pages);
-    };
-
-    loadWpPages();
-  }, []);
 
   // ✅ Fetch implemented pages and their implementation dates
   useEffect(() => {
@@ -252,7 +217,7 @@ export default function LowCtrPage() {
           };
 
           // Content Audit eligibility: 45+ days AND 0 clicks AND 50+ new impressions AND position >= 15
-          const isEligible = daysSince >= 45 && 
+          const isEligible = false && daysSince >= 45 &&
                             data.postStats.clicks === 0 && 
                             newImpressions >= 50 && 
                             currentPosition >= 15;
@@ -395,12 +360,6 @@ export default function LowCtrPage() {
       setIsRestoring(false);
     }
   };
-
-  // ✅ Memoized filtered sitemap pages
-  const relevantPages = useMemo(
-    () => sitemapUrls.filter(isRelevantPage),
-    [sitemapUrls]
-  );
 
   useEffect(() => {
     if (!focusKeywordsLoaded || userHasToggledView) return;
@@ -761,144 +720,14 @@ export default function LowCtrPage() {
   }, [suggestionTargets, aiMetaByPage]);
 
 
-  // Helper function to check if a page is eligible for Content Quality Audit
-  // Uses snapshot cardType if available (45+ days), otherwise falls back to real-time metrics
-  const isPageEligibleForContentAudit = (pageUrl) => {
-    const pageData = pageImplementationDates[pageUrl];
-    if (!pageData) return false;
-    
-    const { daysSince, hasZeroClicks, newImpressions, currentPosition, dayFortyFiveSnapshot } = pageData;
-    
-    // If snapshot exists with cardType, use that for stable card display
-    if (dayFortyFiveSnapshot?.cardType) {
-      return dayFortyFiveSnapshot.cardType === "content-audit";
-    }
-    
-    // Fallback to real-time criteria for pages without snapshot:
-    // 1. 45+ days since implementation (Google had time to react)
-    // 2. 0 clicks (CTR fixes didn't work)
-    // 3. 50+ new impressions (enough exposure to evaluate)
-    // 4. Position >= 15 (page 2+, not close to page 1)
-    return daysSince >= 45 && 
-           hasZeroClicks && 
-           (newImpressions || 0) >= 50 && 
-           (currentPosition || 0) >= 15;
-  };
-
-  // Helper: Get expected CTR by position (industry averages)
-  const getExpectedCTR = (position) => {
-    if (position <= 1) return 0.28;  // 28%
-    if (position <= 2) return 0.15;  // 15%
-    if (position <= 3) return 0.10;  // 10%
-    if (position <= 4) return 0.07;  // 7%
-    if (position <= 5) return 0.05;  // 5%
-    if (position <= 10) return 0.025; // 2.5%
-    if (position <= 15) return 0.01;  // 1%
-    return 0.005; // 0.5% for position 16+
-  };
-
-  // Helper: Check if page is performing well (Success Detection)
-  const isPageSuccessful = (position, impressions, clicks) => {
-    if (impressions < 20) return false; // Not enough data
-    const actualCTR = impressions > 0 ? clicks / impressions : 0;
-    const expectedCTR = getExpectedCTR(position);
-    return actualCTR >= expectedCTR; // Success if CTR >= 100% of expected
-  };
-
-  // Helper function to check if a page needs Pivot Options
-  // Uses snapshot cardType if available (45+ days), otherwise falls back to real-time metrics
-  const isPageEligibleForPivotOptions = (pageUrl) => {
-    // Check if the page has already been pivoted - if so, don't show pivot card
-    const normalizedUrl = normalizeUrlForComparison(pageUrl);
-    const isPivoted = Object.keys(pivotedPagesData).some(url => 
-      normalizeUrlForComparison(url) === normalizedUrl
-    );
-    
-    if (isPivoted) {
-      console.log("🔄 Page already pivoted, hiding pivot options:", pageUrl);
-      return false;
-    }
-    
-    const pageData = pageImplementationDates[pageUrl];
-    
-    // TEST FLAG: Force show for test page regardless of Content Audit criteria
-    // BUT still require 45+ days of tracking (like real pages)
-    // TODO: Remove after testing
-    const isTestPage = pageUrl?.toLowerCase().includes("best-website-builders");
-    if (isTestPage) {
-      // Still check if page has been tracking for 45+ days
-      if (!pageData || pageData.daysSince < 45) {
-        console.log("🧪 TEST: Test page not yet at 45 days, hiding pivot options:", pageUrl, "daysSince:", pageData?.daysSince);
-        return false;
-      }
-      console.log("🧪 TEST: Showing pivot options for test page (45+ days):", pageUrl);
-      return true;
-    }
-    
-    if (!pageData) return false;
-    
-    const { daysSince, hasZeroClicks, newImpressions, currentPosition, postStats, dayFortyFiveSnapshot } = pageData;
-    
-    // If snapshot exists with cardType, use that for stable card display
-    if (dayFortyFiveSnapshot?.cardType) {
-      return dayFortyFiveSnapshot.cardType === "pivot";
-    }
-    
-    // Fallback to real-time criteria for pages without snapshot:
-    // Must have 45+ days
-    if (daysSince < 45) return false;
-    
-    // SUCCESS DETECTION: If page is performing well, don't show Pivot card
-    const clicks = postStats?.clicks || 0;
-    const impressions = postStats?.impressions || newImpressions || 0;
-    const position = currentPosition || 100;
-    
-    if (isPageSuccessful(position, impressions, clicks)) {
-      console.log("✅ Page is successful, hiding pivot options:", pageUrl, `CTR: ${((clicks/impressions)*100).toFixed(1)}% at position ${Math.round(position)}`);
-      return false;
-    }
-    
-    // Show pivot options if ANY of the Content Audit criteria are NOT met
-    // (but still has 45+ days)
-    const meetsContentAuditCriteria = 
-      hasZeroClicks && 
-      (newImpressions || 0) >= 50 && 
-      (currentPosition || 0) >= 15;
-    
-    return !meetsContentAuditCriteria;
-  };
-
-  // Helper function to check if a page should show Success Card
-  // Uses snapshot cardType - only shows for pages with healthy CTR at 45+ days
-  const isPageEligibleForSuccess = (pageUrl) => {
-    const pageData = pageImplementationDates[pageUrl];
-    if (!pageData) return false;
-    
-    const { dayFortyFiveSnapshot, daysSince, postStats, currentPosition } = pageData;
-    
-    // If snapshot exists with cardType, use that for stable card display
-    if (dayFortyFiveSnapshot?.cardType) {
-      return dayFortyFiveSnapshot.cardType === "success";
-    }
-    
-    // Fallback to real-time criteria for pages without snapshot:
-    if (daysSince < 45) return false;
-    
-    const clicks = postStats?.clicks || 0;
-    const impressions = postStats?.impressions || 0;
-    const position = currentPosition || 100;
-    
-    return isPageSuccessful(position, impressions, clicks);
-  };
+  // Automatic outcome recommendations stay disabled until the sourced
+  // comparison policy is validated. Manual SEO suggestions remain available.
+  const isPageEligibleForContentAudit = () => false;
+  const isPageEligibleForPivotOptions = () => false;
+  const isPageEligibleForSuccess = () => false;
 
   const fetchLowCtrPages = async (siteUrl, token) => {
-    const today = new Date();
-    const start = new Date(today);
-    start.setDate(today.getDate() - timePeriod);
-
-    const format = (d) => d.toISOString().split("T")[0];
-    const from = format(start);
-    const to = format(today);
+    const { startDate: from, endDate: to } = searchWindow(timePeriod);
 
     const res = await fetch(
       `https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(
@@ -913,14 +742,19 @@ export default function LowCtrPage() {
         body: JSON.stringify({
           startDate: from,
           endDate: to,
+          dataState: "final",
           dimensions: ["query", "page"],
           rowLimit: 250,
         }),
       }
     );
 
+    if (!res.ok) throw new Error("Search Console could not load. Try again.");
     const json = await res.json();
-    if (!json.rows) {
+    if (!json.rows?.length) {
+      setLowCtrPages([]);
+      setGscKeywordRows([]);
+      setLoading(false);
       return;
     }
     setGscKeywordRows(json.rows);
@@ -998,50 +832,6 @@ export default function LowCtrPage() {
     }
     
     setLoading(false);
-  };
-
-  const PerformanceDelta = ({ pageUrl }) => {
-    const [delta, setDelta] = useState(null);
-
-    useEffect(() => {
-      const fetchDelta = async () => {
-        const docId = createSafeDocId(user.id, pageUrl);
-        const snapshot = await getDoc(doc(db, "implementedSeoTips", docId));
-        const data = snapshot.data();
-        if (!data?.postStats || !data?.preStats) return;
-
-        const deltaData = {
-          impressions: data.postStats.impressions - data.preStats.impressions,
-          clicks: data.postStats.clicks - data.preStats.clicks,
-          ctr: (data.postStats.ctr - data.preStats.ctr).toFixed(4),
-          position: (data.postStats.position - data.preStats.position).toFixed(
-            2
-          ),
-        };
-
-        setDelta(deltaData);
-      };
-
-      fetchDelta();
-    }, [pageUrl]);
-
-    if (!delta) return null;
-
-    const cleanUrl = pageUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
-
-    return (
-      <li>
-        <div className="text-sm">
-          <strong>{cleanUrl}</strong>
-          <ul className="list-disc ml-6 text-muted-foreground">
-            <li>Impressions: {delta.impressions}</li>
-            <li>Clicks: {delta.clicks}</li>
-            <li>CTR: {delta.ctr}</li>
-            <li>Position: {delta.position}</li>
-          </ul>
-        </div>
-      </li>
-    );
   };
 
   if (isLoading || !user) return null;
@@ -1560,24 +1350,6 @@ export default function LowCtrPage() {
         // Find pages eligible for success card
         const successEligiblePages = lowCtrPages.filter((page) => isPageEligibleForSuccess(page.page));
         
-        // Also check pageImplementationDates for pages not in lowCtrPages
-        Object.entries(pageImplementationDates).forEach(([pageUrl, data]) => {
-          if (data.dayFortyFiveSnapshot?.cardType === "success") {
-            const alreadyInList = successEligiblePages.some(p => 
-              normalizeUrlForComparison(p.page) === normalizeUrlForComparison(pageUrl)
-            );
-            if (!alreadyInList) {
-              successEligiblePages.push({
-                page: pageUrl,
-                impressions: data.postStats?.impressions || 0,
-                clicks: data.postStats?.clicks || 0,
-                ctr: "0%",
-                keywords: [],
-              });
-            }
-          }
-        });
-        
         if (successEligiblePages.length === 0) return null;
         
         return (
@@ -1615,42 +1387,6 @@ export default function LowCtrPage() {
       {(() => {
         // Start with pages from lowCtrPages that are eligible
         let pivotEligiblePages = lowCtrPages.filter((page) => isPageEligibleForPivotOptions(page.page));
-        
-        // TEST FLAG: Also check pageImplementationDates for test page
-        // This handles pages that aren't in lowCtrPages (low impressions)
-        // TODO: Remove after testing
-        const testPageUrl = "https://bryandevelops.com/best-website-builders/";
-        const testPageInList = pivotEligiblePages.some(p => 
-          p.page.toLowerCase().includes("best-website-builders")
-        );
-        
-        // Check if test page is already pivoted - if so, don't force-add it
-        const isTestPagePivoted = Object.keys(pivotedPagesData).some(url => 
-          url.toLowerCase().includes("best-website-builders")
-        );
-        
-        if (!testPageInList && !isTestPagePivoted) {
-          // Check if test page exists in pageImplementationDates AND has 45+ days
-          const testPageData = Object.entries(pageImplementationDates).find(([url]) => 
-            url.toLowerCase().includes("best-website-builders")
-          );
-          
-          if (testPageData && testPageData[1]?.daysSince >= 45) {
-            console.log("🧪 TEST: Adding test page to pivot options from implementationDates (45+ days)");
-            pivotEligiblePages = [...pivotEligiblePages, {
-              page: testPageData[0],
-              impressions: testPageData[1]?.postStats?.impressions || 0,
-              clicks: testPageData[1]?.postStats?.clicks || 0,
-              ctr: "0%",
-              keywords: [],
-            }];
-          } else {
-            // Don't force add test page if it doesn't have 45+ days
-            console.log("🧪 TEST: Test page not at 45 days yet, not adding to pivot options. Days:", testPageData?.[1]?.daysSince);
-          }
-        } else if (isTestPagePivoted) {
-          console.log("🔄 TEST: Test page already pivoted, not showing in pivot options");
-        }
         
         if (pivotEligiblePages.length === 0) return null;
         

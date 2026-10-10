@@ -1,4 +1,5 @@
-export async function POST(req) {
+import { authenticatedRoute } from '../../../lib/server/authenticatedRoute';
+async function handlePOST(req) {
   try {
     const { 
       pageUrl, 
@@ -634,3 +635,5 @@ function parseE3Suggestions(aiResponse, focusKeyword) {
     }
   ];
 }
+
+export const POST = authenticatedRoute(handlePOST, { quota: 'ai' });

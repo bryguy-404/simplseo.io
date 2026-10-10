@@ -1,4 +1,5 @@
 "use client";
+import { reconnectGsc } from '../lib/reconnectGsc';
 
 import { authenticatedFetch } from "../lib/authenticatedFetch";
 
@@ -447,42 +448,22 @@ const OnboardingWizard = () => {
     return (currentStep / totalSteps) * 100;
   };
 
-  // Handle Google OAuth
-  const handleGoogleAuth = () => {
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "956212275866-7dtgdq7b38b156riehghuvh8b8469ktg.apps.googleusercontent.com";
-    const redirectUri = `${window.location.origin}/api/auth/google/callback`;
-    const scope = 'https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/userinfo.email';
-    
-    // Debug logging
-    console.log('Google OAuth Debug:', {
-      clientId,
-      redirectUri,
-      scope,
-      origin: window.location.origin
-    });
-    
-    if (!clientId) {
-      alert('Google Client ID not found. Please check your environment variables.');
-      return;
-    }
-    
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-      `client_id=${clientId}&` +
-      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-      `scope=${encodeURIComponent(scope)}&` +
-      `response_type=code&` +
-      `access_type=offline&` +
-      `prompt=consent`;
-    
-    console.log('Auth URL:', authUrl);
-    window.location.href = authUrl;
+  // State-bound popup flow shared with recovery; tokens never travel in page URLs.
+  const handleGoogleAuth = async () => {
+    setOauthError(null);
+    try {
+      const connection = await reconnectGsc();
+      setGoogleAccessToken(connection.access_token);
+      setGoogleRefreshToken(connection.refresh_token || null);
+      await fetchGscProperties(connection.access_token);
+    } catch (error) { setOauthError(error.message || 'Unable to connect Google. Please try again.'); }
   };
 
   // Fetch GSC properties
   const fetchGscProperties = useCallback(async (accessToken) => {
     setIsLoadingProperties(true);
     try {
-      const response = await fetch(`/api/gsc/properties?accessToken=${accessToken}`);
+      const response = await authenticatedFetch('/api/gsc/properties', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessToken }) });
       const result = await response.json();
       
       if (result.success) {
@@ -497,60 +478,14 @@ const OnboardingWizard = () => {
     }
   }, []);
 
-  // Check for Google OAuth callback
+  // Remove any stale legacy callback parameters without accepting browser-supplied tokens.
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const accessToken = urlParams.get('access_token');
-    const refreshToken = urlParams.get('refresh_token');
-    const email = urlParams.get('email');
-    const step = urlParams.get('step');
-    const error = urlParams.get('error');
-    
-    console.log("🔍 OAuth callback tokens:", {
-      hasAccessToken: !!accessToken,
-      hasRefreshToken: !!refreshToken,
-      email: email,
-      step: step,
-      error: error
-    });
-    
-    // Handle error case
-    if (error === 'google_auth_failed') {
-      console.error("❌ Google OAuth failed");
-      setOauthError("Failed to connect Google account. Please try again.");
-      // Set step to 4 if provided, otherwise stay on current step
-      if (step) {
-        setCurrentStep(parseInt(step));
-      }
-      // Clean up URL but keep error for user feedback
-      const newUrl = `${window.location.pathname}${step ? `?step=${step}` : ''}`;
-      window.history.replaceState({}, document.title, newUrl);
-      return;
+    if (new URLSearchParams(window.location.search).has('access_token')) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setCurrentStep(4);
+      setOauthError('Please reconnect Google using the secure connection button.');
     }
-    
-    // Clear error if OAuth succeeded
-    if (accessToken && email) {
-      setOauthError(null);
-    }
-    
-    if (accessToken && email) {
-      setGoogleAccessToken(accessToken);
-      if (refreshToken) {
-        setGoogleRefreshToken(refreshToken);
-      }
-      updateData({ googleEmail: email });
-      fetchGscProperties(accessToken);
-      
-      // Set the step if provided (for OAuth callback)
-      if (step) {
-        setCurrentStep(parseInt(step));
-      }
-      
-      // Clean up URL
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, newUrl);
-    }
-  }, [updateData, fetchGscProperties]);
+  }, []);
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -836,7 +771,7 @@ const OnboardingWizard = () => {
                             handleGoogleAuth();
                           } else {
                             console.log("🎯 GSC Property selected:", value);
-                            updateData({ gscProperty: value });
+
                             console.log("✅ GSC Property saved to context");
                             
                             // Store the Google tokens in Firestore for the selected property
@@ -855,12 +790,13 @@ const OnboardingWizard = () => {
                                 });
                                 
                                 if (response.ok) {
-                                  console.log("✅ Google tokens stored successfully");
+                                  await updateData({ gscProperty: value });
+                                  setOauthError(null);
                                 } else {
-                                  console.error("❌ Failed to store Google tokens");
+                                  setOauthError("Your Google property could not be saved. Please try again.");
                                 }
                               } catch (error) {
-                                console.error("❌ Error storing Google tokens:", error);
+                                setOauthError(error.message || "Your Google property could not be saved.");
                               }
                             }
                           }

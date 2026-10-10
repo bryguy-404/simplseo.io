@@ -1,4 +1,5 @@
-"use server";
+import { authenticatedRoute } from '../../../lib/server/authenticatedRoute';
+
 
 import { NextResponse } from "next/server";
 import { db } from "../../../lib/firebaseAdmin";
@@ -20,7 +21,7 @@ function normalizePageUrl(url) {
   }
 }
 
-export async function POST(request) {
+async function handlePOST(request) {
   try {
     const { 
       pageUrl, 
@@ -492,3 +493,5 @@ Example format: [
   }
 }
 
+
+export const POST = authenticatedRoute(handlePOST, { quota: 'ai' });

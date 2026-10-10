@@ -1,3 +1,6 @@
+import { auth } from '../../lib/firebaseAdmin';
+import { requireUser } from '../../lib/server/requestAuth';
+import { publicRoute, escapeHtml } from '../../lib/server/publicRequest';
 import { NextResponse } from "next/server";
 import { db } from "../../lib/firebaseAdmin";
 import nodemailer from "nodemailer";
@@ -26,24 +29,26 @@ const createTransporter = () => {
     },
     // TLS options for better compatibility
     tls: {
-      rejectUnauthorized: false, // Allow self-signed certificates (if needed)
+      rejectUnauthorized: true, // Allow self-signed certificates (if needed)
     },
   });
 };
 
-export async function POST(req) {
+async function handlePOST(req) {
   try {
-    const { name, email, subject, message, userId, userEmail } = await req.json();
+    const { name, email, subject, message } = await req.json();
+    let userId = null; let userEmail = null;
+    if (req.headers.has('authorization')) { userId = await requireUser(req); userEmail = (await auth.getUser(userId)).email || null; }
 
     // Validation
-    if (!name || !email || !subject || !message) {
+    if ([name, email, subject, message].some(value => typeof value !== 'string' || !value.trim()) || name.length > 200 || email.length > 254 || message.length > 10000) {
       return NextResponse.json(
         { error: "All fields are required" },
         { status: 400 }
       );
     }
 
-    if (!email.includes("@")) {
+    if (!/^[^\s@/]+@[^\s@/]+\.[^\s@/]+$/.test(email)) {
       return NextResponse.json(
         { error: "Invalid email address" },
         { status: 400 }
@@ -107,14 +112,14 @@ export async function POST(req) {
               <h2 style="color: #00BF63;">New Contact Form Submission</h2>
               <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
                 <p><strong>Subject:</strong> ${subjectLabel}</p>
-                <p><strong>From:</strong> ${name.trim()} (${email.trim()})</p>
-                ${userId ? `<p><strong>User ID:</strong> ${userId}</p>` : ""}
-                ${userEmail ? `<p><strong>User Email:</strong> ${userEmail}</p>` : ""}
+                <p><strong>From:</strong> ${escapeHtml(name.trim())} (${escapeHtml(email.trim())})</p>
+                ${userId ? `<p><strong>User ID:</strong> ${escapeHtml(userId)}</p>` : ""}
+                ${userEmail ? `<p><strong>User Email:</strong> ${escapeHtml(userEmail)}</p>` : ""}
                 <p><strong>Submitted:</strong> ${new Date().toLocaleString()}</p>
               </div>
               <div style="background-color: #ffffff; padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0;">
                 <h3 style="margin-top: 0;">Message:</h3>
-                <p style="white-space: pre-wrap; line-height: 1.6;">${message.trim().replace(/\n/g, "<br>")}</p>
+                <p style="white-space: pre-wrap; line-height: 1.6;">${escapeHtml(message.trim()).replace(/\n/g, "<br>")}</p>
               </div>
               <p style="color: #666; font-size: 12px; margin-top: 20px;">
                 This email was sent from the SimplSEO contact form.
@@ -155,9 +160,11 @@ This email was sent from the SimpleSEO contact form.
   } catch (error) {
     console.error("❌ Error saving contact message:", error);
     return NextResponse.json(
-      { error: "Failed to send message", details: error.message },
+      { error: "Failed to send message" },
       { status: 500 }
     );
   }
 }
 
+
+export const POST = publicRoute(handlePOST, { limit: 5, windowMs: 3600000 });

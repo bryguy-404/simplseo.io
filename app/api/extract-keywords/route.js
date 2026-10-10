@@ -1,3 +1,5 @@
+import { publicFetch } from '../../lib/server/publicFetch';
+import { authenticatedRoute } from '../../lib/server/authenticatedRoute';
 // app/api/extract-keywords/route.js
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
@@ -5,19 +7,19 @@ import * as cheerio from "cheerio";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export async function POST(req) {
+async function handlePOST(req) {
   const { pageUrl } = await req.json();
 
   await new Promise((r) => setTimeout(r, 2000)); // Prevent hitting token limit
 
   try {
     // 🌐 Fetch the HTML content
-    const res = await fetch(pageUrl);
+    const res = await publicFetch(pageUrl);
     const html = await res.text();
 
     // 🧼 Extract visible text
     const $ = cheerio.load(html);
-    const text = $("body").text().replace(/\s+/g, " ").trim();
+    const text = $("body").text().replace(/\s+/g, " ").trim().slice(0, 24000);
 
     // 🔍 Prompt OpenAI
     const prompt = `
@@ -57,3 +59,5 @@ Return them as a comma-separated list only.
     });
   }
 }
+
+export const POST = authenticatedRoute(handlePOST, { quota: 'ai' });

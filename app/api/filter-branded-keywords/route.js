@@ -1,6 +1,7 @@
+import { authenticatedRoute } from '../../lib/server/authenticatedRoute';
 import { NextResponse } from "next/server";
 
-export async function POST(req) {
+async function handlePOST(req) {
   try {
     const { keywords, businessName, businessType } = await req.json();
 
@@ -345,3 +346,5 @@ Remember: Be very strict - only mark as branded if it clearly contains the busin
     }, { status: 500 });
   }
 }
+
+export const POST = authenticatedRoute(handlePOST, { quota: 'ai' });

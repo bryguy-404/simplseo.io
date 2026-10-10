@@ -1,4 +1,6 @@
 "use client";
+import { authenticatedFetch } from '../lib/authenticatedFetch';
+
 
 import { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -19,11 +21,11 @@ export default function DebugPage() {
 
     try {
       // Test 1: Environment variables
-      const envResponse = await fetch("/api/test-env");
+      const envResponse = await authenticatedFetch("/api/test-env");
       results.env = await envResponse.json();
 
       // Test 2: Scraping API
-      const scrapeResponse = await fetch("/api/scrape-content", {
+      const scrapeResponse = await authenticatedFetch("/api/scrape-content", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pageUrl: "https://bryandevelops.com/" })
@@ -31,7 +33,7 @@ export default function DebugPage() {
       results.scrape = await scrapeResponse.json();
 
       // Test 3: Intent Analysis
-      const intentResponse = await fetch("/api/test-intent-mismatch");
+      const intentResponse = await authenticatedFetch("/api/test-intent-mismatch");
       results.intent = await intentResponse.json();
 
       // Test 4: Firebase connection
@@ -116,4 +118,4 @@ export default function DebugPage() {
       </Card>
     </MainLayout>
   );
-} 
+}

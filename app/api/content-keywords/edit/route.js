@@ -1,3 +1,5 @@
+import { scrapeContentResponse } from '../../../lib/server/scrapeContent';
+import { authenticatedRoute } from '../../../lib/server/authenticatedRoute';
 import { NextResponse } from "next/server";
 import { db } from "../../../lib/firebaseAdmin";
 
@@ -6,7 +8,7 @@ const RATE_LIMIT_HOURS = 24; // 24 hours between edits
 /**
  * Check if user can make edits (rate limiting)
  */
-export async function GET(req) {
+async function handleGET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");
@@ -64,7 +66,7 @@ export async function GET(req) {
 /**
  * Save content/keywords edits with rate limiting
  */
-export async function POST(req) {
+async function handlePOST(req) {
   try {
     const {
       userId,
@@ -231,11 +233,7 @@ export async function POST(req) {
 
         for (const url of pagesToAdd) {
           try {
-            const scrapeRes = await fetch(`${SCRAPE_BASE_URL}/api/scrape-content`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ pageUrl: url }),
-            });
+            const scrapeRes = await scrapeContentResponse(url);
 
             if (scrapeRes.ok) {
               const scrapeJson = await scrapeRes.json();
@@ -356,3 +354,6 @@ export async function POST(req) {
   }
 }
 
+
+export const GET = authenticatedRoute(handleGET);
+export const POST = authenticatedRoute(handlePOST);

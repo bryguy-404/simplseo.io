@@ -35,6 +35,9 @@ export async function getGscConnection(uid) {
   if (!connection.accessToken || !connection.expiresAt || connection.expiresAt < Date.now() + 300000) await refresh();
   return {
     siteUrl: connection.siteUrl,
+    async browserCredentials() {
+      return { access_token: connection.accessToken, expires_in: Math.max(0, Math.floor((connection.expiresAt - Date.now()) / 1000)), siteUrl: connection.siteUrl };
+    },
     async query(body) {
       const send = () => fetch(`https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(connection.siteUrl)}/searchAnalytics/query`, { method: 'POST', headers: { Authorization: `Bearer ${connection.accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(20000) });
       let response;

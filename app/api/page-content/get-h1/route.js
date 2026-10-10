@@ -1,4 +1,5 @@
-"use server";
+import { authenticatedRoute } from '../../../lib/server/authenticatedRoute';
+
 
 import { NextResponse } from "next/server";
 import { db } from "../../../lib/firebaseAdmin";
@@ -11,7 +12,7 @@ function normalizePageUrl(url) {
   return normalized;
 }
 
-export async function POST(request) {
+async function handlePOST(request) {
   try {
     const { userId, pageUrl } = await request.json();
 
@@ -121,3 +122,5 @@ export async function POST(request) {
   }
 }
 
+
+export const POST = authenticatedRoute(handlePOST);

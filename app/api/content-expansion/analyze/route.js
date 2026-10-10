@@ -1,7 +1,8 @@
+import { authenticatedRoute } from '../../../lib/server/authenticatedRoute';
 import { NextResponse } from "next/server";
 import googleTrends from 'google-trends-api';
 
-export async function POST(request) {
+async function handlePOST(request) {
   try {
     const { gscKeywords, businessType, businessLocation, websiteUrl, customBusinessType } = await request.json();
 
@@ -581,3 +582,4 @@ function getCountryCode(businessLocation) {
   // Default to US for most cases
   return 'US';
 }
+export const POST = authenticatedRoute(handlePOST, { quota: 'ai' });

@@ -1,10 +1,13 @@
+
+import { authenticatedFetch } from './authenticatedFetch';
+import { auth } from './firebaseConfig';
 /**
  * API Response Caching Utility
  * Caches API responses in localStorage with expiration times
  */
 
 const CACHE_PREFIX = 'api_cache_';
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 
 // Cache durations in milliseconds
 export const CACHE_DURATIONS = {
@@ -48,11 +51,13 @@ export function generateKeywordSignature(keywords = []) {
  * Generate a cache key from API endpoint and parameters
  */
 function generateCacheKey(endpoint, params = {}) {
+  const uid = auth.currentUser?.uid;
+  if (!uid || (params.userId && params.userId !== uid)) return null;
   const paramString = JSON.stringify(params);
   const key = `${endpoint}_${paramString}`;
   // Use simpleHash for server/client compatibility
   const hash = simpleHash(key);
-  return `${CACHE_PREFIX}${CACHE_VERSION}_${hash}`;
+  return `${CACHE_PREFIX}${CACHE_VERSION}_${encodeURIComponent(uid)}_${hash}`;
 }
 
 /**
@@ -63,6 +68,7 @@ export function getCachedData(endpoint, params = {}, cacheDuration) {
 
   try {
     const cacheKey = generateCacheKey(endpoint, params);
+    if (!cacheKey) return null;
     const cached = localStorage.getItem(cacheKey);
     
     if (!cached) return null;
@@ -97,6 +103,7 @@ export function setCachedData(endpoint, params = {}, data) {
 
   try {
     const cacheKey = generateCacheKey(endpoint, params);
+    if (!cacheKey) return;
     const cacheData = {
       data,
       timestamp: Date.now()
@@ -119,6 +126,7 @@ export function clearCache(endpoint, params = {}) {
 
   try {
     const cacheKey = generateCacheKey(endpoint, params);
+    if (!cacheKey) return;
     localStorage.removeItem(cacheKey);
   } catch (error) {
     console.warn('Error clearing cache:', error);
@@ -200,6 +208,9 @@ export async function fetchWithCache(
   cacheDuration,
   params = {}
 ) {
+  await auth.authStateReady();
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error('Please sign in to continue.');
   // Try to get from cache first
   const cached = getCachedData(endpoint, params, cacheDuration);
   if (cached) {
@@ -213,12 +224,13 @@ export async function fetchWithCache(
 
   // Fetch from API
   console.log(`🔄 Cache miss for ${endpoint}, fetching fresh data...`);
-  const response = await fetch(endpoint, options);
+  const response = await (endpoint.startsWith('/api/') ? authenticatedFetch(endpoint, options) : fetch(endpoint, options));
   if (!response.ok) {
     throw new Error(`API error: ${response.status}`);
   }
 
   const data = await response.json();
+  if (auth.currentUser?.uid !== uid) throw new Error('Your account changed. Please try again.');
 
   // Save to cache
   setCachedData(endpoint, params, data);

@@ -1,6 +1,7 @@
+import { authenticatedRoute } from '../../lib/server/authenticatedRoute';
 import { NextResponse } from "next/server";
 
-export async function POST(req) {
+async function handlePOST(req) {
   try {
     const { keyword, pageUrl, pageContent, title, metaDescription, headings } = await req.json();
 
@@ -133,4 +134,5 @@ Return only valid JSON with no additional text.`;
       suggestedFix: "Manually review the page content against the search query",
     };
   }
-} 
+}
+export const POST = authenticatedRoute(handlePOST, { quota: 'ai' });

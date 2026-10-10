@@ -604,7 +604,7 @@ const PivotOptionsPanel = ({
         return;
       }
 
-      const response = await fetch("/api/gsc/page-keywords", {
+      const response = await authenticatedFetch("/api/gsc/page-keywords", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -649,7 +649,7 @@ const PivotOptionsPanel = ({
         ? currentRankingKeywords[0].keyword 
         : null;
 
-      const response = await fetch("/api/seo-assistant/suggest-keywords", {
+      const response = await authenticatedFetch("/api/seo-assistant/suggest-keywords", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -700,7 +700,7 @@ const PivotOptionsPanel = ({
       // Re-crawl the page to get fresh content for new AI suggestions
       toast.info("Generating new meta suggestions for your new keyword...");
       try {
-        const recrawlRes = await fetch("/api/recrawl-page", {
+        const recrawlRes = await authenticatedFetch("/api/recrawl-page", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -757,12 +757,12 @@ const PivotOptionsPanel = ({
 
       // Generate new AI metas
       const [titleRes, descRes] = await Promise.all([
-        fetch("/api/seo-assistant/meta-title", {
+        authenticatedFetch("/api/seo-assistant/meta-title", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...payload, _nocache: Date.now() }),
         }),
-        fetch("/api/seo-assistant/meta-description", {
+        authenticatedFetch("/api/seo-assistant/meta-description", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...payload, _nocache: Date.now() }),
@@ -972,7 +972,7 @@ const PivotOptionsPanel = ({
 
       // Update meta cache with new metas
       try {
-        await fetch("/api/pages/update-cache", {
+        await authenticatedFetch("/api/pages/update-cache", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -990,7 +990,7 @@ const PivotOptionsPanel = ({
 
       // Log AI training event
       try {
-        await fetch("/api/training/log-event", {
+        await authenticatedFetch("/api/training/log-event", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1041,7 +1041,7 @@ const PivotOptionsPanel = ({
       // Re-crawl the page to get fresh content for new AI suggestions
       toast.info("Generating new meta suggestions...");
       try {
-        const recrawlRes = await fetch("/api/recrawl-page", {
+        const recrawlRes = await authenticatedFetch("/api/recrawl-page", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1108,12 +1108,12 @@ const PivotOptionsPanel = ({
 
       // Fetch NEW AI meta title and description (bypass cache by adding timestamp)
       const [titleRes, descRes] = await Promise.all([
-        fetch("/api/seo-assistant/meta-title", {
+        authenticatedFetch("/api/seo-assistant/meta-title", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...payload, _nocache: Date.now() }),
         }),
-        fetch("/api/seo-assistant/meta-description", {
+        authenticatedFetch("/api/seo-assistant/meta-description", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...payload, _nocache: Date.now() }),
@@ -1170,8 +1170,8 @@ const PivotOptionsPanel = ({
         const encodedCacheKey = encodeURIComponent(cacheKey);
         
         const [titleDoc, descDoc] = await Promise.all([
-          getDoc(doc(db, "seoMetaTitles", encodedCacheKey)),
-          getDoc(doc(db, "seoMetaDescriptions", encodedCacheKey))
+          getDoc(doc(db, "seoMetaTitles", user.id, "titles", encodedCacheKey)),
+          getDoc(doc(db, "seoMetaDescriptions", user.id, "descriptions", encodedCacheKey))
         ]);
         
         if (titleDoc.exists()) {
@@ -1255,13 +1255,13 @@ const PivotOptionsPanel = ({
         const encodedCacheKey = encodeURIComponent(cacheKey);
         
         await Promise.all([
-          writeSeoRecord(doc(db, "seoMetaTitles", encodedCacheKey), {
+          writeSeoRecord(doc(db, "seoMetaTitles", user.id, "titles", encodedCacheKey), {
             title: optimizeMetaNewTitle,
             createdAt: new Date().toISOString(),
             focusKeywords: focusKeyword ? [focusKeyword] : [],
             pageUrl,
           }),
-          writeSeoRecord(doc(db, "seoMetaDescriptions", encodedCacheKey), {
+          writeSeoRecord(doc(db, "seoMetaDescriptions", user.id, "descriptions", encodedCacheKey), {
             description: optimizeMetaNewDescription,
             createdAt: new Date().toISOString(),
             focusKeywords: focusKeyword ? [focusKeyword] : [],
@@ -1274,7 +1274,7 @@ const PivotOptionsPanel = ({
 
       // Log training event for AI learning
       try {
-        await fetch("/api/training/log-event", {
+        await authenticatedFetch("/api/training/log-event", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1428,7 +1428,7 @@ const PivotOptionsPanel = ({
         return;
       }
 
-      const response = await fetch("/api/gsc/page-keywords", {
+      const response = await authenticatedFetch("/api/gsc/page-keywords", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1522,7 +1522,7 @@ const PivotOptionsPanel = ({
         throw new Error("Could not get valid GSC token");
       }
 
-      const response = await fetch("/api/gsc/page-keywords", {
+      const response = await authenticatedFetch("/api/gsc/page-keywords", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

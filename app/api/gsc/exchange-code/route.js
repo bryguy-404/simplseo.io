@@ -6,6 +6,8 @@ export async function POST(request) {
     const body = await request.json();
     const uid = await requireUser(request, body.userId);
     if (body.accessToken && body.property) {
+      const existing = (await db.collection('users').doc(uid).get()).data() || {};
+      if (existing.gscSiteUrl && body.property !== existing.gscSiteUrl && !body.refreshToken) throw new RequestError('Reconnect Google with full consent before changing properties.', 409);
       const values = { gscAccessToken: body.accessToken, gscSiteUrl: body.property, gscConnectedAt: new Date().toISOString() };
       if (body.refreshToken) values.gscRefreshToken = body.refreshToken;
       await db.collection('users').doc(uid).set(values, { merge: true });

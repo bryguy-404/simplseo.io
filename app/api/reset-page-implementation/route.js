@@ -1,4 +1,6 @@
-"use server";
+import { scrapeContentResponse } from '../../lib/server/scrapeContent';
+import { authenticatedRoute } from '../../lib/server/authenticatedRoute';
+
 
 import { NextResponse } from "next/server";
 import { db } from "../../lib/firebaseAdmin";
@@ -20,7 +22,7 @@ const createSafeDocId = (userId, pageUrl) => {
  * Reset a page's implementation status so it can be re-implemented with a new keyword
  * Preserves the old keyword's stats in keywordStatsHistory
  */
-export async function POST(request) {
+async function handlePOST(request) {
   try {
     const { userId, pageUrl, currentKeyword, keywordSource } = await request.json();
 
@@ -52,7 +54,7 @@ export async function POST(request) {
       console.log("🔍 Trying docId:", docId, "for URL:", url);
       const ref = db.collection("implementedSeoTips").doc(docId);
       const snap = await ref.get();
-      if (snap.exists) {
+      if (snap.exists && snap.data().userId === userId) {
         console.log("✅ Found document by docId!");
         docRef = ref;
         docSnap = snap;
@@ -77,7 +79,7 @@ export async function POST(request) {
         
         console.log("🔍 Checking stored URL:", storedUrl);
         
-        if (storedUrl && (storedUrl.includes('best-website-builders') || storedUrl === searchUrl)) {
+        if (storedUrl && (storedUrl === searchUrl)) {
           console.log("✅ Found document by query!");
           docRef = doc.ref;
           docSnap = doc;
@@ -97,7 +99,8 @@ export async function POST(request) {
     // Handle both regular DocumentSnapshot and QueryDocumentSnapshot
     const currentData = typeof docSnap.data === 'function' ? docSnap.data() : docSnap;
     console.log("Found document for URL:", matchedUrl);
-    console.log("Current data:", JSON.stringify(currentData, null, 2));
+
+    if (currentData.preRevampArchived === true) return NextResponse.json({ error: 'Previous website work is read-only. Start a new recommendation for this page.' }, { status: 409 });
     
     // Build the keyword stats history - preserve metrics from current keyword
     const keywordStatsHistory = currentData.keywordStatsHistory || [];
@@ -142,11 +145,7 @@ export async function POST(request) {
       const urlToRecrawl = (matchedUrl || pageUrl).replace(/\/$/, '');
       console.log("🔄 Re-crawling page with normalized URL:", urlToRecrawl);
       
-      const scrapeRes = await fetch(`${SCRAPE_BASE_URL}/api/scrape-content`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pageUrl: urlToRecrawl }),
-      });
+      const scrapeRes = await scrapeContentResponse(urlToRecrawl);
 
       if (scrapeRes.ok) {
         const scrapeJson = await scrapeRes.json();
@@ -187,3 +186,5 @@ export async function POST(request) {
     );
   }
 }
+
+export const POST = authenticatedRoute(handlePOST);

@@ -1,4 +1,6 @@
 "use client";
+import { authenticatedFetch } from '../../lib/authenticatedFetch';
+
 
 import { useEffect, useState } from "react";
 import { db } from "../../lib/firebaseConfig";
@@ -91,7 +93,7 @@ export default function InternalLinkSuggestion({
       const fromSlug = extractSlug(fromUrl);
 
       try {
-        const res = await fetch("/api/seo-assistant/anchor-text", {
+        const res = await authenticatedFetch("/api/seo-assistant/anchor-text", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

@@ -1,4 +1,4 @@
-"use server";
+// Internal server module; callable only through authenticated routes.
 
 import { db } from "./firebaseAdmin";
 import crypto from "crypto";
@@ -200,42 +200,8 @@ export async function savePlaybookStrategy(userId, strategyData) {
 }
 
 // Get playbook strategies for similar businesses
-export async function getPlaybookStrategies({
-  businessType,
-  businessLocation,
-  strategyType,
-  limit = 5,
-}) {
-  try {
-    // Check if playbook is enabled for this business type
-    const { checkIfPlaybookEnabled } = await import("./playbookConfig");
-    const isEnabled = await checkIfPlaybookEnabled(businessType);
-
-    if (!isEnabled) {
-      console.log(
-        `Playbook not enabled for ${businessType} - not enough validated data yet`
-      );
-      return []; // Return empty array if not enabled
-    }
-
-    // Query across all users' strategies using collectionGroup
-    let query = db
-      .collectionGroup("strategies")
-      .where("businessType", "==", businessType)
-      .where("strategyType", "==", strategyType)
-      .where("status", "==", "success");
-
-    const snapshot = await query.limit(limit).get();
-
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-  } catch (error) {
-    console.error("Error fetching playbook strategies:", error);
-    return [];
-  }
-}
+// Legacy outcome scores were not validated. Do not reuse them in recommendations.
+export async function getPlaybookStrategies() { return []; }
 
 // Get all strategies for a user (for admin/debugging)
 export async function getUserStrategies(hashedUserId) {

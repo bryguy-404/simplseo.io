@@ -1,3 +1,4 @@
+import { authenticatedRoute } from '../../../lib/server/authenticatedRoute';
 // app/api/chatbot/chat/route.js
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
@@ -168,9 +169,9 @@ const getCachedSitePages = async (userId, desiredCount = 25) => {
   }
 };
 
-export async function POST(req) {
+async function handlePOST(req) {
   try {
-    const { message, conversationHistory = [], userData } = await req.json();
+    const { message, conversationHistory = [], userData, userId } = await req.json();
 
     if (!message) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 });
@@ -181,7 +182,7 @@ export async function POST(req) {
     }
 
     // Get cached pages and implementation summary in parallel
-    const userId = userData?.userId || null;
+
     const [cachedPages, implementationSummary] = await Promise.all([
       userId ? getCachedSitePages(userId, 25) : Promise.resolve([]),
       userId ? getImplementationSummary(userId) : Promise.resolve([]),
@@ -366,3 +367,5 @@ Remember: You have access to their real Google Search Console data from the last
     }, { status: 500 });
   }
 }
+
+export const POST = authenticatedRoute(handlePOST, { quota: 'ai' });

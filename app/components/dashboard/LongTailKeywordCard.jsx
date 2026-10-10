@@ -1,4 +1,6 @@
 "use client";
+import { authenticatedFetch } from '../../lib/authenticatedFetch';
+
 
 import { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
@@ -40,7 +42,7 @@ export default function LongTailKeywordCard({ gscKeywords = [] }) {
         websiteUrl: data.websiteUrl
       });
 
-      const response = await fetch("/api/long-tail-keywords/analyze", {
+      const response = await authenticatedFetch("/api/long-tail-keywords/analyze", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

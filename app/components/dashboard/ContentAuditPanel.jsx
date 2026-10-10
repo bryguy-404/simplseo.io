@@ -389,7 +389,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
         }
       }
 
-      const response = await fetch("/api/gsc/page-keywords", {
+      const response = await authenticatedFetch("/api/gsc/page-keywords", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -446,7 +446,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
         return;
       }
 
-      const response = await fetch("/api/gsc/page-keywords", {
+      const response = await authenticatedFetch("/api/gsc/page-keywords", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -624,7 +624,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
       const { title, metaDescription, textContent, headings } = pageContent.data;
 
       // Run content audit
-      const auditResponse = await fetch("/api/content-audit", {
+      const auditResponse = await authenticatedFetch("/api/content-audit", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -686,7 +686,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
       });
 
       // Call AI suggestions API with fresh content
-      const suggestionsResponse = await fetch("/api/seo-assistant/content-improvements", {
+      const suggestionsResponse = await authenticatedFetch("/api/seo-assistant/content-improvements", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -758,7 +758,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
         return;
       }
 
-      const response = await fetch("/api/gsc/page-keywords", {
+      const response = await authenticatedFetch("/api/gsc/page-keywords", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -802,7 +802,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
         ? currentRankingKeywords[0].keyword 
         : null;
 
-      const response = await fetch("/api/seo-assistant/suggest-keywords", {
+      const response = await authenticatedFetch("/api/seo-assistant/suggest-keywords", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -859,7 +859,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
       // Re-crawl the page to get fresh content for new AI suggestions
       toast.info("Generating new meta suggestions for your new keyword...");
       try {
-        const recrawlRes = await fetch("/api/recrawl-page", {
+        const recrawlRes = await authenticatedFetch("/api/recrawl-page", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -886,12 +886,12 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
       };
 
       const [titleRes, descRes] = await Promise.all([
-        fetch("/api/seo-assistant/meta-title", {
+        authenticatedFetch("/api/seo-assistant/meta-title", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...payload, _nocache: Date.now() }),
         }),
-        fetch("/api/seo-assistant/meta-description", {
+        authenticatedFetch("/api/seo-assistant/meta-description", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...payload, _nocache: Date.now() }),
@@ -1058,13 +1058,13 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
         const encodedCacheKey = encodeURIComponent(cacheKey);
         
         await Promise.all([
-          writeSeoRecord(doc(db, "seoMetaTitles", encodedCacheKey), {
+          writeSeoRecord(doc(db, "seoMetaTitles", user.id, "titles", encodedCacheKey), {
             title: e3PivotNewMetaTitle,
             createdAt: new Date().toISOString(),
             focusKeywords: [e3PivotNewKeyword],
             pageUrl,
           }),
-          writeSeoRecord(doc(db, "seoMetaDescriptions", encodedCacheKey), {
+          writeSeoRecord(doc(db, "seoMetaDescriptions", user.id, "descriptions", encodedCacheKey), {
             description: e3PivotNewMetaDescription,
             createdAt: new Date().toISOString(),
             focusKeywords: [e3PivotNewKeyword],
@@ -1113,7 +1113,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
         }
         const { title, metaDescription, textContent, headings } = pageContent.data;
         
-        const auditResponse = await fetch("/api/content-audit", {
+        const auditResponse = await authenticatedFetch("/api/content-audit", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ pageUrl, pageContent: textContent, title, metaDescription, headings }),
@@ -1159,7 +1159,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
         console.warn("Could not fetch rewrite history for AI learning:", historyError);
       }
       
-      const suggestionsResponse = await fetch("/api/seo-assistant/content-improvements", {
+      const suggestionsResponse = await authenticatedFetch("/api/seo-assistant/content-improvements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1384,7 +1384,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
       // Re-crawl the page to get fresh content for new AI suggestions
       toast.info("Generating new meta suggestions...");
       try {
-        const recrawlRes = await fetch("/api/recrawl-page", {
+        const recrawlRes = await authenticatedFetch("/api/recrawl-page", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1434,12 +1434,12 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
 
       // Fetch NEW AI meta title and description (bypass cache by adding timestamp)
       const [titleRes, descRes] = await Promise.all([
-        fetch("/api/seo-assistant/meta-title", {
+        authenticatedFetch("/api/seo-assistant/meta-title", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...payload, _nocache: Date.now() }),
         }),
-        fetch("/api/seo-assistant/meta-description", {
+        authenticatedFetch("/api/seo-assistant/meta-description", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...payload, _nocache: Date.now() }),
@@ -1496,8 +1496,8 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
         const encodedCacheKey = encodeURIComponent(cacheKey);
         
         const [titleDoc, descDoc] = await Promise.all([
-          getDoc(doc(db, "seoMetaTitles", encodedCacheKey)),
-          getDoc(doc(db, "seoMetaDescriptions", encodedCacheKey))
+          getDoc(doc(db, "seoMetaTitles", user.id, "titles", encodedCacheKey)),
+          getDoc(doc(db, "seoMetaDescriptions", user.id, "descriptions", encodedCacheKey))
         ]);
         
         if (titleDoc.exists()) {
@@ -1581,13 +1581,13 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
         const encodedCacheKey = encodeURIComponent(cacheKey);
         
         await Promise.all([
-          writeSeoRecord(doc(db, "seoMetaTitles", encodedCacheKey), {
+          writeSeoRecord(doc(db, "seoMetaTitles", user.id, "titles", encodedCacheKey), {
             title: e1NewMetaTitle,
             createdAt: new Date().toISOString(),
             focusKeywords: propFocusKeyword ? [propFocusKeyword] : [],
             pageUrl,
           }),
-          writeSeoRecord(doc(db, "seoMetaDescriptions", encodedCacheKey), {
+          writeSeoRecord(doc(db, "seoMetaDescriptions", user.id, "descriptions", encodedCacheKey), {
             description: e1NewMetaDescription,
             createdAt: new Date().toISOString(),
             focusKeywords: propFocusKeyword ? [propFocusKeyword] : [],
@@ -1600,7 +1600,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
 
       // Log training event for AI learning
       try {
-        await fetch("/api/training/log-event", {
+        await authenticatedFetch("/api/training/log-event", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1676,7 +1676,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
           userSiteUrl = gscData.siteUrl; // Store site URL for sitemap fetch
           const validToken = await tokenManager.getValidAccessToken();
           if (validToken) {
-            const keywordsResponse = await fetch("/api/gsc/page-keywords", {
+            const keywordsResponse = await authenticatedFetch("/api/gsc/page-keywords", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -1721,7 +1721,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
       }
 
       // Step 3: Call content gaps API
-      const contentGapsResponse = await fetch("/api/seo-assistant/content-gaps", {
+      const contentGapsResponse = await authenticatedFetch("/api/seo-assistant/content-gaps", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1754,7 +1754,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
           return;
         }
         
-        const sitemapResponse = await fetch("/api/sitemap", {
+        const sitemapResponse = await authenticatedFetch("/api/sitemap", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ siteUrl: userSiteUrl }),
@@ -1774,7 +1774,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
             
             for (const sourceUrl of potentialSources.slice(0, 3)) {
               try {
-                const anchorResponse = await fetch("/api/seo-assistant/anchor-text", {
+                const anchorResponse = await authenticatedFetch("/api/seo-assistant/anchor-text", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({

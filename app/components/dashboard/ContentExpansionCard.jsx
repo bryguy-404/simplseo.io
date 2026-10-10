@@ -1,4 +1,6 @@
 "use client";
+import { authenticatedFetch } from '../../lib/authenticatedFetch';
+
 
 import { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
@@ -115,7 +117,7 @@ export default function ContentExpansionCard() {
         });
 
         // Analyze content expansion opportunities
-        const analysisRes = await fetch("/api/content-expansion/analyze", {
+        const analysisRes = await authenticatedFetch("/api/content-expansion/analyze", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

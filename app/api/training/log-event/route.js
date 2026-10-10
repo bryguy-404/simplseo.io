@@ -1,3 +1,4 @@
+import { authenticatedRoute } from '../../../lib/server/authenticatedRoute';
 import { NextResponse } from "next/server";
 import { logTrainingEvent } from "../../../lib/trainingLogger";
 
@@ -5,7 +6,7 @@ import { logTrainingEvent } from "../../../lib/trainingLogger";
  * API endpoint for logging training events from client-side components
  * This allows us to capture important outcomes (success/failure) for AI learning
  */
-export async function POST(req) {
+async function handlePOST(req) {
   try {
     const {
       userId,
@@ -39,3 +40,5 @@ export async function POST(req) {
     );
   }
 }
+
+export const POST = authenticatedRoute(handlePOST);

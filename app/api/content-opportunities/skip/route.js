@@ -1,8 +1,9 @@
+import { authenticatedRoute } from '../../../lib/server/authenticatedRoute';
 import { NextResponse } from "next/server";
 import { db } from "../../../lib/firebaseAdmin";
 
 // POST - Mark a keyword as skipped
-export async function POST(req) {
+async function handlePOST(req) {
   try {
     const { userId, keyword } = await req.json();
 
@@ -43,7 +44,7 @@ export async function POST(req) {
 }
 
 // GET - Get all skipped keywords for a user
-export async function GET(req) {
+async function handleGET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");
@@ -80,7 +81,7 @@ export async function GET(req) {
 }
 
 // DELETE - Undo skip (restore a keyword)
-export async function DELETE(req) {
+async function handleDELETE(req) {
   try {
     const { userId, keyword } = await req.json();
 
@@ -116,3 +117,7 @@ export async function DELETE(req) {
   }
 }
 
+
+export const POST = authenticatedRoute(handlePOST);
+export const GET = authenticatedRoute(handleGET);
+export const DELETE = authenticatedRoute(handleDELETE);

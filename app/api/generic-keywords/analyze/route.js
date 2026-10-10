@@ -1,3 +1,5 @@
+import { scrapeContentResponse } from '../../../lib/server/scrapeContent';
+import { authenticatedRoute } from '../../../lib/server/authenticatedRoute';
 import { NextResponse } from "next/server";
 import { db } from "../../../lib/firebaseAdmin";
 
@@ -185,7 +187,7 @@ function getB2CServiceExamples(businessType) {
   return ['consultation', 'service', 'repair', 'installation'];
 }
 
-export async function POST(req) {
+async function handlePOST(req) {
   try {
     const { gscKeywords, businessType, businessLocation, websiteUrl, customBusinessType, userId, forceRefresh } = await req.json();
 
@@ -1067,13 +1069,7 @@ async function analyzeUserWebsite(websiteUrl, businessType) {
     const fullUrl = websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`;
     
     // Use the existing scrape-content API to get homepage data
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/scrape-content`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ pageUrl: fullUrl })
-    });
+    const response = await scrapeContentResponse(fullUrl);
 
     if (!response.ok) {
       console.warn("⚠️ Could not crawl website, using fallback analysis");
@@ -1381,3 +1377,5 @@ Example format:
   }
 }
 
+
+export const POST = authenticatedRoute(handlePOST, { quota: 'ai' });

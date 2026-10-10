@@ -1,4 +1,5 @@
-export async function POST(req) {
+import { authenticatedRoute } from '../../lib/server/authenticatedRoute';
+async function handlePOST(req) {
   try {
     const { pageUrl, pageContent, title, metaDescription, headings } = await req.json();
 
@@ -330,3 +331,5 @@ async function generateContentSuggestions(pageUrl, pageContent, title, metaDescr
     return [];
   }
 }
+
+export const POST = authenticatedRoute(handlePOST, { quota: 'ai' });

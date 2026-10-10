@@ -1,4 +1,6 @@
 "use client";
+import { authenticatedFetch } from '../lib/authenticatedFetch';
+
 
 import { useAuth } from "../contexts/AuthContext";
 import { useEffect, useState } from "react";
@@ -127,7 +129,7 @@ export default function GenericKeywordsRankingPage() {
       const keywordsToProcess = keywords.slice(0, 500); // Limit to 500 keywords max
       console.log(`📊 Processing ${keywordsToProcess.length} keywords (limited from ${keywords.length})`);
       
-      const response = await fetch('/api/filter-branded-keywords', {
+      const response = await authenticatedFetch('/api/filter-branded-keywords', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

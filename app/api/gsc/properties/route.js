@@ -1,50 +1,29 @@
-import { NextResponse } from "next/server";
-import { google } from "googleapis";
+import { requireUser, RequestError, errorResponse } from '../../../lib/server/requestAuth';
+import { getGscConnection } from '../../../lib/server/gscConnection';
 
-export async function GET(req) {
+async function listProperties(accessToken) {
+  if (typeof accessToken !== 'string' || !accessToken || accessToken.length > 8192) throw new RequestError('Connect Google to select a property.');
+  let response;
+  try { response = await fetch('https://searchconsole.googleapis.com/webmasters/v3/sites', { headers: { Authorization: `Bearer ${accessToken}` }, signal: AbortSignal.timeout(15000) }); }
+  catch { throw new RequestError('Google is temporarily unavailable. Try again.', 503); }
+  if (response.status === 401 || response.status === 403) throw new RequestError('Reconnect Google to select a property.', 409);
+  if (!response.ok) throw new RequestError('Google is temporarily unavailable. Try again.', 503);
+  const data = await response.json();
+  return Response.json({ success: true, properties: (data.siteEntry || []).filter(site => ['siteOwner', 'siteFullUser'].includes(site.permissionLevel)).map(({ siteUrl, permissionLevel }) => ({ siteUrl, permissionLevel })) }, { headers: { 'Cache-Control': 'no-store' } });
+}
+export async function GET(request) {
   try {
-    const { searchParams } = new URL(req.url);
-    const accessToken = searchParams.get('accessToken');
-
-    if (!accessToken) {
-      return NextResponse.json({ error: "Access token is required" }, { status: 400 });
-    }
-
-    // Create OAuth2 client
-    const oauth2Client = new google.auth.OAuth2();
-    oauth2Client.setCredentials({
-      access_token: accessToken
-    });
-
-    // Create Search Console client
-    const searchConsole = google.searchconsole({
-      version: 'v1',
-      auth: oauth2Client
-    });
-
-    // Fetch sites (properties) from GSC
-    const response = await searchConsole.sites.list();
-    const sites = response.data.siteEntry || [];
-
-    // Format the properties for our dropdown
-    const properties = sites.map(site => ({
-      siteUrl: site.siteUrl,
-      permissionLevel: site.permissionLevel,
-      verified: site.verified
-    })).filter(site => 
-      site.permissionLevel === 'siteOwner' || site.permissionLevel === 'siteFullUser'
-    );
-
-    return NextResponse.json({ 
-      success: true, 
-      properties 
-    });
-
-  } catch (error) {
-    console.error("Error fetching GSC properties:", error);
-    return NextResponse.json({ 
-      error: "Failed to fetch GSC properties",
-      details: error.message 
-    }, { status: 500 });
-  }
+    const uid = await requireUser(request, new URL(request.url).searchParams.get('userId'));
+    const connection = await getGscConnection(uid);
+    return await listProperties((await connection.browserCredentials()).access_token);
+  } catch (e) { return errorResponse(e); }
+}
+export async function POST(request) {
+  try {
+    const body = await request.json();
+    await requireUser(request, body.userId);
+    // New OAuth connections have no property yet. Tokens belong in the request
+    // body, never query strings, browser history or request URLs.
+    return await listProperties(body.accessToken);
+  } catch (e) { return errorResponse(e); }
 }

@@ -1,3 +1,5 @@
+
+import { authenticatedFetch } from '../lib/authenticatedFetch';
 import React, { useState, useRef, useEffect } from "react";
 import { X, Send, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -112,7 +114,7 @@ const ChatAssistant = ({
     
     try {
       const url = `/api/conversations?userId=${user.id}${includeActiveCorner ? '&includeActiveCorner=true' : ''}`;
-      const response = await fetch(url);
+      const response = await authenticatedFetch(url);
       const result = await response.json();
       
       if (result.success) {
@@ -129,7 +131,7 @@ const ChatAssistant = ({
     if (!user?.id || !messagesToSave.length) return;
 
     try {
-      const response = await fetch('/api/conversations', {
+      const response = await authenticatedFetch('/api/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -156,7 +158,7 @@ const ChatAssistant = ({
 
   const updateConversation = async (conversationId, messagesToUpdate) => {
     try {
-      const response = await fetch(`/api/conversations/${conversationId}`, {
+      const response = await authenticatedFetch(`/api/conversations/${conversationId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -178,7 +180,7 @@ const ChatAssistant = ({
     if (!conversationId) return;
     
     try {
-      const response = await fetch(`/api/conversations/${conversationId}`, {
+      const response = await authenticatedFetch(`/api/conversations/${conversationId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -211,7 +213,7 @@ const ChatAssistant = ({
       
       if (cornerConversation) {
         // Load the full conversation (we need the messages)
-        const conversationResponse = await fetch(`/api/conversations/${cornerConversation.id}`);
+        const conversationResponse = await authenticatedFetch(`/api/conversations/${cornerConversation.id}`);
         const conversationResult = await conversationResponse.json();
         
         if (conversationResult.success) {
@@ -400,7 +402,7 @@ const ChatAssistant = ({
       // Determine if this is focus keyword context
       const isFocusKeywordContext = pageContext && pageContext.selectedKeywords !== undefined;
 
-      const res = await fetch("/api/seo-assistant/chat", {
+      const res = await authenticatedFetch("/api/seo-assistant/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -596,7 +598,7 @@ const ChatAssistant = ({
           content: msg.content
         }));
 
-      const res = await fetch("/api/seo-assistant/chat", {
+      const res = await authenticatedFetch("/api/seo-assistant/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

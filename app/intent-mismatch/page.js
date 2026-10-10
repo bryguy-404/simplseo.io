@@ -1,4 +1,6 @@
 "use client";
+import { authenticatedFetch } from '../lib/authenticatedFetch';
+
 
 import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -207,7 +209,7 @@ export default function IntentMismatch() {
         try {
           // Step 1: Scrape the page content
           console.log(`🔍 Scraping content for: ${pageUrl}`);
-          const scrapeResponse = await fetch("/api/scrape-content", {
+          const scrapeResponse = await authenticatedFetch("/api/scrape-content", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -233,7 +235,7 @@ export default function IntentMismatch() {
           console.log(`🔍 Checking cache for: ${keyword}`);
           
           try {
-            const { getIntentMismatch, saveIntentMismatch } = await import("../lib/firestoreMigrationHelpers");
+            const { getIntentMismatch, saveIntentMismatch } = await import("../lib/clientContentCache");
             const cached = await getIntentMismatch(user.id, keyword, pageUrl);
             
             let analysis;
@@ -258,7 +260,7 @@ export default function IntentMismatch() {
             } else {
               // Perform new AI analysis
               console.log(`🤖 Performing AI analysis for: ${keyword}`);
-              const analysisResponse = await fetch("/api/intent-analysis", {
+              const analysisResponse = await authenticatedFetch("/api/intent-analysis", {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
@@ -608,7 +610,7 @@ export default function IntentMismatch() {
           try {
             // Step 1: Scrape the page content
             console.log(`🔍 Scraping content for: ${pageUrl}`);
-            const scrapeResponse = await fetch("/api/scrape-content", {
+            const scrapeResponse = await authenticatedFetch("/api/scrape-content", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -659,7 +661,7 @@ export default function IntentMismatch() {
               } else {
                 // Perform new AI analysis
                 console.log(`🤖 Performing AI analysis for: ${keyword}`);
-                const analysisResponse = await fetch("/api/intent-analysis", {
+                const analysisResponse = await authenticatedFetch("/api/intent-analysis", {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",

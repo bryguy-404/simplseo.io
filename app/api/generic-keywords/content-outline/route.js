@@ -1,3 +1,4 @@
+import { authenticatedRoute } from '../../../lib/server/authenticatedRoute';
 import { NextResponse } from "next/server";
 
 // Helper to detect page type from URL and content
@@ -126,7 +127,7 @@ const getCachedSitePages = async (userId) => {
   }
 };
 
-export async function POST(req) {
+async function handlePOST(req) {
   try {
     const { keyword, pageType, businessType, businessLocation, businessName, websiteUrl, userId } = await req.json();
 
@@ -359,3 +360,5 @@ function generateFallbackOutline(keyword, pageType, businessType, businessLocati
     ]
   };
 }
+
+export const POST = authenticatedRoute(handlePOST, { quota: 'ai' });

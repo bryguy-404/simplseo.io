@@ -1,3 +1,5 @@
+import { publicFetch } from '../../lib/server/publicFetch';
+import { authenticatedRoute } from '../../lib/server/authenticatedRoute';
 import { XMLParser } from "fast-xml-parser";
 
 // Helper to extract base URL and construct sitemap URL
@@ -14,7 +16,7 @@ function getSitemapUrl(siteUrl) {
 }
 
 // Support both GET (with query param) and POST (with body)
-export async function GET(request) {
+async function handleGET(request) {
   const { searchParams } = new URL(request.url);
   const siteUrl = searchParams.get('siteUrl');
   
@@ -27,7 +29,7 @@ export async function GET(request) {
   return fetchSitemap(siteUrl);
 }
 
-export async function POST(request) {
+async function handlePOST(request) {
   try {
     const { siteUrl } = await request.json();
     
@@ -60,7 +62,7 @@ async function fetchSitemap(siteUrl) {
     const parser = new XMLParser();
 
     // Step 1: Fetch the sitemap (could be index or direct urlset)
-    const indexRes = await fetch(sitemapIndexUrl);
+    const indexRes = await publicFetch(sitemapIndexUrl);
     
     if (!indexRes.ok) {
       console.warn(`⚠️ Sitemap fetch failed: ${indexRes.status}`);
@@ -86,9 +88,9 @@ async function fetchSitemap(siteUrl) {
         : [sitemapList.loc];
 
       // Step 2: Fetch each child sitemap and collect URLs
-      for (const url of sitemapUrls) {
+      for (const url of sitemapUrls.slice(0, 20)) {
         try {
-          const res = await fetch(url);
+          const res = await publicFetch(url);
           const xml = await res.text();
           const json = parser.parse(xml);
           const urls = json.urlset?.url || [];
@@ -120,3 +122,6 @@ async function fetchSitemap(siteUrl) {
     });
   }
 }
+
+export const GET = authenticatedRoute(handleGET);
+export const POST = authenticatedRoute(handlePOST);

@@ -1,4 +1,5 @@
 import { beforeEach, it, expect, vi } from 'vitest';
+vi.mock('../app/lib/server/publicFetch', () => ({ publicFetch: (...args) => fetch(...args) }));
 vi.mock('../app/lib/firebaseAdmin', async () => {
   const { fakeFirestore } = await import('./fakeFirestore');
   return { ...fakeFirestore(), auth: { verifyIdToken: async () => ({ uid: 'alice' }) }, admin: { firestore: { FieldValue: { serverTimestamp: () => 'timestamp', delete: () => null } } } };

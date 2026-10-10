@@ -1,3 +1,4 @@
+import { publicRoute, escapeHtml } from '../../lib/server/publicRequest';
 import { NextResponse } from "next/server";
 import { db } from "../../lib/firebaseAdmin";
 import nodemailer from "nodemailer";
@@ -21,17 +22,17 @@ const createTransporter = () => {
       pass: process.env.SMTP_PASS,
     },
     tls: {
-      rejectUnauthorized: false,
+      rejectUnauthorized: true,
     },
   });
 };
 
-export async function POST(req) {
+async function handlePOST(req) {
   try {
     const { email, name, company, reason } = await req.json();
 
     // Validation
-    if (!email || !email.includes("@")) {
+    if (typeof email !== 'string' || email.length > 254 || !/^[^\s@/]+@[^\s@/]+\.[^\s@/]+$/.test(email) || [name, company, reason].some(value => value != null && (typeof value !== 'string' || value.length > 4000))) {
       return NextResponse.json(
         { error: "Valid email is required" },
         { status: 400 }
@@ -96,10 +97,10 @@ export async function POST(req) {
               <p>A new user has requested access to SimplSEO.</p>
               
               <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <p><strong>Email:</strong> ${normalizedEmail}</p>
-                ${name ? `<p><strong>Name:</strong> ${name.trim()}</p>` : ''}
-                ${company ? `<p><strong>Company:</strong> ${company.trim()}</p>` : ''}
-                ${reason ? `<p><strong>Reason:</strong></p><p style="white-space: pre-wrap; margin-left: 20px;">${reason.trim()}</p>` : ''}
+                <p><strong>Email:</strong> ${escapeHtml(normalizedEmail)}</p>
+                ${name ? `<p><strong>Name:</strong> ${escapeHtml(name.trim())}</p>` : ''}
+                ${company ? `<p><strong>Company:</strong> ${escapeHtml(company.trim())}</p>` : ''}
+                ${reason ? `<p><strong>Reason:</strong></p><p style="white-space: pre-wrap; margin-left: 20px;">${escapeHtml(reason.trim())}</p>` : ''}
                 <p><strong>Requested At:</strong> ${new Date(requestData.requestedAt).toLocaleString()}</p>
               </div>
               
@@ -151,9 +152,11 @@ ${adminUrl}
   } catch (error) {
     console.error("❌ Error creating access request:", error);
     return NextResponse.json(
-      { error: "Failed to submit request", details: error.message },
+      { error: "Failed to submit request" },
       { status: 500 }
     );
   }
 }
 
+
+export const POST = publicRoute(handlePOST, { limit: 5, windowMs: 3600000 });

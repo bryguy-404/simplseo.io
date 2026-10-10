@@ -1,11 +1,13 @@
+import { authenticatedRoute } from '../../../lib/server/authenticatedRoute';
 import { NextResponse } from "next/server";
 import { db } from "../../../lib/firebaseAdmin";
 import { saveConversationSummary } from "../../../lib/conversationSummarizer";
 
 // GET - Fetch a specific conversation
-export async function GET(req, { params }) {
+async function handleGET(req, { params }) {
   try {
     const { id } = await params;
+    const userId = new URL(req.url).searchParams.get('userId');
 
     if (!id) {
       return NextResponse.json({ error: "Conversation ID is required" }, { status: 400 });
@@ -13,7 +15,7 @@ export async function GET(req, { params }) {
 
     const doc = await db.collection('conversations').doc(id).get();
 
-    if (!doc.exists) {
+    if (!doc.exists || doc.data().userId !== userId) {
       return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
     }
 
@@ -39,9 +41,10 @@ export async function GET(req, { params }) {
 }
 
 // PUT - Update a conversation (rename, add messages, etc.)
-export async function PUT(req, { params }) {
+async function handlePUT(req, { params }) {
   try {
     const { id } = await params;
+    const userId = new URL(req.url).searchParams.get('userId');
     const { title, messages, action, cornerEnded } = await req.json();
 
     if (!id) {
@@ -51,7 +54,7 @@ export async function PUT(req, { params }) {
     const conversationRef = db.collection('conversations').doc(id);
     const doc = await conversationRef.get();
 
-    if (!doc.exists) {
+    if (!doc.exists || doc.data().userId !== userId) {
       return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
     }
 
@@ -119,9 +122,10 @@ export async function PUT(req, { params }) {
 }
 
 // DELETE - Delete a conversation
-export async function DELETE(req, { params }) {
+async function handleDELETE(req, { params }) {
   try {
     const { id } = await params;
+    const userId = new URL(req.url).searchParams.get('userId');
 
     if (!id) {
       return NextResponse.json({ error: "Conversation ID is required" }, { status: 400 });
@@ -130,7 +134,7 @@ export async function DELETE(req, { params }) {
     const conversationRef = db.collection('conversations').doc(id);
     const doc = await conversationRef.get();
 
-    if (!doc.exists) {
+    if (!doc.exists || doc.data().userId !== userId) {
       return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
     }
 
@@ -148,3 +152,7 @@ export async function DELETE(req, { params }) {
     }, { status: 500 });
   }
 }
+
+export const GET = authenticatedRoute(handleGET);
+export const PUT = authenticatedRoute(handlePUT);
+export const DELETE = authenticatedRoute(handleDELETE);

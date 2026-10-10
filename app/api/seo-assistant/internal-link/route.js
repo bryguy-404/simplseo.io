@@ -1,8 +1,9 @@
+import { authenticatedRoute } from '../../../lib/server/authenticatedRoute';
 import OpenAI from "openai";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export async function POST(req) {
+async function handlePOST(req) {
   try {
     const { fromUrl } = await req.json();
 
@@ -39,3 +40,5 @@ Guidelines:
     return Response.json({ error: err.message }, { status: 500 });
   }
 }
+
+export const POST = authenticatedRoute(handlePOST, { quota: 'ai' });

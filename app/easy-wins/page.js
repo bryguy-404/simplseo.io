@@ -1,4 +1,6 @@
 "use client";
+import { authenticatedFetch } from '../lib/authenticatedFetch';
+
 
 import { useAuth } from "../contexts/AuthContext";
 import { useEffect, useState } from "react";
@@ -144,7 +146,7 @@ export default function EasyWinsPage() {
               const normalizedPageUrl = normalizeUrlForComparison(kw.page);
               const savedFocusKeyword = keywordMap.get(normalizedPageUrl);
               
-              const res = await fetch("/api/seo-assistant/meta-title", {
+              const res = await authenticatedFetch("/api/seo-assistant/meta-title", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

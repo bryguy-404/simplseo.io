@@ -1,9 +1,11 @@
+import { scrapeContentResponse } from '../../../lib/server/scrapeContent';
+import { authenticatedRoute } from '../../../lib/server/authenticatedRoute';
 import { NextResponse } from "next/server";
 import { db } from "../../../lib/firebaseAdmin";
 
 const SCRAPE_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
-export async function POST(req) {
+async function handlePOST(req) {
   try {
     const { userId, keyword, pageUrl, opportunityId } = await req.json();
 
@@ -63,11 +65,7 @@ export async function POST(req) {
     try {
       console.log(`🔍 Auto-crawling new page: ${normalizedUrl}`);
       
-      const scrapeRes = await fetch(`${SCRAPE_BASE_URL}/api/scrape-content`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pageUrl: normalizedUrl }),
-      });
+      const scrapeRes = await scrapeContentResponse(normalizedUrl);
 
       if (scrapeRes.ok) {
         const scrapeJson = await scrapeRes.json();
@@ -114,7 +112,7 @@ export async function POST(req) {
 }
 
 // GET endpoint to fetch created opportunities
-export async function GET(req) {
+async function handleGET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");
@@ -150,3 +148,6 @@ export async function GET(req) {
   }
 }
 
+
+export const POST = authenticatedRoute(handlePOST);
+export const GET = authenticatedRoute(handleGET);

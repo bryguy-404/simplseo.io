@@ -1,4 +1,6 @@
 "use client";
+import { authenticatedFetch } from '../../lib/authenticatedFetch';
+
 
 import { useMemo, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -180,7 +182,7 @@ const FocusKeywordSelector = ({
     });
 
     try {
-      const response = await fetch("/api/seo-assistant/suggest-keywords", {
+      const response = await authenticatedFetch("/api/seo-assistant/suggest-keywords", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

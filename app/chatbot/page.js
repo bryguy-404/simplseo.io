@@ -1,4 +1,6 @@
 "use client";
+import { authenticatedFetch } from '../lib/authenticatedFetch';
+
 
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -77,7 +79,7 @@ export default function Chatbot() {
     
     setIsLoadingConversations(true);
     try {
-      const response = await fetch(`/api/conversations?userId=${user.id}&search=${encodeURIComponent(searchTerm)}`);
+      const response = await authenticatedFetch(`/api/conversations?userId=${user.id}&search=${encodeURIComponent(searchTerm)}`);
       const data = await response.json();
       
       if (data.success) {
@@ -94,7 +96,7 @@ export default function Chatbot() {
     if (!user?.id || !messagesToSave.length) return;
 
     try {
-      const response = await fetch('/api/conversations', {
+      const response = await authenticatedFetch('/api/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -127,7 +129,7 @@ export default function Chatbot() {
     const minimumLoadingTime = 1500; // Show loading for at least 800ms
     
     try {
-      const response = await fetch(`/api/conversations/${conversationId}`);
+      const response = await authenticatedFetch(`/api/conversations/${conversationId}`);
       const data = await response.json();
       
       if (data.success) {
@@ -166,7 +168,7 @@ export default function Chatbot() {
 
   const updateConversation = async (conversationId, messagesToUpdate) => {
     try {
-      const response = await fetch(`/api/conversations/${conversationId}`, {
+      const response = await authenticatedFetch(`/api/conversations/${conversationId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -186,7 +188,7 @@ export default function Chatbot() {
 
   const deleteConversation = async (conversationId) => {
     try {
-      const response = await fetch(`/api/conversations/${conversationId}`, {
+      const response = await authenticatedFetch(`/api/conversations/${conversationId}`, {
         method: 'DELETE'
       });
 
@@ -207,7 +209,7 @@ export default function Chatbot() {
 
   const renameConversation = async (conversationId, newTitle) => {
     try {
-      const response = await fetch(`/api/conversations/${conversationId}`, {
+      const response = await authenticatedFetch(`/api/conversations/${conversationId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -434,7 +436,7 @@ export default function Chatbot() {
         }));
 
       // ✅ NEW: Call dedicated chatbot API with user data
-      const res = await fetch("/api/chatbot/chat", {
+      const res = await authenticatedFetch("/api/chatbot/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
