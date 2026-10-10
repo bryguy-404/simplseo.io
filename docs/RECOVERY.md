@@ -59,3 +59,9 @@ The authenticated live check at 15:14 UTC returned HTTP 200 with a usable Google
 Open checkpoints: Bryan's live login/navigation/history review, and observation of the next automatic 03:00 UTC cron invocation. Do not begin Phase 2 or unpause automated outcome decisions until Bryan's recovery checkpoint is accepted.
 
 Protected backups are in `/Users/bryanarambula/Backups/simpleseo/recovery/`; the apply-time backup ends in `1791645173838.json`. Do not attach these files to issues, PRs or public artifacts.
+
+Post-release error scan: zero error-level records for the promoted deployment during the verification window. Temporary demo servers/emulators were stopped after verification.
+
+## Repeating the browser checks
+
+Use Java 21 or newer for Firestore emulation and install the Playwright Chromium browser. Start the emulators with `firebase emulators:start --only auth,firestore --project demo-simpleseo`, then run `node scripts/seed-emulators.cjs` and `node scripts/test-server.cjs` in separate terminals. Run `npm run test:e2e` against port 3100. If Chromium was installed to a custom location, set `PLAYWRIGHT_BROWSERS_PATH` to that directory for both installation and test execution. The fixtures use fake `.test` accounts and must never be copied into production.
