@@ -1,6 +1,6 @@
 # Phase 4: evidence before recommendations
 
-**Current work:** Bryan requested a refinement of the existing-page workflow after trying the live release. Implementation and release evidence for that refinement are recorded below. Earlier optional-research and two-window descriptions document the initial release, not the refined contract.
+**Current release:** Bryan's existing-page refinement is deployed and verified on his live account. Implementation and release evidence are recorded below. Earlier optional-research and two-window descriptions document the initial release, not the refined contract.
 
 Bryan authorized implementation on October 10, 2026 after reviewing the first live draft. The draft was a weak paraphrase, not a justified improvement. No website edit is required to complete that review checkpoint. Keep the public URL, Firebase/Firestore, Vercel, manual publishing, immutable history and disabled automatic outcome decisions.
 
@@ -75,3 +75,13 @@ Bryan's checkpoint after release: open the same live URL, choose the homepage an
 - The isolated production build succeeded. Core changed UI/backend lint has no errors; full existing lint retains 11 baseline warnings. Explicit JSX lint additionally exposes pre-existing apostrophe errors in untouched portions of the legacy ChatAssistant and existing image/hook warnings. These are not new errors from this refinement.
 - Browser checks use the compiled demo-only build, with all UI source identical to the release candidate. The final supporting-quotation prompt clarification was tested separately by unit and live model checks; the production deployment build compiles that final server text.
 - All 35 browser/API/rules scenarios pass in 22.7 seconds. Desktop dark/light and mobile screens, selected-page/query/history displays, and the separate verdict/action result were visually inspected. The first run had one ambiguous date-text test selector after adding history; scoping it to the intended result section fixed the test without an application change.
+
+### Refinement production release
+
+- Source commit `24469842209e6174a5afa6e087662010a6bfc2d6`, branch `codex/phase3-current-website`. Production READY: `dpl_3yDLic5uNwXuTpGfYbL972bkVVEp`, [exact deployment](https://simplseo-omm95woo1-bryan-arambulas-projects.vercel.app), promoted to the unchanged [live URL](https://simplseo-io.vercel.app). Team/project identity was verified. The protected staged activity route returned the application's HTTP 401 before promotion; public-URL inspection then confirmed this exact deployment. Vercel reports an 8m 32s build and 31s post-build. No push or merge to `main` occurred.
+- Live account verification passed: five anonymous and five cross-account routes blocked; exact homepage content/property/run and six activity windows validated. The overview still returned five pages, seven clicks and 169 appearances for September 10–October 7, 2026.
+- One live researched homepage assessment returned `metadataVerdict: keep` with the separate action `investigate_visibility`, using `gpt-6.1-sol`. Google evidence was available with 31 source facts and six history periods. Automatic web research succeeded with three actual cited sources. This verifies the deployed distinction between retaining metadata and recommending another page action; it does not establish SEO improvement.
+- Active changes remained zero, active implementation IDs were unchanged, and all 18 archive snapshots were unchanged. No authorized confirmation or website edit was attempted. Automatic outcome decisions and notifications remain disabled.
+- Immediate application rollback target is the preceding Phase 4 deployment `dpl_ANt5Qjqu51GsfTNe7u9hDYC46uGs`. No Firebase rules/functions release or data migration was part of this refinement. Temporary demo servers were shut down.
+- A deployment-scoped error-log query over the 20-minute release and account-check window returned zero records. This bounded check does not establish future scheduled-collector health.
+- Bryan's next checkpoint is to inspect **Improve a page** on the live URL, choose the homepage and service page, and assess whether the visible numbers and next action are understandable and useful. Phase 5 remains deferred.
