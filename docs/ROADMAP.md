@@ -1,8 +1,8 @@
 # SimpleSEO master roadmap
 
-Status on October 10 2026: Bryan accepted Phase 2 after checking all screens and reporting no errors. Sourced observation collection is enabled; automatic outcome decisions and notifications remain disabled. He authorized Phase 3, with his rebuilt Bryan Develops website as the active pilot. Phase 3 is deployed and its live account checks passed; his first real page-edit checkpoint is next. Observation of the next automatic scheduled invocations remains open. See [recovery operations](RECOVERY.md), [Phase 2 release](PHASE2.md) and [Phase 3 release](PHASE3.md).
+Status on October 10 2026: Bryan accepted Phase 2 after checking all screens and reporting no errors. Sourced observation collection is enabled; automatic outcome decisions and notifications remain disabled. Phase 3 is deployed and its live account checks passed. Bryan reviewed its first draft, requested stronger justification, and authorized Phase 4. No weak draft needs to be published to pass that review checkpoint. Phase 4 implementation and release verification are in progress; a real published edit remains a later usage checkpoint. Observation of the next automatic scheduled invocations remains open. See [recovery operations](RECOVERY.md), [Phase 2 release](PHASE2.md), [Phase 3 release](PHASE3.md) and [Phase 4 scope and release](PHASE4.md).
 
-The first release restores Bryan's existing account without requiring every page to appear in Google. Keep Firebase, Firestore and Vercel. Users continue making website changes themselves. The existing public URL and access remain unchanged. Bryan wants to use the tool on the current website, judge its practical value, fix inconsistencies during use, and later share it with friends and family. Old work stays archived and does not drive current recommendations; no history deletion or artificial data reset is needed. Phases 4–5 remain roadmap items.
+The first release restores Bryan's existing account without requiring every page to appear in Google. Keep Firebase, Firestore and Vercel. Users continue making website changes themselves. The existing public URL and access remain unchanged. Bryan wants to use the tool on the current website, judge its practical value, fix inconsistencies during use, and later share it with friends and family. Old work stays archived and does not drive current recommendations; no history deletion or artificial data reset is needed. Phase 5 and broader new-content recommendations remain roadmap items.
 
 Version 1 is for owners who may not know what SEO means. Lead with the current wording, suggested wording and next action; use plain labels, readable visual grouping and optional explanations. Color reinforces written labels rather than replacing them. More detailed controls for experienced users can come later.
 
@@ -89,7 +89,11 @@ Bryan's Phase 3 checkpoint: choose one current page, inspect the fetched website
 
 ## Phase 4 Better recommendations and new content
 
-Distinguish observed search queries, inferred ideas and verified competitor research. Evaluate affordable research sources before committing to provider costs. Recommend useful service/location pages based on real differences and customer value; avoid mass-produced duplicates and promises of indexing or ranking.
+The authorized first scope is evidence-based decisions for existing pages: fresh page content, dated Search Console observations, optional public web research through the existing OpenAI API account, and a clear next action before any draft. Keep good wording when no meaningful improvement is supported. Upgrade only this review workload, require specific justification for changes, show actual sources and bound usage. No additional SEO-data provider is included. Detailed implementation and acceptance gates are in [Phase 4](PHASE4.md).
+
+Checkpoint: Bryan analyzes his homepage and a service page, reviews the reason and sources, and decides whether the recommendation is useful. Only a real, worthwhile published edit should enter progress tracking. Suggestions and observed search changes cannot guarantee or prove a ranking benefit.
+
+Later scope: recommend new service/location pages based on real differences and customer value. Avoid mass-produced duplicates and promises of indexing or ranking. This remains at roadmap level until the existing-page pilot establishes useful recommendations.
 
 ## Phase 5 Pilot and product economics
 

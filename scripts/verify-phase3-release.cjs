@@ -1,10 +1,13 @@
 // Read-only release checks for one explicitly supplied production account.
-// Usage: node scripts/verify-phase3-release.cjs <uid> <exact-property> [--draft]
-// --draft makes exactly one paid suggestion request. Never confirms an edit.
+// Usage: node scripts/verify-phase3-release.cjs <uid> <exact-property> [--draft] [--research]
+// --draft makes one explicit review request (one paid model call by default).
+// --research requires --draft and adds the bounded optional web-research call.
+// Neither flag confirms an edit; keeping current wording is a valid review.
 // Login, OAuth refresh and the optional AI request may update their normal
 // session/credential/quota metadata; website work and history must not change.
 require('dotenv').config({ path: '.env.local', quiet: true });
 const admin = require('firebase-admin');
+const { createHash } = require('node:crypto');
 
 const ORIGIN = 'https://simplseo-io.vercel.app';
 const PROJECT = 'simpleseo-90570';
@@ -26,10 +29,15 @@ const validMetrics = row => row && Number.isFinite(row.clicks) && Number.isFinit
   && (row.impressions === 0 ? row.ctr === null && row.position === null
     : Number.isFinite(row.ctr) && row.ctr >= 0 && row.ctr <= 1 && Number.isFinite(row.position) && row.position >= 1);
 const recentTimestamp = value => typeof value === 'string' && Number.isFinite(Date.parse(value)) && Math.abs(Date.now() - Date.parse(value)) < 5 * 60 * 1000;
+const REVIEW_ACTIONS = ['revise_metadata', 'keep_current', 'improve_content', 'review_page', 'collect_data'];
+const textWithin = (value, min, max) => typeof value === 'string' && value.trim().length >= min && value.length <= max;
 
 async function main() {
   const [uid, property, ...flags] = process.argv.slice(2);
-  assert(/^[A-Za-z0-9_-]{1,128}$/.test(uid || '') && property && (flags.length === 0 || (flags.length === 1 && flags[0] === '--draft')), 'Provide an exact UID and property, with only the optional --draft flag.');
+  assert(/^[A-Za-z0-9_-]{1,128}$/.test(uid || '') && property && flags.every(flag => ['--draft', '--research'].includes(flag))
+    && new Set(flags).size === flags.length && (!flags.includes('--research') || flags.includes('--draft')),
+  'Provide an exact UID and property; --research requires --draft, and no other or duplicate flags are accepted.');
+  const includeResearch = flags.includes('--research');
   assert(process.env.FIREBASE_PROJECT_ID === PROJECT, 'The configured Firebase project must be the existing production project.');
   assert(!process.env.FIRESTORE_EMULATOR_HOST && !process.env.FIREBASE_AUTH_EMULATOR_HOST, 'Remove emulator settings before production verification.');
   let homepage;
@@ -37,7 +45,7 @@ async function main() {
   assert(homepage.protocol === 'https:' && !homepage.username && !homepage.password && !homepage.port
     && homepage.pathname === '/' && !homepage.search && !homepage.hash && homepage.href === property, 'Provide the exact HTTPS homepage URL-prefix property.');
   assert(process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY && process.env.NEXT_PUBLIC_FIREBASE_API_KEY, 'Required local verification credentials are unavailable.');
-  const insideProperty = pageUrl => { try { const parsed = new URL(pageUrl); return parsed.origin === homepage.origin && parsed.pathname.startsWith(homepage.pathname) && !parsed.username && !parsed.password; } catch { return false; } };
+  const insideProperty = pageUrl => { try { const parsed = new URL(pageUrl); return parsed.origin === homepage.origin && parsed.pathname.startsWith(homepage.pathname) && !parsed.username && !parsed.password && !parsed.hash; } catch { return false; } };
   const app = admin.initializeApp({ credential: admin.credential.cert({ projectId: PROJECT, clientEmail: process.env.FIREBASE_CLIENT_EMAIL, privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') }) });
   const db = app.firestore();
   let before;
@@ -70,11 +78,11 @@ async function main() {
       && /^[\w-]+$/.test(setup.revampRunId) && (!runId || setup.revampRunId === runId), 'Account setup, property, website run or progress state does not match the verified account.');
   }
 
-  async function api(path, { method = 'GET', body, headers = {} } = {}) {
+  async function api(path, { method = 'GET', body, headers = {}, timeout = 90000 } = {}) {
     return fetch(`${ORIGIN}/api/${path}`, {
       method, headers: { 'Content-Type': 'application/json', ...headers },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      redirect: 'error', signal: AbortSignal.timeout(90000),
+      redirect: 'error', signal: AbortSignal.timeout(timeout),
     });
   }
 
@@ -87,6 +95,106 @@ async function main() {
     assert(provenance?.property === property && provenance.websiteRunId === runId && provenance.pageUrl === property
       && provenance.finalUrl === property && /^[a-f0-9]{64}$/.test(provenance.contentFingerprint)
       && (!generated || recentTimestamp(provenance.generatedAt)), 'The page review provenance does not match the exact current website.');
+    const fingerprint = createHash('sha256').update(JSON.stringify({
+      userId: uid, websiteRunId: runId, property, pageUrl: property, finalUrl: page.finalUrl,
+      title: page.htmlTitle, description: page.seoMetaDescription,
+      h1: page.h1, textContent: page.textContent, headings: page.headings,
+    })).digest('hex');
+    assert(provenance.contentFingerprint === fingerprint, 'The content fingerprint does not match the returned current website content.');
+  }
+
+  function verifyReviewEvidence(evidence, startedAt) {
+    const allowedWindows = [expectedWindow(startedAt), expectedWindow(new Date())];
+    assert(evidence?.source === 'google_search_console' && evidence.property === property && evidence.pageUrl === property
+      && recentTimestamp(evidence.fetchedAt) && ['available', 'partial', 'unavailable'].includes(evidence.status)
+      && validDay(evidence.window?.startDate) && validDay(evidence.window?.endDate)
+      && allowedWindows.some(window => window.startDate === evidence.window.startDate && window.endDate === evidence.window.endDate)
+      && evidence.previousWindow?.startDate === shiftDay(evidence.window.startDate, -28)
+      && evidence.previousWindow?.endDate === shiftDay(evidence.window.startDate, -1), 'Review evidence has an invalid property, page, timestamp or observation window.');
+    const statuses = [];
+    for (const period of [evidence.current, evidence.previous]) {
+      assert(period && ['available', 'no_data', 'unavailable'].includes(period.totalsStatus)
+        && ['available', 'no_data', 'unavailable'].includes(period.queriesStatus), 'Review evidence does not distinguish unavailable observations from missing data.');
+      const totalsValid = period.totalsStatus === 'available' ? validMetrics(period.totals) && period.totals.impressions > 0
+        : period.totalsStatus === 'no_data' ? period.totals === null || (validMetrics(period.totals) && period.totals.impressions === 0)
+          : period.totals === null;
+      assert(totalsValid && Array.isArray(period.queries) && period.queries.length <= 20
+        && (period.queriesStatus === 'available' ? period.queries.length > 0 : period.queries.length === 0)
+        && period.queries.every(row => textWithin(row.query, 1, 1024) && validMetrics(row))
+        && new Set(period.queries.map(row => row.query)).size === period.queries.length, 'Review totals or query observations are invalid.');
+      statuses.push(period.totalsStatus, period.queriesStatus);
+    }
+    const successes = statuses.filter(status => status !== 'unavailable').length;
+    assert(evidence.status === (successes === 4 ? 'available' : successes ? 'partial' : 'unavailable')
+      && evidence.selectedPhrase?.value === '' && evidence.selectedPhrase?.source === 'none'
+      && Array.isArray(evidence.relatedPages) && evidence.relatedPages.length === 0 && evidence.relatedPagesStatus === 'not_requested'
+      && Array.isArray(evidence.limitations) && evidence.limitations.length > 0 && evidence.limitations.every(value => textWithin(value, 1, 1000)),
+    'Review evidence availability or the no-keyword verification scope is invalid.');
+    assert(Array.isArray(evidence.facts) && evidence.facts.length >= 3 && evidence.facts.length <= 25
+      && evidence.facts.every(fact => /^(?:P[1-3]|S[12]|Q(?:[1-9]|1[0-9]|20))$/.test(fact.id)
+        && fact.kind === (fact.id.startsWith('P') ? 'page' : 'search') && textWithin(fact.label, 1, 200) && textWithin(fact.text, 1, 5000))
+      && new Set(evidence.facts.map(fact => fact.id)).size === evidence.facts.length
+      && ['P1', 'P2', 'P3'].every(id => evidence.facts.some(fact => fact.id === id)), 'Review source facts are missing or invalid.');
+  }
+
+  function verifyResearch(research) {
+    assert(research && textWithin(research.limitation, 1, 1000) && Array.isArray(research.sources)
+      && (includeResearch ? ['available', 'unavailable'].includes(research.status) : research.status === 'not_requested'),
+    'Research status does not match the explicit opt-in.');
+    if (research.status === 'available') {
+      assert(recentTimestamp(research.checkedAt) && textWithin(research.summary, 1, 3500)
+        && research.sources.length > 0 && research.sources.length <= 5
+        && research.sources.every((source, index) => {
+          try {
+            const url = new URL(source.url);
+            return source.id === `W${index + 1}` && textWithin(source.title, 1, 180)
+              && ['https:', 'http:'].includes(url.protocol) && !url.username && !url.password && !url.port
+              && url.hostname.includes('.') && !/^[\d.]+$/.test(url.hostname) && !url.hostname.includes(':')
+              && !/(?:^|\.)(?:localhost|local|internal|lan|test|invalid|example|home\.arpa)$/.test(url.hostname);
+          } catch { return false; }
+        }) && new Set(research.sources.map(source => source.url)).size === research.sources.length,
+      'Web research did not return usable, dated public sources.');
+    } else {
+      assert(research.summary === '' && research.sources.length === 0
+        && (research.status === 'not_requested' ? research.checkedAt === null : recentTimestamp(research.checkedAt)),
+      'Missing research was presented as sourced research.');
+    }
+  }
+
+  function verifyAssessment(draft) {
+    const analysis = draft.analysis;
+    const sourceIds = new Set([...draft.evidence.facts, ...(draft.research.status === 'available' ? draft.research.sources : [])].map(source => source.id));
+    assert(analysis && REVIEW_ACTIONS.includes(analysis.action) && textWithin(analysis.summary, 1, 120)
+      && textWithin(analysis.reason, 1, 420) && textWithin(analysis.nextStep, 1, 260)
+      && Array.isArray(analysis.evidenceIds) && analysis.evidenceIds.length >= 1 && analysis.evidenceIds.length <= 5
+      && analysis.evidenceIds.every(id => sourceIds.has(id)) && analysis.evidenceIds.some(id => /^P[1-3]$/.test(id))
+      && new Set(analysis.evidenceIds).size === analysis.evidenceIds.length && Array.isArray(analysis.changedFields)
+      && ['title', 'description'].every(field => typeof analysis.fieldReasons?.[field] === 'string' && analysis.fieldReasons[field].length <= 220),
+    'The assessment action, explanation or source references are invalid.');
+    if (analysis.action === 'revise_metadata') {
+      assert(typeof draft.title === 'string' && typeof draft.description === 'string', 'A metadata revision did not include both fields.');
+      const changed = [];
+      for (const field of ['title', 'description']) {
+        const original = field === 'title' ? draft.currentPage.htmlTitle : draft.currentPage.seoMetaDescription;
+        if (draft[field] === original) {
+          assert(analysis.fieldReasons[field] === '', 'An unchanged field has a misleading change explanation.');
+        } else {
+          assert(textWithin(draft[field], field === 'title' ? 10 : 40, field === 'title' ? 90 : 220)
+            && !/[\r\n]|<[^>]*>|\[[^\]]*\]|```|\b(?:lorem ipsum|placeholder)\b/i.test(draft[field])
+            && textWithin(analysis.fieldReasons[field], 1, 220), 'A changed title or description is not usable or lacks its explanation.');
+          changed.push(field);
+        }
+      }
+      assert(changed.length > 0 && sameIds(changed, analysis.changedFields) && analysis.targetPageUrl === null,
+        'The metadata revision does not match its declared changed fields.');
+    } else {
+      assert(draft.title === null && draft.description === null && analysis.changedFields.length === 0
+        && analysis.fieldReasons.title === '' && analysis.fieldReasons.description === '', 'A non-revision decision incorrectly includes editable draft fields.');
+      if (analysis.action === 'review_page') {
+        assert(analysis.targetPageUrl !== property && draft.evidence.relatedPages.some(row => row.pageUrl === analysis.targetPageUrl)
+          && insideProperty(analysis.targetPageUrl), 'The suggested alternative page is not supported by scoped evidence.');
+      } else assert(analysis.targetPageUrl === null, 'The assessment includes an unexpected target page.');
+    }
   }
 
   try {
@@ -153,15 +261,22 @@ async function main() {
 
     let draftMetadata = { requested: false };
     if (flags.includes('--draft')) {
-      stage = 'one explicit current-page draft';
-      const draftResponse = await api('page-review/suggestions', { method: 'POST', headers, body: { pageUrl: property, focusKeywords: [] } });
-      assert(draftResponse.ok, 'The one requested draft did not return a usable response. No retry or confirmation was attempted.');
+      stage = 'one explicit current-page review';
+      const reviewStartedAt = new Date();
+      const draftResponse = await api('page-review/suggestions', { method: 'POST', headers, timeout: 175000,
+        body: { pageUrl: property, focusKeywords: [], includeResearch } });
+      assert(draftResponse.ok, 'The one requested review did not return a usable response. No retry or confirmation was attempted.');
       const draft = await draftResponse.json();
       verifyCurrentPage(draft.currentPage, draft.provenance, before.setup.revampRunId, true);
-      assert(typeof draft.title === 'string' && draft.title.trim().length >= 10 && draft.title.length <= 90
-        && typeof draft.description === 'string' && draft.description.trim().length >= 40 && draft.description.length <= 220
-        && !/[\r\n]|<[^>]*>|\[[^\]]*\]|```|\b(?:lorem ipsum|placeholder)\b/i.test(`${draft.title} ${draft.description}`), 'The generated title or description is not usable.');
-      draftMetadata = { requested: true, requests: 1, titleLength: draft.title.length, descriptionLength: draft.description.length, generatedAt: draft.provenance.generatedAt };
+      assert(draft.provenance.reviewVersion === 2 && /^gpt-[\w.-]{1,80}$/.test(draft.provenance.model), 'The assessment is not from the current review implementation.');
+      verifyReviewEvidence(draft.evidence, reviewStartedAt);
+      verifyResearch(draft.research);
+      verifyAssessment(draft);
+      draftMetadata = { requested: true, requests: 1, model: draft.provenance.model, action: draft.analysis.action,
+        ...(draft.analysis.action === 'revise_metadata' ? { titleLength: draft.title.length, descriptionLength: draft.description.length, changedFields: draft.analysis.changedFields } : {}),
+        evidenceStatus: draft.evidence.status, evidenceSourceCount: draft.evidence.facts.length,
+        researchRequested: includeResearch, researchStatus: draft.research.status, researchSourceCount: draft.research.sources.length,
+        generatedAt: draft.provenance.generatedAt };
     }
 
     stage = 'progress and history safeguards';

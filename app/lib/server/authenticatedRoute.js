@@ -32,7 +32,7 @@ export function authenticatedRoute(handler, { admin = false, quota } = {}) {
       }
       url.searchParams.set('userId', uid);
       if (quota === 'ai') await consumeAiQuota(uid);
-      return await handler(new Request(url, { method: request.method, headers, body }), context);
+      return await handler(new Request(url, { method: request.method, headers, body, signal: request.signal }), context);
     } catch (error) { return errorResponse(error); }
   };
 }
