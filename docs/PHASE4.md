@@ -1,6 +1,6 @@
 # Phase 4: evidence before recommendations
 
-**Current status:** version 4 is deployed and its first live account verification passed. That review exposed one remaining delegation gap: it asked the owner to compare related-page searches in Google. A bounded automatic comparison is now implemented and undergoing final release checks. See the version 4 section at the end for the current contract and release evidence. Bryan's usefulness checkpoint remains open.
+**Current status:** version 4, including bounded automatic related-page search comparisons, is deployed and verified on Bryan's live account. It now returns concrete existing-page action cards beyond metadata. See the version 4 section at the end for the current contract and release evidence. Bryan's usefulness checkpoint and measurement of actual website changes remain open.
 
 The initial release and version 3 sections below are historical records. Their model settings, query limits, optional-research behavior and release IDs are not the version 4 contract.
 
@@ -132,16 +132,25 @@ First version 4 production release:
 - Source `0018464`, branch `codex/phase3-current-website`, production deployment `dpl_AqWKfrD1PGEyrMfJc4vSJiQuNrje`, [exact deployment](https://simplseo-nm2gvm32i-bryan-arambulas-projects.vercel.app), promoted to the unchanged public URL. The protected staged review route returned the application's HTTP 401; public alias inspection confirmed the exact deployment. Build took 4m 59s, post-build 29s. No push or merge to `main` occurred.
 - Live anonymous/cross-account checks passed on five routes each. The overview retained five pages, seven clicks and 169 appearances. One researched homepage review returned 22 current queries and query facts, an indexed Google result, two read related pages and four public sources. It retained accurate metadata, suggested a contextual web-design-service link, and also asked for a related-page search comparison. That last task motivated the bounded comparison refinement above.
 - Active changes remained zero and all 18 archived records were unchanged. No website edit or confirmation was performed. Outcomes and notifications remain disabled. The immediately preceding version 3 deployment remains available as historical rollback; the first version 4 deployment is the immediate rollback for the comparison refinement.
-- The stable comparison refinement passes **398 unit/API tests across 26 files**. Scoped collector review found no blocking issue. A fresh production compilation and scoped JSX/backend lint passed. One additional synthetic comparison evaluation passed in 16.3 seconds (nine assessment evaluation requests total across version 4): the model used both periods, preserved the broad homepage metadata, and led with a contextual link to the known service page rather than asking the owner to repeat supplied checks. It requested only future monitoring. Final browser and roll-forward production evidence are pending below.
+- The stable comparison refinement passes **398 unit/API tests across 26 files** and **39 browser scenarios** against a fresh compiled build (23.9s). A focused keyboard/mobile rerun passed, with the comparison expanded at 390px and no horizontal overflow. Desktop/mobile screenshots were inspected and temporary demo processes were stopped. Scoped collector review found no blocking issue; JSX/backend lint passed, with the same 11 baseline full-lint warnings. One additional synthetic comparison evaluation passed in 16.3 seconds (nine assessment evaluation requests total across version 4): the model used both periods, preserved the broad homepage metadata, and led with a contextual link to the known service page rather than asking the owner to repeat supplied checks. It requested only future monitoring.
 
-Pending evidence for the comparison refinement:
+Completed release evidence for the comparison refinement:
 
 - [x] Final isolated unit/API result and test count after the added guard.
 - [x] Focused model rerun results for both initially rejected cases; document any remaining limitation.
 - [x] Final compiled-artifact/browser check if release source differs from the tested artifact.
-- [ ] Exact source commit, staged/production deployment IDs, protected-route authorization result and promotion verification.
-- [ ] One bounded authenticated review on Bryan's exact current account/property; validate content, diagnostics, action sources and archive/active-change invariants without confirming a fictitious edit.
-- [ ] Application rollback target and bounded deployment-log result.
+- [x] Exact source commit, staged/production deployment IDs, protected-route authorization result and promotion verification.
+- [x] One bounded authenticated review on Bryan's exact current account/property; validate content, diagnostics, action sources and archive/active-change invariants without confirming a fictitious edit.
+- [x] Application rollback target and bounded deployment-log result.
+
+### Version 4 comparison refinement — final production release
+
+- Source `12a686f3e71ff55a2673506196d626db6ccb26c9` on `codex/phase3-current-website`. Deployment `dpl_FUaviYq6DvxZ9A3HeEZEtQT41fvT`, [exact deployment](https://simplseo-behbupg4h-bryan-arambulas-projects.vercel.app), reached READY after a 4m 53s build. Team/project identity was checked; the staged suggestions route returned app HTTP 401. Promotion succeeded and public-URL inspection resolved to that exact deployment. No push or merge to `main` occurred.
+- Final live verification blocked five anonymous and five cross-account routes and validated exact current homepage HTML, property, website run, six history periods and dated query evidence. The overview remained five pages, seven clicks and 169 appearances for September 10–October 7. The one requested researched review used 22 current query rows/facts, Google's indexed result, two related-page HTML reads, **all four related-page comparison periods**, six diagnostic source facts and four actual public research sources.
+- The review kept the accurate metadata and led with a contextual link opportunity from the Web Design card to the existing web-development service page, with proposed anchor text **“Explore web design and development.”** A second, explicitly unverified check concerned the rendered/accessibility presentation of the hero heading. It did not claim the source-only heading flags proved a defect and did not ask Bryan to repeat the supplied Search Console comparison. Broader discovery remains an investigation, not a proven cause or guaranteed ranking improvement.
+- Active changes stayed zero, active implementation IDs were unchanged and **all 18 archive snapshots were unchanged**. No website edit, published-change confirmation, Firebase rules/functions release or data migration was performed. Automatic outcomes and notifications remain disabled. The current review requires a fresh Analyze request; previous results are not retroactively rewritten.
+- Immediate application rollback is `dpl_AqWKfrD1PGEyrMfJc4vSJiQuNrje`. A deployment-scoped error-log query over the final 20-minute release/check window returned **zero records** after the live review. This does not establish future collector health. Temporary demo server and emulator ports were confirmed closed.
+- The two real account review requests across this version 4 release were used for release verification; controlled model evaluations used nine synthetic requests, no Google/site reads and no account writes. Those checks establish the implemented workflow, not a measured accuracy rate or SEO benefit.
 
 ### Bryan's version 4 checkpoint
 
