@@ -137,7 +137,7 @@ async function setup(page, { failGeneration = false, withQueries = false, redire
       if (staleConfirmation) return json({ error: 'Your website setup changed. Reload and review the current page before confirming.' }, 409);
       const body = route.request().postDataJSON();
       calls.confirmations.push(body);
-      const record = { id: idFor(body.pageUrl), userId: uid, pageUrl: body.pageUrl, ...(body.changeType === 'page_content' ? { changeType: 'page_content', pageChangeSummary: body.changeSummary } : { title: body.title, description: body.description }), implementedAt: new Date().toISOString(), status: 'implemented', preRevampArchived: false };
+      const record = { id: idFor(body.pageUrl), userId: uid, pageUrl: body.pageUrl, ...(body.changeType === 'page_content' ? { changeType: 'page_content', pageChangeSummary: body.changeSummary } : { title: body.title, description: body.description }), implementedAt: new Date().toISOString(), status: 'implemented', preRevampArchived: false, websiteRunId: 'page-task-run', gscProperty: property, confirmationMethod: 'user-confirmed' };
       await app.firestore().doc(`implementedSeoTips/${record.id}`).set(record);
       return json({ record, alreadyConfirmed: false });
     }
@@ -151,15 +151,22 @@ async function setup(page, { failGeneration = false, withQueries = false, redire
   return calls;
 }
 
+async function openDetails(page, text) {
+  const summary = page.locator('summary').filter({ hasText: new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }).first();
+  await expect(summary).toBeVisible();
+  if (await summary.evaluate(element => !element.parentElement.open)) await summary.click();
+}
+
 test('no-keyword task generates only on request, retries a failed save, preserves archives and freezes confirmed values', async ({ page }) => {
   const calls = await setup(page);
   await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
+  await openDetails(page, 'Current title and description');
   await expect(page.getByText('Current website title', { exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Improve a page', exact: true })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Selected page and search activity' }).getByText('Clicks from Google', { exact: true })).toBeVisible();
   expect(calls.generations).toHaveLength(0);
   await page.screenshot({ path: 'test-results/design-current-page.png', fullPage: true });
-  await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Analyze this page' }).click();
   await expect(page.getByRole('heading', { name: 'Fix this issue first', exact: true })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toHaveValue(suggestion.title);
@@ -198,10 +205,11 @@ test('no-keyword task generates only on request, retries a failed save, preserve
   expect(record).toMatchObject({ userId: uid, pageUrl, status: 'implemented', preRevampArchived: false, title: 'Reviewed title published on my website', description: suggestion.description });
   expect(record).not.toHaveProperty('preStats');
   expect((await app.firestore().doc(`users/${uid}/revampHistory/page-task-run/records/old-record`).get()).data().data.title).toBe('Old archived website title');
-  await expect(page.getByText('Collecting data', { exact: true })).toBeVisible();
+  await expect(page.getByText('Collecting search data', { exact: true })).toBeVisible();
   await page.reload();
-  await expect(page.getByRole('textbox', { name: 'Confirmed page title (SEO title)' })).toHaveValue('Reviewed title published on my website');
-  await expect(page.getByRole('textbox', { name: 'Confirmed page title (SEO title)' })).toHaveAttribute('readonly', '');
+  await openDetails(page, 'Published changes (1)');
+  await expect(page.locator('#page-progress').getByText('Reviewed title published on my website', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Analyze this page' })).toHaveCount(0);
   expect(calls.generations).toHaveLength(1);
   await page.screenshot({ path: 'test-results/phase3-page-task.png', fullPage: true });
 });
@@ -213,10 +221,10 @@ test('redirect sources cannot generate or confirm; destination is reviewed and t
   await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
   await expect(page.getByRole('button', { name: 'Review destination page' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toHaveCount(0);
   expect(calls.generations).toHaveLength(0);
   await page.getByRole('button', { name: 'Review destination page' }).click();
-  await expect(page.getByLabel('Page to review')).toHaveValue(destination);
+  await expect(page.getByLabel('Choose a page to improve')).toHaveValue(destination);
   await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
   await page.getByRole('button', { name: 'Analyze this page' }).click();
   await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toBeVisible();
@@ -247,10 +255,11 @@ test('failed suggestion cannot become an implementation and unknown URL deep lin
   const calls = await setup(page, { failGeneration: true });
   await page.goto(`/low-ctr?page=${encodeURIComponent('https://other.test/private')}`);
   await expect(page.getByRole('alert').filter({ hasText: 'That exact page is not in your current tracked pages' })).toBeVisible();
+  await openDetails(page, 'Current title and description');
   await expect(page.getByText('Current website title', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Analyze this page' }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'Draft service temporarily unavailable.' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toHaveCount(0);
   await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toHaveCount(0);
   expect(calls.generations[0].pageUrl).toBe(pageUrl);
   expect(calls.content.every(value => value.startsWith(property))).toBe(true);
@@ -260,15 +269,17 @@ test('failed suggestion cannot become an implementation and unknown URL deep lin
 test('exact-case page links remain distinct and automatic focus does not preselect a query', async ({ page }) => {
   const calls = await setup(page, { withQueries: true });
   await page.goto(`/low-ctr?page=${encodeURIComponent(otherUrl)}`);
-  await expect(page.getByLabel('Page to review')).toHaveValue(otherUrl);
+  await expect(page.getByLabel('Choose a page to improve')).toHaveValue(otherUrl);
   await expect(page.getByLabel('Search phrase to consider')).toHaveCount(0);
+  await openDetails(page, 'Current title and description');
   await expect(page.getByText('Current website title', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Analyze this page' }).click();
   await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toBeVisible();
   expect(calls.generations[0]).toEqual({ pageUrl: otherUrl, focusKeywords: [], includeResearch: true });
-  await page.getByLabel('Page to review').selectOption(pageUrl);
-  await expect(page.getByText('We’ll choose a search focus for you', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toBeDisabled();
+  await page.getByLabel('Choose a page to improve').selectOption(pageUrl);
+  await expect(page.getByText('Find your next useful changes', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toHaveCount(0);
+  await openDetails(page, 'Current title and description');
   await expect(page.getByText('Current website title', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Analyze this page' }).click();
   await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toBeVisible();
@@ -280,7 +291,7 @@ test('keeping current wording never offers a draft or confirmation', async ({ pa
   await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
   await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
   await expect(page.getByRole('checkbox', { name: 'Include web research' })).toHaveCount(0);
-  await expect(page.getByText('Web research is included', { exact: true })).toBeVisible();
+  await expect(page.getByText('Web research included. Your website won’t change.', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Analyze this page' }).click();
   await expect(page.getByRole('heading', { name: 'No clear change identified', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Keep your current title and description', exact: true })).toBeVisible();
@@ -337,7 +348,7 @@ test('research sources and a diagnostics-only related page remain inspectable', 
   await page.getByRole('button', { name: 'Analyze this page' }).click();
   await expect(page.getByRole('heading', { name: 'We need more evidence to choose the main improvement', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Review recommended page', exact: true })).toBeVisible();
-  await expect(page.getByLabel('Page to review').locator('option').filter({ hasText: relatedUrl })).toHaveCount(0);
+  await expect(page.getByLabel('Choose a page to improve').locator('option').filter({ hasText: relatedUrl })).toHaveCount(0);
   await page.getByText('Why this recommendation?', { exact: true }).click();
   const summary = page.locator('[aria-label="Web research summary"]');
   await expect(summary.getByRole('heading', { name: 'Public website context' })).toBeVisible();
@@ -354,7 +365,7 @@ test('research sources and a diagnostics-only related page remain inspectable', 
   await expect(source).toHaveAttribute('href', 'https://competitor.test/services/');
   await expect(source).toHaveAttribute('rel', 'noopener noreferrer');
   await page.getByRole('button', { name: 'Review recommended page', exact: true }).click();
-  await expect(page.getByLabel('Page to review')).toHaveValue(relatedUrl);
+  await expect(page.getByLabel('Choose a page to improve')).toHaveValue(relatedUrl);
   await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
   await expect(page.getByRole('region', { name: 'Page assessment' })).toHaveCount(0);
 });
@@ -381,7 +392,7 @@ test('legacy drafts, missing v5 strategy and unresolved evidence cannot enable s
     await page.getByRole('button', { name: index === 0 ? 'Analyze this page' : 'Analyze again' }).click();
     await expect(page.getByRole('alert').filter({ hasText: 'A complete, supported page assessment was not returned' })).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toHaveCount(0);
   }
 });
 
@@ -391,6 +402,7 @@ test('editing the business goal keeps the previous assessment until a new review
   await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
   await page.getByRole('button', { name: 'Analyze this page' }).click();
   await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toBeVisible();
+  await openDetails(page, 'Tell us more about this page (optional)');
   await page.getByLabel('What should this page help visitors do?', { exact: false }).fill('Explain my current website design service.');
   await expect(page.getByRole('region', { name: 'Page assessment' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toBeVisible();
@@ -410,8 +422,9 @@ test('selected page totals, query counts and six-period history load before any 
   const activity = page.getByRole('region', { name: 'Selected page and search activity' });
   await expect(activity.getByRole('heading', { name: '/Case/?City=A', exact: true })).toBeVisible();
   await expect(activity.locator('dd')).toHaveText(['1', '30']);
-  await expect(page.getByLabel('Page to review').locator(`option[value="${pageUrl}"]`)).toContainText('1 click · 30 appearances');
-  await expect(page.getByLabel('Page to review').locator(`option[value="${otherUrl}"]`)).toContainText('No reported data');
+  await expect(page.getByLabel('Choose a page to improve').locator(`option[value="${pageUrl}"]`)).toContainText('1 click · 30 appearances');
+  await expect(page.getByLabel('Choose a page to improve').locator(`option[value="${otherUrl}"]`)).toContainText('No reported data');
+  await openDetails(page, 'See searches for this page');
   const queries = activity.getByRole('table', { name: 'Search phrases for the selected page' });
   await expect(queries.getByRole('row')).toHaveCount(6);
   await expect(queries.getByRole('row', { name: 'website service 1 1 7 11', exact: true })).toBeVisible();
@@ -450,7 +463,7 @@ test('a late activity response cannot put the previous page’s counts on the se
   });
   await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
   await oldStarted;
-  await page.getByLabel('Page to review').selectOption(otherUrl);
+  await page.getByLabel('Choose a page to improve').selectOption(otherUrl);
   const activity = page.getByRole('region', { name: 'Selected page and search activity' });
   await expect(activity.getByRole('heading', { name: '/case/?City=a', exact: true })).toBeVisible();
   await expect(activity.getByText(/Google returned no page totals/)).toBeVisible();
@@ -458,6 +471,7 @@ test('a late activity response cannot put the previous page’s counts on the se
   await oldFinished;
   await expect(activity.locator('dd')).toHaveCount(0);
   await expect(activity).not.toContainText('9,999');
+  await openDetails(page, 'See searches for this page');
   await expect(activity.getByText(/Google returned no search phrases/)).toBeVisible();
 });
 
@@ -482,10 +496,11 @@ test('unavailable or mismatched activity never becomes zero counts and can be re
   await expect(activity.locator('dd')).toHaveCount(0);
   await activity.getByRole('button', { name: 'Retry page activity' }).click();
   await expect(activity.getByRole('alert')).toContainText('this exact page could not be verified');
-  await expect(page.getByLabel('Page to review').locator(`option[value="${pageUrl}"]`)).toContainText('Activity unavailable');
+  await expect(page.getByLabel('Choose a page to improve').locator(`option[value="${pageUrl}"]`)).toContainText('Activity unavailable');
   await expect(activity.locator('dd')).toHaveCount(0);
   await activity.getByRole('button', { name: 'Retry page activity' }).click();
   await expect(activity.getByText(/Page totals are unavailable right now/)).toBeVisible();
+  await openDetails(page, 'See searches for this page');
   await expect(activity.getByText('Search phrases are unavailable for this period.', { exact: true })).toBeVisible();
   await expect(activity.locator('dd')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
@@ -520,9 +535,11 @@ test('generalized page review prioritizes a concrete action, preserves metadata 
     return result;
   } });
   await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
+  await openDetails(page, 'See searches for this page');
   const queries = page.getByRole('table', { name: 'Search phrases for the selected page' });
   await expect(queries.getByRole('row').nth(1)).toHaveText('local website design1209.3');
   await expect(queries.getByRole('row').nth(2)).toHaveText('less seen search02Unavailable');
+  await openDetails(page, 'Tell us more about this page (optional)');
   await page.getByLabel('What should this page help visitors do?', { exact: false }).fill('Help local businesses request a website consultation.');
   await page.getByRole('button', { name: 'Analyze this page' }).click();
   const assessment = page.getByRole('region', { name: 'Page assessment' });
@@ -618,7 +635,7 @@ test('published content edits save their own summary and reload without fictiona
   expect((await app.firestore().doc(`implementedSeoTips/${docId}`).get()).data().preRevampArchived).toBe(true);
   await page.getByRole('button', { name: 'Yes, track my published page change' }).click();
   await expect(page.getByRole('heading', { name: 'Your page-content change is saved' })).toBeVisible();
-  await expect(page.locator('#page-progress').getByText('Published page change', { exact: true })).toBeVisible();
+  await openDetails(page, 'Published changes (1)');
   await expect(page.locator('#page-progress').getByText('Published a clearer opening heading about website design for local businesses.', { exact: true })).toBeVisible();
   expect(calls.confirmations[0]).toMatchObject({ pageUrl, changeType: 'page_content', published: true, changeSummary: 'Published a clearer opening heading about website design for local businesses.' });
   expect(calls.confirmations[0]).not.toHaveProperty('title');
@@ -627,7 +644,7 @@ test('published content edits save their own summary and reload without fictiona
   expect(record.changeType).toBe('page_content');
   expect(record).not.toHaveProperty('title');
   await page.reload();
-  await expect(page.getByText('Published page-content change', { exact: true })).toBeVisible();
+  await openDetails(page, 'Published changes (1)');
   await expect(page.getByText('Published a clearer opening heading about website design for local businesses.', { exact: true }).first()).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Confirmed page title (SEO title)' })).toHaveCount(0);
   await expect(page.getByRole('textbox', { name: 'Confirmed page description (meta description)' })).toHaveCount(0);
@@ -671,10 +688,12 @@ test('business goal waits for the current analysis and editing it retains the sa
   await expect(page.getByLabel('What should this page help visitors do?', { exact: false })).toBeDisabled();
   release();
   await expect(page.getByRole('region', { name: 'Page assessment' })).toBeVisible();
+  await openDetails(page, 'Tell us more about this page (optional)');
   await page.getByLabel('What should this page help visitors do?', { exact: false }).fill('Explain my existing website design service.');
   await page.getByRole('button', { name: 'Analyze again' }).click();
   await expect(page.getByRole('heading', { name: 'Make the opening heading more specific' })).toBeVisible();
   await expect.poll(() => calls.generations[0]?.goal).toBe('Explain my existing website design service.');
+  await openDetails(page, 'Tell us more about this page (optional)');
   await page.getByLabel('What should this page help visitors do?', { exact: false }).fill('Help visitors understand the service before contacting me.');
   await expect(page.getByRole('region', { name: 'Page assessment' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Track a published page-content change' })).toBeVisible();
@@ -697,7 +716,7 @@ test('invalid action evidence, unlisted destinations and unsafe inspection links
     await expect(page.getByRole('alert').filter({ hasText: 'A complete, supported page assessment was not returned' })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Page assessment' })).toHaveCount(0);
     await expect(page.getByRole('region', { name: 'Track a published page-content change' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toHaveCount(0);
   }
 });
 
@@ -708,20 +727,20 @@ test('automatic focus and multiple saved tasks survive reload, page switches, fa
   await expect(page.getByLabel('Search phrase to consider')).toHaveCount(0);
   await page.getByRole('button', { name: 'Analyze this page' }).click();
   const tasks = page.getByRole('region', { name: 'Saved page tasks' });
-  await expect(tasks.getByRole('heading', { name: 'Your saved task list' })).toBeVisible();
+  await expect(tasks.getByRole('heading', { name: 'Your next changes' })).toBeVisible();
   await expect(tasks.getByRole('article')).toHaveCount(3);
   for (const label of ['Make the opening heading more specific', 'Check a helpful link to the related service', 'Check the heading in your website editor']) await expect(tasks.getByRole('article', { name: label }).getByRole('heading')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Automatically selected search focus' }).getByRole('heading')).toHaveText('website design for local businesses');
-  await expect(page.getByText('Suggested from your page and available evidence.', { exact: false })).toBeVisible();
+  await expect(page.getByText('A suggested topic to test, not measured search demand.', { exact: true }).filter({ visible: true })).toBeVisible();
   expect(calls.generations[0].focusKeywords).toEqual([]);
   await page.reload();
   await expect(tasks.getByRole('article')).toHaveCount(3);
   expect(calls.generations).toHaveLength(1);
-  await page.getByLabel('Page to review').selectOption(otherUrl);
+  await page.getByLabel('Choose a page to improve').selectOption(otherUrl);
   await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
   await expect(tasks).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Automatically selected search focus' })).toHaveCount(0);
-  await page.getByLabel('Page to review').selectOption(pageUrl);
+  await page.getByLabel('Choose a page to improve').selectOption(pageUrl);
   await expect(tasks.getByRole('article')).toHaveCount(3);
   expect(calls.generations).toHaveLength(1);
   const failed = route => route.fulfill({ status: 503, json: { error: 'Analysis temporarily unavailable. Your saved tasks are unchanged.' } });
@@ -730,19 +749,20 @@ test('automatic focus and multiple saved tasks survive reload, page switches, fa
   await expect(page.getByRole('alert').filter({ hasText: 'Analysis temporarily unavailable' })).toBeVisible();
   await expect(tasks.getByRole('article')).toHaveCount(3);
   await page.unroute('**/api/page-review/suggestions', failed);
-  const first = tasks.getByRole('article', { name: 'Make the opening heading more specific' });
-  await first.getByRole('button', { name: 'Mark done' }).click();
-  await expect(tasks.getByText('2 unfinished tasks', { exact: false })).toBeVisible();
-  await expect(tasks.getByText('Completed and dismissed tasks (1)', { exact: true })).toBeVisible();
+  const first = tasks.getByRole('article', { name: 'Check the heading in your website editor' });
+  await first.locator(':scope > details > summary').click();
+  await first.getByRole('button', { name: 'Mark check complete' }).click();
+  await expect(tasks.getByText('2 remaining · Saved', { exact: false })).toBeVisible();
+  await expect(tasks.getByText('Completed and dismissed (1)', { exact: true })).toBeVisible();
   expect(calls.confirmations).toHaveLength(0);
   expect((await app.firestore().doc(`implementedSeoTips/${docId}`).get()).data().preRevampArchived).toBe(true);
   await page.reload();
-  await expect(tasks.getByText('2 unfinished tasks', { exact: false })).toBeVisible();
-  await tasks.getByText('Completed and dismissed tasks (1)', { exact: true }).click();
+  await expect(tasks.getByText('2 remaining · Saved', { exact: false })).toBeVisible();
+  await tasks.getByText('Completed and dismissed (1)', { exact: true }).click();
   await first.locator(':scope > details > summary').click();
   await first.getByRole('button', { name: 'Reopen task' }).click();
-  await expect(tasks.getByText('3 unfinished tasks', { exact: false })).toBeVisible();
-  await expect(tasks.getByText('Marking a task done only updates this checklist.', { exact: false })).toBeVisible();
+  await expect(tasks.getByText('3 remaining · Saved', { exact: false })).toBeVisible();
+  expect(calls.confirmations).toHaveLength(0);
   await page.setViewportSize({ width: 390, height: 844 });
   await tasks.screenshot({ path: 'test-results/saved-page-plan-mobile.png', animations: 'disabled', style: 'header, .fixed { visibility: hidden !important; }' });
   await page.setViewportSize({ width: 1280, height: 850 });
@@ -763,15 +783,15 @@ test('reanalysis retains earlier tasks and metadata wording when the latest revi
   await expect(tasks.getByRole('article')).toHaveCount(1);
   second = true;
   await page.getByRole('button', { name: 'Analyze again' }).click();
+  await openDetails(page, 'Full analysis and sources');
   await expect(page.getByRole('heading', { name: 'Keep your current title and description', exact: true })).toBeVisible();
   await expect(tasks.getByRole('article')).toHaveCount(1);
-  await expect(tasks.getByText('Do next · Saved from an earlier review', { exact: true })).toBeVisible();
-  await expect(tasks.getByText('Saved wording from this task', { exact: true })).toBeVisible();
+  await expect(tasks.getByText('Saved from an earlier review. Check that it still fits.', { exact: true })).toBeVisible();
+  await expect(tasks.getByText('Suggested title', { exact: true })).toBeVisible();
   await expect(tasks.getByText(suggestion.title, { exact: true })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toHaveCount(0);
-  await page.getByText('Published a change to this page’s content?', { exact: true }).click();
-  await expect(page.getByText('You can also describe a title or description edit from an earlier saved task.', { exact: false })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Track this published page change' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Start tracking published edits' })).toBeDisabled();
+  await expect(tasks.getByRole('checkbox', { name: 'I published this edit' })).not.toBeChecked();
   await page.reload();
   await expect(tasks.getByText(suggestion.title, { exact: true })).toBeVisible();
   expect(calls.generations).toHaveLength(2);
@@ -787,11 +807,11 @@ test('a changed page warns about saved suggestions and a failed checklist update
   await expect(tasks.getByRole('article')).toHaveCount(3);
   await page.route('**/api/page-review/content', route => route.fulfill({ status: 200, json: { success: true, data: metadata(pageUrl), provenance: { contentFingerprint: 'changed-content' } } }));
   await page.reload();
-  await expect(page.getByText('Your page has changed since this saved analysis.', { exact: false })).toBeVisible();
+  await expect(page.getByText('Your website changed since this analysis.', { exact: false })).toBeVisible();
   await page.route('**/api/page-review/plan', route => route.request().method() === 'POST' ? route.fulfill({ status: 409, json: { error: 'Your task list changed elsewhere. Reload it before updating.' } }) : route.fallback());
-  await tasks.getByRole('article').first().getByRole('button', { name: 'Mark done' }).click();
+  await tasks.getByRole('article').first().getByRole('button', { name: 'Dismiss' }).click();
   await expect(tasks.getByRole('alert')).toContainText('Your task status was not confirmed as saved');
-  await expect(tasks.getByText('3 unfinished tasks', { exact: false })).toBeVisible();
+  await expect(tasks.getByText('3 remaining · Saved', { exact: false })).toBeVisible();
   expect(calls.confirmations).toHaveLength(0);
 });
 

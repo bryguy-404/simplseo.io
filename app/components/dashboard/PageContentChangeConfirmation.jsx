@@ -13,8 +13,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { isSelectableEdit, isPublishedTask, usableSavedPagePlan } from './SavedPagePlan';
 
-export default function PageContentChangeConfirmation({ pageUrl, provenance, onConfirmed, onExisting, hasMetadataEditor = false }) {
+function LegacyPageContentChangeConfirmation({ pageUrl, provenance, onConfirmed, onExisting, hasMetadataEditor = false }) {
   const { user } = useAuth();
   const id = useId();
   const active = useRef(true);
@@ -71,4 +72,69 @@ export default function PageContentChangeConfirmation({ pageUrl, provenance, onC
       </div></details>}
     <Dialog open={confirmOpen} onOpenChange={value => { if (!busy) setConfirmOpen(value); }}><DialogContent><DialogHeader><DialogTitle>Track this published page-content change?</DialogTitle><DialogDescription>Today will be the change date for the comparison. Confirm only after publishing your edit on this exact page.</DialogDescription></DialogHeader><p className="break-all text-xs text-muted-foreground">{pageUrl}</p><p className="whitespace-pre-wrap break-words text-sm">{summary.trim()}</p>{error && <p role="alert" className="text-sm text-destructive">{error}</p>}<DialogFooter><Button variant="outline" disabled={busy} onClick={() => setConfirmOpen(false)}>Not yet</Button><Button disabled={!ready} onClick={confirm}>{busy ? 'Saving…' : 'Yes, track my published page change'}</Button></DialogFooter></DialogContent></Dialog>
   </section>;
+}
+
+
+function SelectedTaskConfirmation({ pageUrl, provenance, plan, selectedTaskIds = [], onConfirmed, tracking = false, loading = false, error: statusError = '' }) {
+  const { user } = useAuth();
+  const id = useId();
+  const active = useRef(true);
+  const [summary, setSummary] = useState('');
+  const [published, setPublished] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [saved, setSaved] = useState(null);
+  const selectedTasks = plan.tasks.filter(task => selectedTaskIds.includes(task.id) && isSelectableEdit(task, pageUrl));
+  const selectionKey = JSON.stringify(selectedTasks.map(task => [task.id, task.recommendation.label]));
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  useEffect(() => {
+    const selected = JSON.parse(selectionKey);
+    setSummary(selected.map(([, label]) => label).join('; ').slice(0, 600));
+    setPublished(false); setConfirmOpen(false); setError('');
+  }, [selectionKey, pageUrl]);
+  const selectionReady = selectedTasks.length > 0 && selectedTasks.length === selectedTaskIds.length && new Set(selectedTaskIds).size === selectedTaskIds.length;
+  const canOpen = Boolean(user?.id && provenance && selectionReady && !loading && !statusError && !busy && !saved && !tracking);
+  const ready = canOpen && published && Boolean(summary.trim()) && summary.trim().length <= 600;
+  const confirm = async () => {
+    if (!ready) return;
+    setBusy(true); setError('');
+    try {
+      const response = await authenticatedFetch('/api/page-review/confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pageUrl, provenance, changeType: 'page_content', changeSummary: summary.trim(), published: true, taskIds: selectedTaskIds, planRevision: plan.revision }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Please try saving again.');
+      const record = result.record;
+      const scope = { pageUrl, property: provenance.property, websiteRunId: provenance.websiteRunId };
+      if (record?.pageUrl !== pageUrl || record.changeType !== 'page_content' || record.pageChangeSummary !== summary.trim() || record.confirmationMethod !== 'user-confirmed' || !Number.isFinite(Date.parse(record.implementedAt)) ||
+        !Array.isArray(record.confirmedTaskIds) || record.confirmedTaskIds.length !== selectedTaskIds.length || !selectedTaskIds.every(taskId => record.confirmedTaskIds.includes(taskId)) ||
+        !usableSavedPagePlan(result.plan, scope) || !selectedTaskIds.every(taskId => result.plan.tasks.some(task => task.id === taskId && isPublishedTask(task, pageUrl) && task.publication.implementationId === record.id && task.publication.implementedAt === record.implementedAt))) throw new Error('The saved publication could not be verified. Reload to check its status before trying again.');
+      if (!active.current) return;
+      setSaved(record); setConfirmOpen(false);
+      window.dispatchEvent(new Event('seo-implementation-changed'));
+      onConfirmed?.(record, result.plan);
+    } catch (failure) { if (active.current) setError(`We could not confirm the save. ${failure.message || 'Please try again.'}`); }
+    finally { if (active.current) setBusy(false); }
+  };
+  if (tracking || !plan.tasks.some(task => isSelectableEdit(task, pageUrl))) return null;
+  return <section aria-label="Confirm published edits" className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-800 dark:bg-emerald-950/20">
+    {saved ? <p role="status" className="flex items-center gap-2 font-medium"><CheckCircle2 className="h-5 w-5" aria-hidden="true" />Published edits recorded. Collecting search data.</p> : <div className="flex flex-wrap items-center justify-between gap-4">
+      <div><h2 className="font-semibold">{selectedTasks.length ? `${selectedTasks.length} published ${selectedTasks.length === 1 ? 'edit' : 'edits'} selected` : 'Ready after you publish'}</h2><p className="mt-1 text-sm text-muted-foreground">{selectedTasks.length ? 'Confirm these edits to start a dated comparison.' : 'Select the edits you made on your website above.'}</p></div>
+      <Button disabled={!canOpen} onClick={() => { setPublished(false); setConfirmOpen(true); }}>Start tracking published edits</Button>
+    </div>}
+    {loading && <p role="status" className="mt-3 text-xs text-muted-foreground">Checking existing progress…</p>}
+    {statusError && <p role="alert" className="mt-3 text-sm text-destructive">Progress status is unavailable. Retry the progress check before confirming.</p>}
+    {error && !confirmOpen && <p role="alert" className="mt-3 text-sm text-destructive">{error}</p>}
+    <Dialog open={confirmOpen} onOpenChange={value => { if (!busy) setConfirmOpen(value); }}><DialogContent className="max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>Are these changes live on your website?</DialogTitle><DialogDescription>Confirming edits you haven’t published would make the comparison misleading. Only continue when these edits are live; today starts tracking.</DialogDescription></DialogHeader>
+      <a href={pageUrl} target="_blank" rel="noopener noreferrer" className="break-all text-sm underline">{pageUrl}<span className="sr-only"> (opens in a new tab)</span></a>
+      <ul className="list-disc space-y-1 pl-5 text-sm">{selectedTasks.map(task => <li key={task.id}>{task.recommendation.label}</li>)}</ul>
+      <div className="space-y-2"><Label htmlFor={`${id}-summary`}>What did you publish?</Label><Textarea id={`${id}-summary`} value={summary} maxLength={600} disabled={busy} onChange={event => { setSummary(event.target.value); setPublished(false); }} /><p className="text-xs text-muted-foreground">Adjust this summary to describe your actual edits.</p></div>
+      <div className="flex items-start gap-2 rounded-lg border p-3"><Checkbox id={`${id}-published`} checked={published} disabled={busy || loading || Boolean(statusError)} onCheckedChange={value => setPublished(value === true)} /><Label htmlFor={`${id}-published`} className="leading-5">I confirm these edits are live on this exact page.</Label></div>
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      <DialogFooter><Button variant="outline" disabled={busy} onClick={() => setConfirmOpen(false)}>Not yet</Button><Button disabled={!ready} onClick={confirm}>{busy ? 'Saving…' : 'Yes, start tracking'}</Button></DialogFooter>
+    </DialogContent></Dialog>
+  </section>;
+}
+
+export default function PageContentChangeConfirmation(props) {
+  return props.plan ? <SelectedTaskConfirmation {...props} /> : <LegacyPageContentChangeConfirmation {...props} />;
 }

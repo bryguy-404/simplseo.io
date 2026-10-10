@@ -53,10 +53,11 @@ async function main() {
   let summary;
 
   async function snapshotAccount() {
-    const [setup, implementations, history] = await Promise.all([
+    const [setup, implementations, history, plans] = await Promise.all([
       db.doc(`onboarding/${uid}`).get(),
       db.collection('implementedSeoTips').where('userId', '==', uid).get(),
       db.collection('users').doc(uid).collection('revampHistory').get(),
+      db.collection('pageReviewPlans').where('userId', '==', uid).get(),
     ]);
     const historyRecords = await Promise.all(history.docs.map(run => run.ref.collection('records').get()));
     const archiveDocuments = [
@@ -66,6 +67,7 @@ async function main() {
     ];
     return {
       setup: setup.data(),
+      plans: new Map(plans.docs.map(doc => [doc.ref.path, doc.updateTime])),
       activeIds: implementations.docs.filter(doc => !doc.data().preRevampArchived && doc.data().status === 'implemented').map(doc => doc.id).sort(),
       historyRuns: history.docs.filter(doc => doc.data().complete).map(doc => doc.id),
       historyRecords: new Map(history.docs.map((run, index) => [run.id, historyRecords[index].docs.map(doc => doc.id)])),
@@ -489,7 +491,7 @@ async function main() {
     stage = 'new route authorization';
     const routes = [
       ['dashboard/overview', 'GET'], ['page-review/content', 'POST'], ['page-review/activity', 'POST'],
-      ['page-review/suggestions', 'POST'], ['page-review/confirm', 'POST'], ['page-review/plan', 'GET'], ['page-review/plan', 'POST'],
+      ['page-review/suggestions', 'POST'], ['page-review/confirm', 'POST'], ['page-review/plan', 'GET'], ['page-review/plan', 'POST'], ['page-review/cycle', 'POST'],
     ];
     // Confirmation is probed only anonymously or with a mismatched supplied UID.
     // Never send a confirmation that the account could authorize successfully.
@@ -583,6 +585,13 @@ async function main() {
         generatedAt: draft.provenance.generatedAt };
     }
 
+    stage = 'saved homepage plan';
+    const planResponse = await api(`page-review/plan?pageUrl=${encodeURIComponent(property)}`, { headers });
+    assert(planResponse.ok && planResponse.headers.get('cache-control') === 'private, no-store', 'Saved homepage plan is unavailable or cacheable.');
+    const savedHomepage = (await planResponse.json()).plan;
+    assert(savedHomepage === null || savedHomepage.pageUrl === property && savedHomepage.property === property
+      && savedHomepage.websiteRunId === before.setup.revampRunId && Array.isArray(savedHomepage.tasks), 'Saved homepage plan belongs to a different scope.');
+
     stage = 'progress and history safeguards';
     const progressResponse = await api('progress', { headers });
     assert(progressResponse.ok, 'Progress is unavailable.');
@@ -608,6 +617,7 @@ async function main() {
       currentHtmlTitle: content.data.htmlTitle.replace(/[\u0000-\u001f\u007f-\u009f]/g, '').slice(0, 180),
       htmlFetchedAt: content.data.fetchedAt, exactHomepageVerified: true,
       activityStatus: activity.evidence.status, activityWindows: activity.evidence.history.length,
+      savedHomepageTaskCount: savedHomepage?.tasks.length || 0, savedHomepageRevision: savedHomepage?.revision || null,
       draft: draftMetadata, activeChanges: progress.records.length, automaticOutcomesEnabled: false, notificationsEnabled: false,
       historyRunsAvailable: history.runs.length, authorizedConfirmationAttempted: false,
     };
@@ -618,7 +628,8 @@ async function main() {
         verifySetup(after.setup, before.setup.revampRunId);
         assert(sameIds(after.activeIds, before.activeIds), 'Active implementation IDs changed during verification.');
         assert(sameIds(after.archives.keys(), before.archives.keys()) && [...before.archives].every(([path, updateTime]) => after.archives.get(path)?.isEqual(updateTime)), 'An archived record or archive snapshot changed during verification.');
-        if (summary) { summary.activeImplementationIdsUnchanged = true; summary.archiveSnapshotsUnchanged = before.archives.size; }
+        if (!flags.includes('--draft')) assert(sameIds(after.plans.keys(), before.plans.keys()) && [...before.plans].every(([path, updateTime]) => after.plans.get(path)?.isEqual(updateTime)), 'A saved page plan changed during read-only verification.');
+        if (summary) { summary.savedPlansUnchanged = !flags.includes('--draft'); summary.activeImplementationIdsUnchanged = true; summary.archiveSnapshotsUnchanged = before.archives.size; }
       }
     } finally { await app.delete(); }
   }

@@ -1,12 +1,15 @@
 "use client";
 
+import { useId } from 'react';
 import { CheckCircle2, Copy, ListChecks } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { propertyContainsUrl } from '../../lib/revampState';
 import { ActionBody } from './PageReviewActions';
 import { usablePageAssessment } from './PageReviewAssessment';
-import { pageIdentity, usablePageActivity } from './PageSearchActivity';
+import { usablePageActivity } from './PageSearchActivity';
 
 const priorities = { first: 'Do first', next: 'Do next', optional: 'Optional' };
 const statuses = ['todo', 'needs_review', 'done', 'dismissed'];
@@ -33,54 +36,76 @@ export function usableSavedPagePlan(plan, scope) {
   });
 }
 
-function TaskControls({ task, busy, onStatus }) {
+export function isPublishedTask(task, pageUrl) {
+  const publication = task?.publication;
+  return task?.status === 'done' && publication?.confirmationMethod === 'user-confirmed' && publication.changeType === 'page_content' &&
+    publication.pageUrl === pageUrl && typeof publication.implementationId === 'string' && Boolean(publication.implementationId) &&
+    typeof publication.implementedAt === 'string' && Number.isFinite(Date.parse(publication.implementedAt));
+}
+
+export function isSelectableEdit(task, pageUrl) {
+  return task && ['todo', 'done'].includes(task.status) && ['heading', 'content', 'internal_link', 'technical', 'metadata'].includes(task.recommendation?.type) && !isPublishedTask(task, pageUrl);
+}
+
+function TaskControls({ task, pageUrl, busy, onStatus, selected, onTogglePublished, tracking }) {
+  const id = useId();
+  if (tracking || isPublishedTask(task, pageUrl)) return null;
   const closed = ['done', 'dismissed'].includes(task.status);
-  return <div className="flex flex-wrap gap-2 border-t pt-4">
-    {closed ? <Button size="sm" variant="outline" disabled={busy} onClick={() => onStatus(task.id, 'todo')}>Reopen task</Button> : <>
-      {task.status === 'needs_review' && <Button size="sm" variant="outline" disabled={busy} onClick={() => onStatus(task.id, 'todo')}>Keep on my list</Button>}
-      <Button size="sm" variant="outline" disabled={busy} onClick={() => onStatus(task.id, 'done')}><CheckCircle2 className="mr-2 h-4 w-4" aria-hidden="true" />Mark done</Button>
-      <Button size="sm" variant="ghost" disabled={busy} onClick={() => onStatus(task.id, 'dismissed')}>Dismiss</Button>
-    </>}
+  return <div className="space-y-3 border-t pt-4">
+    {isSelectableEdit(task, pageUrl) && <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950/20"><Checkbox id={id} checked={selected} disabled={busy || !onTogglePublished} onCheckedChange={checked => onTogglePublished?.(task.id, checked === true)} /><Label htmlFor={id} className="leading-5">I published this edit</Label></div>}
+    <div className="flex flex-wrap gap-2">
+      {closed ? <Button size="sm" variant="ghost" disabled={busy} onClick={() => onStatus(task.id, 'todo')}>Reopen task</Button> : <>
+        {task.status === 'needs_review' && <Button size="sm" variant="outline" disabled={busy} onClick={() => onStatus(task.id, 'todo')}>This still applies</Button>}
+        {task.status === 'todo' && task.recommendation.type === 'check' && <Button size="sm" variant="outline" disabled={busy} onClick={() => onStatus(task.id, 'done')}><CheckCircle2 className="mr-2 h-4 w-4" aria-hidden="true" />Mark check complete</Button>}
+        <Button size="sm" variant="ghost" disabled={busy} onClick={() => onStatus(task.id, 'dismissed')}>Dismiss</Button>
+      </>}
+    </div>
   </div>;
 }
 
-function SavedTask({ task, index, expanded = false, busy, onStatus }) {
+function SavedTask({ task, pageUrl, index, expanded = false, busy, onStatus, selected, onTogglePublished, tracking }) {
   const item = task.recommendation;
   const earlier = task.status === 'needs_review';
   const closed = ['done', 'dismissed'].includes(task.status);
+  const published = isPublishedTask(task, pageUrl);
   const copyDraft = async (value, field) => {
     try { await navigator.clipboard.writeText(value); toast.success(`${field} copied`); }
     catch { toast.error('Copy failed. You can select and copy the wording yourself.'); }
   };
-  return <article aria-label={item.label} className={`overflow-hidden rounded-xl border bg-background/80 ${earlier ? 'border-amber-300 dark:border-amber-800' : task.priority === 'first' && !closed ? 'border-violet-300 dark:border-violet-700' : ''}`}>
-    <details className="p-4 md:p-5" open={expanded || undefined}>
-      <summary className="cursor-pointer list-none rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <p className={`text-xs font-semibold uppercase tracking-wide ${earlier ? 'text-amber-800 dark:text-amber-200' : 'text-violet-800 dark:text-violet-200'}`}>{closed ? task.status === 'done' ? 'Done' : 'Dismissed' : earlier ? 'Earlier suggestion · review before using' : `${priorities[task.priority]}${task.retained ? ' · Saved from an earlier review' : ''}`}</p>
-        <h3 className="mt-2 text-base font-semibold md:text-lg">{index ? `${index}. ` : ''}{item.label}</h3>
-        <p className="mt-1 text-xs text-muted-foreground">Open for what to change and why</p>
+  return <article aria-label={item.label} className={`overflow-hidden rounded-xl border bg-background/80 ${earlier ? 'border-amber-300 dark:border-amber-800' : selected ? 'border-emerald-400 dark:border-emerald-700' : task.priority === 'first' && !closed && !tracking ? 'border-violet-300 dark:border-violet-700' : ''}`}>
+    <details className="p-4 md:p-5" open={expanded && !tracking || undefined}>
+      <summary className="cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <span className={`text-xs font-semibold uppercase tracking-wide ${published ? 'text-emerald-800 dark:text-emerald-200' : earlier ? 'text-amber-800 dark:text-amber-200' : 'text-muted-foreground'}`}>{published ? 'Published' : closed ? task.status === 'done' ? 'Checklist complete' : 'Dismissed' : earlier ? 'Check before using' : priorities[task.priority]}</span>
+        <h3 className="mt-1 text-base font-semibold md:text-lg">{index ? `${index}. ` : ''}{item.label}</h3>
       </summary>
       <div className="mt-4 space-y-4">
-        {(earlier || task.retained) && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-950 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-100">{earlier ? 'Your page changed after this suggestion, and the latest review did not reconfirm it. Check that it still fits before using it.' : 'This task is saved from an earlier review. The latest analysis did not repeat it; it remains on your list so you can decide whether it is still useful.'}{task.reviewedAt && <span className="mt-1 block">Last assessed {new Date(task.reviewedAt).toLocaleString()}.</span>}</p>}
-        <ActionBody item={item} facts={task.facts} sources={task.sources} />
-        {item.type === 'metadata' && task.draft && <div className="space-y-3 rounded-lg border border-violet-200 bg-violet-50 p-4 dark:border-violet-800 dark:bg-violet-950/20"><p className="text-xs font-semibold">Saved wording from this task</p>{[['title', 'Page title'], ['description', 'Page description']].map(([field, label]) => <div key={field}><div className="mb-1 flex items-center justify-between gap-2"><p className="text-xs text-muted-foreground">{label}</p><Button size="icon" variant="outline" className="h-8 w-8 shrink-0" aria-label={`Copy saved ${field} for ${item.label}`} onClick={() => copyDraft(task.draft[field], label)}><Copy className="h-4 w-4" aria-hidden="true" /></Button></div><p className="whitespace-pre-wrap break-words text-sm">{task.draft[field]}</p></div>)}{earlier && <p className="text-xs leading-relaxed text-muted-foreground">This is earlier wording. Analyze again before using it to confirm a new title or description change.</p>}</div>}
-        <TaskControls task={task} busy={busy} onStatus={onStatus} />
+        {(earlier || task.retained) && <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-200">{earlier ? 'Your page changed. Check this earlier suggestion before using it.' : 'Saved from an earlier review. Check that it still fits.'}</p>}
+        {published && <p className="text-xs text-muted-foreground">Publication confirmed {new Date(task.publication.implementedAt).toLocaleDateString()}.</p>}
+        <ActionBody item={item} facts={task.facts} sources={task.sources} compact />
+        {item.type === 'metadata' && task.draft && <div className="space-y-3 rounded-lg border border-violet-200 bg-violet-50 p-4 dark:border-violet-800 dark:bg-violet-950/20">{[['title', 'Suggested title'], ['description', 'Suggested description']].map(([field, label]) => <div key={field}><div className="mb-1 flex items-center justify-between gap-2"><p className="text-xs font-semibold">{label}</p><Button size="icon" variant="outline" className="h-8 w-8 shrink-0" aria-label={`Copy saved ${field} for ${item.label}`} onClick={() => copyDraft(task.draft[field], label)}><Copy className="h-4 w-4" aria-hidden="true" /></Button></div><p className="whitespace-pre-wrap break-words text-sm">{task.draft[field]}</p></div>)}</div>}
+        <TaskControls task={task} pageUrl={pageUrl} busy={busy} onStatus={onStatus} selected={selected} onTogglePublished={onTogglePublished} tracking={tracking} />
       </div>
     </details>
   </article>;
 }
 
-export default function SavedPagePlan({ plan, busy, savingStatus, error, onStatus, onReload }) {
+export default function SavedPagePlan({ plan, busy, savingStatus, error, onStatus, onReload, selectedTaskIds = [], onTogglePublished, tracking = false }) {
+  const pageUrl = plan.review.evidence.pageUrl;
   const current = plan.tasks.filter(task => task.status === 'todo');
   const earlier = plan.tasks.filter(task => task.status === 'needs_review');
   const history = plan.tasks.filter(task => ['done', 'dismissed'].includes(task.status));
-  return <section aria-label="Saved page tasks" className="mb-6 space-y-5 rounded-xl border bg-card p-5 md:p-6">
-    <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="flex items-center gap-2 text-xl font-semibold"><ListChecks className="h-5 w-5" aria-hidden="true" />Your saved task list</h2><p className="mt-1 break-words text-sm text-muted-foreground">{pageIdentity(plan.review.evidence.pageUrl)} · {current.length + earlier.length} unfinished {current.length + earlier.length === 1 ? 'task' : 'tasks'}</p></div><p className="text-xs text-muted-foreground">Saved {new Date(plan.updatedAt).toLocaleString()}</p></div>
-    <p className="text-sm leading-relaxed text-muted-foreground">Start at the top. You can make several useful changes together. Tasks stay here when you refresh or analyze again.</p>
+  const renderTask = (task, index, expanded = false) => <SavedTask key={task.id} task={task} pageUrl={pageUrl} index={index} expanded={expanded} busy={busy} onStatus={onStatus} selected={selectedTaskIds.includes(task.id)} onTogglePublished={onTogglePublished} tracking={tracking} />;
+  const activeTasks = <>
+    {current.length > 0 && <div className="space-y-3">{current.map((task, index) => renderTask(task, index + 1, index === 0))}</div>}
+    {earlier.length > 0 && <div className="space-y-3"><h3 className="text-sm font-semibold">Earlier suggestions to review</h3>{earlier.map((task, index) => renderTask(task, current.length + index + 1))}</div>}
+  </>;
+  return <section aria-label="Saved page tasks" className="mb-6 space-y-4 rounded-xl border bg-card p-5 md:p-6">
+    <div className="flex flex-wrap items-start justify-between gap-3"><h2 className="flex items-center gap-2 text-xl font-semibold"><ListChecks className="h-5 w-5" aria-hidden="true" />{tracking ? current.length + earlier.length > 0 ? 'Saved ideas' : 'Your saved changes' : 'Your next changes'}</h2><span className="text-xs text-muted-foreground">{current.length + earlier.length} remaining · Saved</span></div>
+    {!tracking && current.length > 0 && <p className="text-sm text-muted-foreground">Make the edits on your website, then select the ones you published.</p>}
     {error && <div role="alert" className="space-y-2 text-sm text-destructive"><p>{error}</p><Button size="sm" variant="outline" disabled={busy} onClick={onReload}>Reload saved tasks</Button></div>}
     {savingStatus && <p role="status" className="text-xs text-muted-foreground">Saving task status…</p>}
-    {current.length > 0 ? <div className="space-y-3">{current.map((task, index) => <SavedTask key={task.id} task={task} index={index + 1} expanded={index === 0} busy={busy} onStatus={onStatus} />)}</div> : <p className="rounded-lg border p-4 text-sm">{earlier.length ? 'Review the earlier suggestions below before choosing another edit.' : history.length ? 'No unfinished tasks. Your completed and dismissed tasks are saved below.' : 'This review did not identify a supported edit to add. Read the assessment for what to check next.'}</p>}
-    {earlier.length > 0 && <div className="space-y-3"><h3 className="font-semibold">Earlier suggestions to review</h3>{earlier.map((task, index) => <SavedTask key={task.id} task={task} index={current.length + index + 1} busy={busy} onStatus={onStatus} />)}</div>}
-    <p className="border-t pt-4 text-xs leading-relaxed text-muted-foreground">Marking a task done only updates this checklist. It does not change your website or start progress tracking. After publishing an edit yourself, use the separate confirmation below to track the change.</p>
-    {history.length > 0 && <details className="border-t pt-4"><summary className="cursor-pointer text-sm font-medium">Completed and dismissed tasks ({history.length})</summary><div className="mt-4 space-y-3">{history.map(task => <SavedTask key={task.id} task={task} busy={busy} onStatus={onStatus} />)}</div></details>}
+    {tracking && current.length + earlier.length > 0 ? <details><summary className="cursor-pointer text-sm font-medium">Other saved ideas ({current.length + earlier.length})</summary><div className="mt-4 space-y-3">{activeTasks}</div></details> : activeTasks}
+    {!current.length && !earlier.length && !history.length && <p className="text-sm text-muted-foreground">No supported edit identified. See the analysis for what to check next.</p>}
+    {history.length > 0 && <details className="border-t pt-3"><summary className="cursor-pointer text-sm font-medium">Completed and dismissed ({history.length})</summary><div className="mt-4 space-y-3">{history.map(task => renderTask(task))}</div></details>}
   </section>;
 }

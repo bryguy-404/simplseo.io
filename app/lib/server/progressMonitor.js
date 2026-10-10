@@ -1,5 +1,6 @@
 import { db } from '../firebaseAdmin';
-import { PROGRESS_SCHEMA_VERSION, PROGRESS_SOURCE, PROGRESS_POLICY, comparisonWindows, progressIsPaused, assessObservations, pacificDay } from '../progressAssessment';
+import { PROGRESS_SCHEMA_VERSION, PROGRESS_SOURCE, PROGRESS_POLICY, comparisonWindows, progressIsPaused, assessObservations, pacificDay, progressCycleIsReviewable } from '../progressAssessment';
+import { propertyContainsUrl } from '../revampState';
 import { getGscConnection } from './gscConnection';
 import { fetchPageObservation } from './pageObservation';
 import { RequestError } from './requestAuth';
@@ -12,6 +13,7 @@ function baseAssessment(data, now) {
   return {
     schemaVersion: PROGRESS_SCHEMA_VERSION, source: PROGRESS_SOURCE,
     pageUrl: data.pageUrl || null, implementedAt: cycleDate(data.implementedAt),
+    websiteRunId: data.websiteRunId || null,
     windows: comparisonWindows(data.implementedAt, now), attemptedAt: now.toISOString(),
     property: null, baseline: null, post: null, comparison: null,
     automaticOutcome: null,
@@ -21,10 +23,51 @@ function isSameCycle(assessment, data) {
   return assessment?.schemaVersion === PROGRESS_SCHEMA_VERSION
     && assessment.source === PROGRESS_SOURCE
     && assessment.pageUrl === data.pageUrl
+    && (assessment.websiteRunId || null) === (data.websiteRunId || null)
     && assessment.implementedAt === cycleDate(data.implementedAt);
 }
 function expectedProperty(onboarding, user) {
   return onboarding?.gscProperty || user?.gscSiteUrl || null;
+}
+function recordInCurrentScope(data, onboarding, property) {
+  return !data.preRevampArchived
+    && (data.websiteRunId || null) === (onboarding?.revampRunId || null)
+    && (!data.gscProperty || data.gscProperty === property) && propertyContainsUrl(property, data.pageUrl);
+}
+function currentRecord(data, onboarding, property) {
+  return data.status === 'implemented' && recordInCurrentScope(data, onboarding, property);
+}
+function displayRecord(id, data, property) {
+  return { id, pageUrl: data.pageUrl, implementedAt: cycleDate(data.implementedAt), websiteRunId: data.websiteRunId || null, property,
+    confirmedTaskIds: Array.isArray(data.confirmedTaskIds) ? data.confirmedTaskIds : [],
+    confirmedTaskLabels: Array.isArray(data.confirmedTaskLabels) ? data.confirmedTaskLabels : [],
+    ...(data.changeType === 'page_content'
+      ? { changeType: 'page_content', pageChangeSummary: typeof data.pageChangeSummary === 'string' ? data.pageChangeSummary.slice(0, 600) : '' }
+      : { changeType: 'metadata', title: typeof data.title === 'string' ? data.title.slice(0, 500) : '', description: typeof data.description === 'string' ? data.description.slice(0, 1000) : '' }),
+  };
+}
+
+async function readPreviousComparisons(docs, uid, onboarding, property, now) {
+  const scoped = docs.filter(doc => recordInCurrentScope(doc.data(), onboarding, property) && ['implemented', 'reviewed'].includes(doc.data().status)).sort((a, b) => a.id.localeCompare(b.id));
+  const histories = await Promise.allSettled(scoped.slice(0, MAX_RECORDS).map(async doc => {
+    const snapshot = await doc.ref.collection('cycles').orderBy('reviewedAt', 'desc').limit(5).get();
+    const result = snapshot.docs.flatMap(cycleDoc => {
+      const archive = cycleDoc.data(), data = archive?.data;
+      if (!data || archive.userId !== uid || data.userId !== uid || archive.property !== property || (archive.websiteRunId || null) !== (onboarding?.revampRunId || null)
+        || data.pageUrl !== doc.data().pageUrl || !recordInCurrentScope(data, onboarding, property)) return [];
+      return [{ ...displayRecord(doc.id, data, property), historyId: cycleDoc.id, reviewedAt: archive.reviewedAt || null,
+        assessment: assessmentForDisplay(data, { ...onboarding, progressReviewRequired: false, revampStatus: 'complete' }, property, now), canStartNextCycle: false }];
+    });
+    const current = doc.data();
+    if (current.status === 'reviewed' && !result.some(record => record.implementedAt === cycleDate(current.implementedAt))) {
+      result.unshift({ ...displayRecord(doc.id, current, property), historyId: `current-${doc.id}`, reviewedAt: current.reviewedAt || null,
+        assessment: assessmentForDisplay(current, { ...onboarding, progressReviewRequired: false, revampStatus: 'complete' }, property, now), canStartNextCycle: false });
+    }
+    return result.slice(0, 5);
+  }));
+  return { history: histories.flatMap(result => result.status === 'fulfilled' ? result.value : [])
+    .sort((a, b) => Date.parse(b.reviewedAt || b.implementedAt) - Date.parse(a.reviewedAt || a.implementedAt)),
+  historyUnavailable: histories.some(result => result.status === 'rejected'), historyLimited: scoped.length > MAX_RECORDS };
 }
 function assessmentForDisplay(data, onboarding, property, now) {
   const base = baseAssessment(data, now);
@@ -40,14 +83,17 @@ export async function readProgress(uid, now = new Date()) {
   ]);
   const onboarding = account.data();
   const property = expectedProperty(onboarding, user.data());
+  const previousComparisons = await readPreviousComparisons(snapshot.docs, uid, onboarding, property, now);
   return {
     schemaVersion: PROGRESS_SCHEMA_VERSION, source: PROGRESS_SOURCE, property,
     paused: progressIsPaused(onboarding), pauseReason: progressIsPaused(onboarding) ? 'account_review_required' : null,
     policy: PROGRESS_POLICY, notificationsEnabled: false, automaticOutcomesEnabled: false,
-    records: snapshot.docs.filter(doc => !doc.data().preRevampArchived && doc.data().status === 'implemented').map(doc => {
+    websiteRunId: onboarding?.revampRunId || null,
+    ...previousComparisons,
+    records: snapshot.docs.filter(doc => currentRecord(doc.data(), onboarding, property)).map(doc => {
       const data = doc.data();
-      return { id: doc.id, pageUrl: data.pageUrl, implementedAt: cycleDate(data.implementedAt),
-        ...(data.changeType === 'page_content' ? { changeType: 'page_content', pageChangeSummary: typeof data.pageChangeSummary === 'string' ? data.pageChangeSummary.slice(0, 600) : '' } : {}),
+      return { ...displayRecord(doc.id, data, property),
+        canStartNextCycle: onboarding?.isComplete === true && !progressIsPaused(onboarding) && !onboarding?.revampArchivePending && progressCycleIsReviewable(data, property, onboarding?.revampRunId, now),
         assessment: assessmentForDisplay(data, onboarding, property, now) };
     }),
   };
@@ -62,6 +108,7 @@ async function persistAssessment(doc, original, assessment, onboardingAtStart) {
     const onboarding = account.data();
     if (!data || data.preRevampArchived || data.status !== 'implemented' || data.userId !== original.userId
       || data.pageUrl !== original.pageUrl || cycleDate(data.implementedAt) !== cycleDate(original.implementedAt)) return false;
+    if (!currentRecord(data, onboarding, expectedProperty(onboarding, user.data()))) return false;
     // A rebuild, new implementation, or connection change wins over an in-flight check.
     if (onboarding?.revampRunId !== onboardingAtStart?.revampRunId || progressIsPaused(onboarding) !== progressIsPaused(onboardingAtStart)) return false;
     if (assessment.property && expectedProperty(onboarding, user.data()) !== assessment.property) return false;
@@ -77,6 +124,7 @@ export async function collectProgressRecord(doc, { now = new Date(), connectionC
   const [account, user] = await Promise.all([db.collection('onboarding').doc(original.userId).get(), db.collection('users').doc(original.userId).get()]);
   const onboarding = account.data();
   let assessment = { ...baseAssessment(original, now), property: expectedProperty(onboarding, user.data()) };
+  if (!currentRecord(original, onboarding, assessment.property)) return 'skipped';
   const previous = original.progressAssessment;
   if (isSameCycle(previous, original) && previous.property === assessment.property) {
     // Keep the last successful dated evidence even if the account is paused or
@@ -94,7 +142,7 @@ export async function collectProgressRecord(doc, { now = new Date(), connectionC
     try {
       if (!connectionCache.has(original.userId)) connectionCache.set(original.userId, getGscConnection(original.userId));
       const connection = await connectionCache.get(original.userId);
-      assessment.property = connection.siteUrl;
+      if (connection.siteUrl !== assessment.property) throw new RequestError('reconnect_required', 409);
       // Search Analytics retains a limited history. Do not interpret expired data
       // as a genuine zero baseline. A conservative 16-month boundary is explicit.
       const oldest = new Date(`${pacificDay(now)}T12:00:00Z`);
@@ -157,7 +205,8 @@ export async function refreshUserProgress(uid, now = new Date()) {
   const job = await acquireJob(`user-${uid}`, now, COOLDOWN_MS);
   try {
     const snapshot = await db.collection('implementedSeoTips').where('userId', '==', uid).get();
-    const active = snapshot.docs.filter(doc => !doc.data().preRevampArchived && doc.data().status === 'implemented').sort((a, b) => a.id.localeCompare(b.id));
+    const user = (await db.collection('users').doc(uid).get()).data();
+    const active = snapshot.docs.filter(doc => currentRecord(doc.data(), account, expectedProperty(account, user))).sort((a, b) => a.id.localeCompare(b.id));
     const afterCursor = active.filter(doc => !job.previous.cursor || doc.id > job.previous.cursor);
     const docs = (afterCursor.length ? afterCursor : active).slice(0, MAX_RECORDS);
     const batch = await collectBatch(docs, now, startedAt);

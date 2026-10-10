@@ -73,10 +73,11 @@ test('dashboard renders real dated progress and preserves the last successful ob
   await expect(page).toHaveURL(/dashboard/);
   await expect(page.getByText('Comparison available', { exact: true })).toBeVisible();
   await expect(page.getByText('Click change: +5 (+50.0%)', { exact: true })).toBeVisible();
-  await expect(page.getByText(/Before: 2026-07-04/)).toBeVisible();
+  await expect(page.getByText(/Before: Jul 4, 2026/)).toBeVisible();
   await app.firestore().doc(`implementedSeoTips/${uid}_tip`).set(record('error', 'search_data_unavailable', true));
   await page.reload();
   await expect(page.getByText('Check unavailable', { exact: true })).toBeVisible();
+  await page.getByText('View dated observations', { exact: true }).click();
   await expect(page.getByRole('table', { name: 'Reported search activity · last successful observations' })).toBeVisible();
   await expect(page.getByText(/Click change:/)).toHaveCount(0);
   await page.screenshot({ path: 'test-results/progress-evidence.png', fullPage: true });

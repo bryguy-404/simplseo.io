@@ -58,6 +58,7 @@ describe('account data deletion', () => {
       [`trainingEvents/${otherHash}/events/one`]: { keep: true },
       'implementedSeoTips/alice_legacy': {},
       'implementedSeoTips/random': { userId: 'alice' },
+      'implementedSeoTips/random/cycles/preserved-comparison': { userId: 'alice' },
       'implementedSeoTips/alice_conflicting': { userId: 'bob', keep: true },
       'pageContentCache/alice/pages/one': {},
       'pageContentCache/alice_old': {},

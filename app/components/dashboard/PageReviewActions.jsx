@@ -39,7 +39,7 @@ export function usableRecommendations(review, knownIds) {
     Array.isArray(item.evidenceIds) && item.evidenceIds.length > 0 && item.evidenceIds.every(id => knownIds.has(id)));
 }
 
-export function ActionBody({ item, facts, sources }) {
+export function ActionBody({ item, facts, sources, compact = false }) {
   const copy = async () => {
     try { await navigator.clipboard.writeText(item.proposedText); toast.success('Suggested wording copied'); }
     catch { toast.error('Copy failed. You can select and copy the wording yourself.'); }
@@ -47,11 +47,11 @@ export function ActionBody({ item, facts, sources }) {
   const citedFacts = facts.filter(fact => item.evidenceIds.includes(fact.id));
   const citedSources = sources.filter(source => item.evidenceIds.includes(source.id));
   return <div className="space-y-4">
-    <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Where on this page</p><p className="mt-1 text-sm leading-relaxed">{item.location}</p></div>
+    <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{compact ? 'Where' : 'Where on this page'}</p><p className="mt-1 text-sm leading-relaxed">{item.location}</p></div>
     <p className="text-sm leading-relaxed">{item.instruction}</p>
     {(item.currentQuote || item.proposedText) && <div className={`grid gap-3 ${item.currentQuote && item.proposedText ? 'md:grid-cols-2' : ''}`}>
       {item.currentQuote && <div className="min-w-0 rounded-lg border border-sky-200 bg-sky-50 p-4 dark:border-sky-800 dark:bg-sky-950/30"><p className="mb-2 text-xs font-semibold text-sky-900 dark:text-sky-200">Observed on your page</p><blockquote className="whitespace-pre-wrap break-words text-sm leading-relaxed text-sky-950 dark:text-sky-100">{item.currentQuote}</blockquote></div>}
-      {item.proposedText && <div className="min-w-0 rounded-lg border border-violet-200 bg-violet-50 p-4 dark:border-violet-800 dark:bg-violet-950/30"><div className="mb-2 flex items-start justify-between gap-2"><p className="text-xs font-semibold text-violet-900 dark:text-violet-200">Suggested wording · review before using</p><Button size="icon" variant="outline" className="h-8 w-8 shrink-0" aria-label={`Copy wording for ${item.label}`} onClick={copy}><Copy className="h-4 w-4" aria-hidden="true" /></Button></div><p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-violet-950 dark:text-violet-100">{item.proposedText}</p></div>}
+      {item.proposedText && <div className="min-w-0 rounded-lg border border-violet-200 bg-violet-50 p-4 dark:border-violet-800 dark:bg-violet-950/30"><div className="mb-2 flex items-start justify-between gap-2"><p className="text-xs font-semibold text-violet-900 dark:text-violet-200">{compact ? 'Suggested wording' : 'Suggested wording · review before using'}</p><Button size="icon" variant="outline" className="h-8 w-8 shrink-0" aria-label={`Copy wording for ${item.label}`} onClick={copy}><Copy className="h-4 w-4" aria-hidden="true" /></Button></div><p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-violet-950 dark:text-violet-100">{item.proposedText}</p></div>}
     </div>}
     {item.targetUrl && <p className="text-sm">Link to this existing page: <a href={item.targetUrl} target="_blank" rel="noopener noreferrer" className="break-all underline underline-offset-4">{item.targetUrl}<ExternalLink className="ml-1 inline h-3 w-3" aria-hidden="true" /><span className="sr-only"> (opens in a new tab)</span></a></p>}
     <details className="border-t pt-3 text-sm"><summary className="cursor-pointer font-medium">Why this action?</summary><div className="mt-3 space-y-3"><p className="leading-relaxed">{item.reason}</p>

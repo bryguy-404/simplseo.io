@@ -111,6 +111,8 @@ Version 6 is live from source `63355ad` as deployment `dpl_BST8ThfhXLbZnC7axxadH
 
 The initial audience is service businesses seeking inquiries, quotes or bookings. Restaurants and new-page recommendations remain later work. Bryan's next checkpoint is the homepage's automatic focus, the full prioritized list, and restoring that same list after refresh. See the version 6 release record in [Phase 4](PHASE4.md) for verification and deployment status.
 
+Version 7 simplifies that workflow: page selection and key numbers stay visible, tasks lead, and explanation is expandable. Publication requires selecting actual edits and an explicit confirmation dialog; only those tasks become published in the same transaction as the dated tracking record. The page then shows a collecting-data state and first comparison-check date, with completed tasks collapsed. Other pages stay usable. A completed or low-activity comparison can be preserved before starting another review, with past comparisons available and no automatic AI request. Stay in Phase 4 for Bryan's live layout and confirmation checkpoint; see [Phase 4](PHASE4.md) for final verification and release status.
+
 ## Phase 5 Pilot and product economics
 
 **Deferred.** Finish the current Phase 4 refinement and Bryan's usefulness checkpoint first. Use Bryan's website as a pilot, then a small group of owners. Measure completed tasks, useful recommendations, support time, API costs and retention. Validate the approximately $50 monthly price without promising agency-equivalent results. Consider Supabase/Railway migration separately after the current product works reliably.

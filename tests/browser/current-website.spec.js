@@ -20,6 +20,10 @@ test.beforeAll(async () => {
   app = admin.initializeApp({ projectId: 'demo-simpleseo' }, 'current-dashboard-tests');
   try { await app.auth().createUser({ uid, email: `${uid}@example.test`, password: 'Test-only-pass123!' }); }
   catch (error) { if (!['auth/uid-already-exists', 'auth/email-already-exists'].includes(error.code)) throw error; }
+  const implementations = await app.firestore().collection('implementedSeoTips').where('userId', '==', uid).get();
+  const cleanup = app.firestore().batch();
+  implementations.docs.forEach(snapshot => cleanup.delete(snapshot.ref));
+  await cleanup.commit();
   await app.firestore().doc(`users/${uid}`).set({ gscSiteUrl: property });
   await app.firestore().doc(`onboarding/${uid}`).set({ name: 'Dashboard pilot', businessName: 'Current website test', websiteUrl: 'https://example.test', gscProperty: property, isComplete: true, postOnboardingStep: 'complete', revampStatus: 'complete', revampRunId: 'current-run', progressReviewRequired: false,
     revampPages: [{ url: pageUrl, searchDataStatus: 'no_data', observationWindow: overview.window }] });
@@ -44,16 +48,23 @@ async function openDashboard(page, response = overview) {
   await page.goto('/auth');
   await page.locator('input[type=email]').fill(`${uid}@example.test`);
   await page.locator('input[type=password]').fill('Test-only-pass123!');
+  const progressResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/progress' && response.request().method() === 'GET');
   await page.getByRole('button', { name: 'Log In', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Your SEO workspace' })).toBeVisible();
-  await expect(page.getByText('Ready for your first change', { exact: true })).toBeVisible();
+  const progress = await progressResponse;
+  expect(progress.ok()).toBe(true);
+  expect((await progress.json()).records).toEqual([]);
+  // Empty progress is deliberately hidden. The first useful action remains
+  // available after the real demo progress read has completed.
+  await expect(page.locator('#page-progress')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Make your first useful change', exact: true })).toBeVisible();
   return requests;
 }
 
 test('fresh current-site dashboard offers an exact-page task with no old focus keywords or paid calls', async ({ page }) => {
   const requests = await openDashboard(page);
   await expect(page.getByRole('link', { name: 'Review this page' })).toHaveAttribute('href', `/low-ctr?page=${encodeURIComponent(pageUrl)}`);
-  await expect(page.getByRole('button', { name: 'Check progress', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Check progress', exact: true })).toHaveCount(0);
   await expect(page.getByText('700', { exact: true })).toBeVisible();
   await expect(page.getByText('21', { exact: true })).toBeVisible();
   expect(requests.some(path => path.includes('seo-assistant') || path.includes('/suggestions'))).toBe(false);

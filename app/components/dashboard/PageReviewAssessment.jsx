@@ -87,13 +87,12 @@ function usableSearchFocus(focus, knownIds) {
     Array.isArray(focus.evidenceIds) && focus.evidenceIds.length > 0 && focus.evidenceIds.length <= 5 && focus.evidenceIds.some(id => /^P\d+$/.test(id)) && focus.evidenceIds.every(id => knownIds.has(id));
 }
 
-function SearchFocus({ focus }) {
+export function SearchFocus({ focus }) {
   return <section aria-label="Automatically selected search focus" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-950/25">
     <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">{focus.source === 'needs_input' ? 'One business detail to clarify' : 'Your recommended search focus'}</p>
     <h3 className="mt-2 text-lg font-semibold">{focus.phrase || focus.question}</h3>
-    <p className="mt-2 text-sm leading-relaxed">{focus.reason}</p>
-    <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{focus.source === 'observed' ? 'This phrase appears in the available Search Console query report. Its appearance is not a promise of future traffic.' : focus.source === 'proposed' ? 'Suggested from your page and available evidence. This is a search idea, not measured demand or a promised ranking.' : 'Add this detail in the optional business-goal field above, then analyze again. Your saved tasks stay available.'}</p>
-    <details className="mt-3 text-sm"><summary className="cursor-pointer font-medium">Why this search focus?</summary><div className="mt-2 space-y-2 text-xs leading-relaxed"><p>{focus.intent}</p>{focus.relatedPhrases.length > 0 && <p>Related ways people might search: {focus.relatedPhrases.join(' · ')}</p>}{focus.supportingQuote && <blockquote className="border-l-2 border-emerald-300 pl-3 dark:border-emerald-700">{focus.supportingQuote}</blockquote>}</div></details>
+    <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{focus.source === 'observed' ? 'Reported in your Google search data.' : focus.source === 'proposed' ? 'A suggested topic to test, not measured search demand.' : 'Add this detail under “Tell us more about this page,” then analyze again.'}</p>
+    <details className="mt-3 text-sm"><summary className="cursor-pointer font-medium">Why this search focus?</summary><div className="mt-2 space-y-2 text-sm leading-relaxed"><p>{focus.reason}</p><p>{focus.intent}</p>{focus.relatedPhrases.length > 0 && <p>Related ways people might search: {focus.relatedPhrases.join(' · ')}</p>}{focus.supportingQuote && <blockquote className="border-l-2 border-emerald-300 pl-3 dark:border-emerald-700">{focus.supportingQuote}</blockquote>}<p className="text-xs text-muted-foreground">This is a supported topic for this page, not a promise of traffic or rankings.</p></div></details>
   </section>;
 }
 

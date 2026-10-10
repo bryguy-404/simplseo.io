@@ -11,7 +11,7 @@ import { db, records, reset } from '../app/lib/firebaseAdmin';
 import { publicFetch } from '../app/lib/server/publicFetch';
 import { seoImplementationId } from '../app/lib/pageTaskFlow';
 import { POST as confirm } from '../app/api/page-review/confirm/route';
-import { savePageReviewPlan } from '../app/lib/server/pageReviewPlans';
+import { savePageReviewPlan, readPageReviewPlan, updatePageReviewTask } from '../app/lib/server/pageReviewPlans';
 
 const pageUrl = 'https://example.test/Services?Topic=Design';
 const id = seoImplementationId('alice', pageUrl);
@@ -41,6 +41,72 @@ beforeEach(async () => {
 });
 
 describe('server-confirmed manual page changes', () => {
+  const plannedTasks = async () => savePageReviewPlan('alice', { ...draft,
+    provenance: { ...provenance, generatedAt: new Date().toISOString(), contentFingerprint: 'fixture' },
+    analysis: { changedFields: ['title'], recommendations: [
+      { id: 'action-1', type: 'heading', significance: 'primary', benefit: 'search_relevance', basis: 'opportunity', label: 'Clarify the heading', location: 'Hero', currentQuote: 'Current website', proposedText: 'Website design', targetUrl: null, evidenceIds: [] },
+      { id: 'action-2', type: 'internal_link', significance: 'supporting', benefit: 'navigation', basis: 'opportunity', label: 'Link the service card', location: 'Service card', currentQuote: '', proposedText: 'View service', targetUrl: 'https://example.test/service', evidenceIds: [] },
+      { id: 'action-3', type: 'check', significance: 'supporting', benefit: 'diagnosis', basis: 'needs_check', label: 'Check the screenshot', location: 'Visual layout', currentQuote: '', proposedText: null, targetUrl: null, evidenceIds: [] },
+    ] } });
+
+  it('atomically links only selected saved tasks to an owner-confirmed publication', async () => {
+    const plan = await plannedTasks(); const taskIds = plan.tasks.slice(0, 2).map(task => task.id);
+    const response = await confirm(contentRequest({ taskIds, planRevision: plan.revision }));
+    expect(response.status).toBe(200); const result = await response.json();
+    expect(result.record).toMatchObject({ confirmedTaskIds: taskIds, confirmedTaskLabels: ['Clarify the heading', 'Link the service card'], sourcePlanId: plan.id, sourcePlanRevision: 1 });
+    expect(result.plan.revision).toBe(2);
+    expect(result.plan.tasks.slice(0, 2).every(task => task.status === 'done' && task.publication.implementedAt === result.record.implementedAt && task.publication.implementationId === id && task.publication.pageUrl === pageUrl)).toBe(true);
+    expect(result.plan.tasks[2]).not.toHaveProperty('publication'); expect(result.plan.tasks[2].status).toBe('todo');
+    const stored = await readPageReviewPlan('alice', pageUrl); expect(stored).toEqual(result.plan);
+    const retry = await (await confirm(contentRequest({ taskIds: [...taskIds].reverse(), planRevision: plan.revision }))).json();
+    expect(retry.alreadyConfirmed).toBe(true); expect(retry.record.implementedAt).toBe(result.record.implementedAt); expect(retry.plan).toEqual(result.plan);
+  });
+
+  it('does not treat a legacy checklist Done as a publication but permits its explicit confirmation', async () => {
+    const first = await plannedTasks();
+    const plan = await updatePageReviewTask('alice', pageUrl, first.tasks[0].id, 'done', first.revision);
+    expect(plan.tasks[0]).not.toHaveProperty('publication'); expect(records.has(recordPath)).toBe(false);
+    const response = await confirm(contentRequest({ taskIds: [plan.tasks[0].id], planRevision: plan.revision }));
+    expect(response.status).toBe(200); const result = await response.json();
+    expect(result.plan.tasks[0].publication.confirmationMethod).toBe('user-confirmed');
+  });
+
+  it('rejects invalid or stale task selections without partially publishing the page', async () => {
+    const plan = await plannedTasks(); const taskIds = [plan.tasks[0].id];
+    for (const changes of [{ taskIds: [] }, { taskIds: ['bad'] }, { taskIds: [taskIds[0], taskIds[0]] }, { planRevision: undefined }, { planRevision: 0 }]) {
+      expect((await confirm(contentRequest({ taskIds, planRevision: plan.revision, ...changes }))).status).toBe(400);
+    }
+    for (const changes of [{ taskIds: ['f'.repeat(64)] }, { taskIds: [plan.tasks[2].id] }, { planRevision: 9 }]) {
+      expect((await confirm(contentRequest({ taskIds, planRevision: plan.revision, ...changes }))).status).toBe(409);
+    }
+    for (const status of ['dismissed', 'needs_review']) {
+      const current = await readPageReviewPlan('alice', pageUrl);
+      const changed = await updatePageReviewTask('alice', pageUrl, taskIds[0], status, current.revision);
+      expect((await confirm(contentRequest({ taskIds, planRevision: changed.revision }))).status).toBe(409);
+    }
+    expect(records.has(recordPath)).toBe(false);
+    expect((await readPageReviewPlan('alice', pageUrl)).tasks.every(task => !task.publication)).toBe(true);
+  });
+
+  it('rejects IDs from another exact page plan and conflicting selected-task retries', async () => {
+    const plan = await plannedTasks();
+    const otherPage = 'https://example.test/other';
+    const other = await savePageReviewPlan('alice', { ...plan.review, provenance: { ...plan.review.provenance, pageUrl: otherPage },
+      analysis: { ...plan.review.analysis, recommendations: [{ ...plan.review.analysis.recommendations[0], location: 'Other page area', currentQuote: 'Other page quote' }] } });
+    expect((await confirm(contentRequest({ taskIds: [other.tasks[0].id], planRevision: plan.revision }))).status).toBe(409);
+    const first = await (await confirm(contentRequest({ taskIds: [plan.tasks[0].id], planRevision: plan.revision }))).json();
+    expect((await confirm(contentRequest({ taskIds: [plan.tasks[1].id], planRevision: first.plan.revision }))).status).toBe(409);
+    expect(records.get(recordPath).confirmedTaskIds).toEqual([plan.tasks[0].id]);
+  });
+
+  it('leaves both saved tasks and the implementation untouched when the transaction cannot commit', async () => {
+    const plan = await plannedTasks(); const before = [...records.entries()]; const transaction = db.runTransaction;
+    const spy = vi.spyOn(db, 'runTransaction').mockImplementation(callback => transaction(async tx => { await callback(tx); throw new Error('simulated commit failure'); }));
+    try { expect((await confirm(contentRequest({ taskIds: [plan.tasks[0].id], planRevision: plan.revision }))).status).toBe(500); }
+    finally { spy.mockRestore(); }
+    expect([...records.entries()]).toEqual(before);
+  });
+
   it.each(['observed', 'proposed'])('records the saved automatic focus source rather than trusting the client: %s', async source => {
     await savePageReviewPlan('alice', { ...draft, provenance: { ...provenance, generatedAt: new Date().toISOString(), contentFingerprint: 'fixture' },
       analysis: { recommendations: [], searchFocus: { phrase: 'web design', source } } });

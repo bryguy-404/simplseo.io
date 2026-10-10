@@ -27,7 +27,7 @@ const pageUrl = 'https://example.test/Case/?Key=A';
 const request = (path, body, uid = 'alice', method = 'POST') => new Request(`http://localhost${path}`, { method, headers: uid ? { Authorization: `Bearer ${uid}`, 'Content-Type': 'application/json' } : {}, ...(method !== 'GET' ? { body: JSON.stringify(body || {}) } : {}) });
 let query;
 async function tip(id = 'tip', patch = {}) {
-  await db.collection('implementedSeoTips').doc(id).set({ userId: 'alice', status: 'implemented', pageUrl, implementedAt: '2026-08-01', preStats: { clicks: 10000 }, postStats: { clicks: 99999 }, ...patch });
+  await db.collection('implementedSeoTips').doc(id).set({ userId: 'alice', status: 'implemented', pageUrl, websiteRunId: 'one', gscProperty: 'https://example.test/', implementedAt: '2026-08-01', preStats: { clicks: 10000 }, postStats: { clicks: 99999 }, ...patch });
   return db.collection('implementedSeoTips').doc(id).get();
 }
 beforeEach(async () => {

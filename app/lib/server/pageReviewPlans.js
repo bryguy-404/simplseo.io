@@ -58,6 +58,37 @@ function publicPlan(record) {
   delete plan.generationStartedAt;
   return plan;
 }
+
+// Confirmation owns the transaction and has already checked account/setup scope.
+// Read this before queuing any writes so plan and publication commit atomically.
+export async function pageReviewPlanInTransaction(transaction, userId, scope) {
+  const ref = planRef(userId, scope);
+  const snapshot = await transaction.get(ref);
+  const plan = snapshot.exists ? snapshot.data() : null;
+  assertStoredScope(plan, userId, scope);
+  return { ref, plan };
+}
+
+export function publishedPageTaskPlan(plan, { taskIds, revision, publication }) {
+  if (!plan) throw new RequestError('Load a saved page plan before confirming its tasks.', 409);
+  if (plan.revision !== revision) throw new RequestError('Your task list changed. Reload it and select the changes you published.', 409);
+  const selected = taskIds.map(id => plan.tasks.find(task => task.id === id));
+  if (selected.some(task => !task || task.recommendation.type === 'check' || ['dismissed', 'needs_review'].includes(task.status)
+    || (task.status === 'done' && task.publication))) {
+    throw new RequestError('Select current edit tasks from this page. A check, dismissed task or earlier suggestion cannot be confirmed as published.', 409);
+  }
+  const ids = new Set(taskIds);
+  const updated = { ...plan, revision: plan.revision + 1, updatedAt: publication.implementedAt,
+    tasks: plan.tasks.map(task => ids.has(task.id) ? {
+      ...task, status: 'done', statusUpdatedAt: publication.implementedAt, publication,
+      ...(task.publication ? { previousPublications: [...(task.previousPublications || []), task.publication] } : {}),
+    } : task),
+  };
+  withinBounds(updated);
+  return { updated, plan: publicPlan(updated), labels: selected.map(task => task.recommendation.label) };
+}
+
+export const publicPageReviewPlan = publicPlan;
 function withinBounds(plan) {
   if (plan.tasks.length > MAX_TASKS || Buffer.byteLength(JSON.stringify(plan), 'utf8') > MAX_BYTES) {
     throw new RequestError('This page has reached its saved-plan limit. Your previous plan is safe; contact support before creating another review.', 409);
@@ -78,10 +109,10 @@ function reviewSnapshot(review) {
   }
   return snapshot;
 }
-function taskKey(recommendation) {
+function taskKey(recommendation, scopeId) {
   // Conservative identity: changing the target, source excerpt or page location
   // creates a separate action. Never fuzzy-merge unrelated suggested changes.
-  return hash([recommendation.type, recommendation.targetUrl || null,
+  return hash([scopeId, recommendation.type, recommendation.targetUrl || null,
     normalize(recommendation.location), normalize(recommendation.currentQuote)]);
 }
 function taskPriority(recommendation) {
@@ -113,11 +144,11 @@ function sameAction(task, recommendation, review) {
   if (oldQuote && newQuote) return oldQuote === newQuote;
   return normalize(previous.location) === normalize(recommendation.location);
 }
-function reconcileTasks(existing, review, now) {
+function reconcileTasks(existing, review, now, scopeId) {
   const pending = new Map(existing.map(task => [task.id, task]));
   const tasks = [];
   for (const recommendation of review.analysis.recommendations) {
-    const exactId = taskKey(recommendation);
+    const exactId = taskKey(recommendation, scopeId);
     const candidates = [...pending.values()].filter(task => sameAction(task, recommendation, review));
     // Ambiguous matches are kept separately. Matching is exact and local to the
     // task slot, never a model decision to erase a user's older work.
@@ -183,7 +214,7 @@ export async function savePageReviewPlan(userId, review, { startedAt = review?.p
     const plan = {
       id: ref.id, userId, ...scope, revision: (existing?.revision || 0) + 1,
       createdAt: existing?.createdAt || now, updatedAt: now, generationStartedAt,
-      review: savedReview, tasks: reconcileTasks(existing?.tasks || [], savedReview, now),
+      review: savedReview, tasks: reconcileTasks(existing?.tasks || [], savedReview, now, ref.id),
     };
     withinBounds(plan);
     transaction.set(ref, plan);

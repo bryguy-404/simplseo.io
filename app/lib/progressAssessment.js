@@ -2,6 +2,23 @@
 export const PROGRESS_SCHEMA_VERSION = 1;
 export const PROGRESS_SOURCE = 'google_search_console';
 export const PROGRESS_POLICY = Object.freeze({ windowDays: 28, reportingDelayDays: 3, minImpressionsPerWindow: 100, minCombinedClicks: 10 });
+export const cycleTimestamp = value => value?.toDate ? value.toDate().toISOString() : value instanceof Date ? value.toISOString() : value || null;
+
+// Elapsed time alone never unlocks a new cycle. A server observation must have
+// assessed this exact page/cycle/property and its complete comparison windows.
+export function progressCycleIsReviewable(record, property, websiteRunId, now = new Date()) {
+  const assessment = record?.progressAssessment;
+  const windows = comparisonWindows(record?.implementedAt, now);
+  if (!record || record.status !== 'implemented' || record.preRevampArchived || !windows?.ready || !property
+    || (record.websiteRunId || null) !== (websiteRunId || null) || (record.gscProperty && record.gscProperty !== property)
+    || !assessment || assessment.schemaVersion !== PROGRESS_SCHEMA_VERSION || assessment.source !== PROGRESS_SOURCE
+    || assessment.pageUrl !== record.pageUrl || assessment.implementedAt !== cycleTimestamp(record.implementedAt)
+    || assessment.property !== property || (assessment.websiteRunId || null) !== (websiteRunId || null)
+    || !['ready', 'insufficient_data'].includes(assessment.state) || !Number.isFinite(Date.parse(assessment.attemptedAt))) return false;
+  if (assessment.state === 'insufficient_data' && !['not_enough_search_activity', 'baseline_outside_available_history'].includes(assessment.reason)) return false;
+  return ['baseline', 'post'].every(key => assessment.windows?.[key]?.startDate === windows[key].startDate && assessment.windows?.[key]?.endDate === windows[key].endDate)
+    && assessment.windows?.ready === true;
+}
 
 export function shiftDay(day, count) {
   const date = new Date(`${day}T12:00:00Z`);
