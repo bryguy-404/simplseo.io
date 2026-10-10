@@ -17,7 +17,7 @@ export function knownActionTarget(review, target) {
 
 export function usableRecommendations(review, knownIds) {
   const recommendations = review.analysis?.recommendations;
-  if (typeof review.analysis?.pageGoal !== 'string' || !review.analysis.pageGoal.trim() || !Array.isArray(recommendations) || recommendations.length > 3 ||
+  if (typeof review.analysis?.pageGoal !== 'string' || !review.analysis.pageGoal.trim() || !Array.isArray(recommendations) || recommendations.length > (review.provenance?.reviewVersion >= 6 ? 6 : 3) ||
     (!recommendations.length && !['keep_current', 'collect_data'].includes(review.analysis.action))) return false;
   const primary = recommendations.filter(item => item?.significance === 'primary');
   const strategy = review.analysis.strategy;
@@ -39,7 +39,7 @@ export function usableRecommendations(review, knownIds) {
     Array.isArray(item.evidenceIds) && item.evidenceIds.length > 0 && item.evidenceIds.every(id => knownIds.has(id)));
 }
 
-function ActionBody({ item, facts, sources }) {
+export function ActionBody({ item, facts, sources }) {
   const copy = async () => {
     try { await navigator.clipboard.writeText(item.proposedText); toast.success('Suggested wording copied'); }
     catch { toast.error('Copy failed. You can select and copy the wording yourself.'); }

@@ -78,6 +78,25 @@ function usableStrategy(strategy, knownIds) {
       Array.isArray(check.evidenceIds) && check.evidenceIds.length <= 5 && (check.status === 'unknown' || check.evidenceIds.length > 0) && check.evidenceIds.every(id => typeof id === 'string' && knownIds.has(id)));
 }
 
+function usableSearchFocus(focus, knownIds) {
+  const bounded = (value, limit) => typeof value === 'string' && Boolean(value.trim()) && value.length <= limit;
+  return focus && ['observed', 'proposed', 'needs_input'].includes(focus.source) &&
+    (focus.source === 'needs_input' ? focus.phrase === null && bounded(focus.question, 180) : bounded(focus.phrase, 120) && focus.question === null) &&
+    bounded(focus.intent, 200) && bounded(focus.reason, 320) && typeof focus.supportingQuote === 'string' && focus.supportingQuote.length <= 500 &&
+    Array.isArray(focus.relatedPhrases) && focus.relatedPhrases.length <= 3 && focus.relatedPhrases.every(phrase => bounded(phrase, 120)) &&
+    Array.isArray(focus.evidenceIds) && focus.evidenceIds.length > 0 && focus.evidenceIds.length <= 5 && focus.evidenceIds.some(id => /^P\d+$/.test(id)) && focus.evidenceIds.every(id => knownIds.has(id));
+}
+
+function SearchFocus({ focus }) {
+  return <section aria-label="Automatically selected search focus" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-950/25">
+    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">{focus.source === 'needs_input' ? 'One business detail to clarify' : 'Your recommended search focus'}</p>
+    <h3 className="mt-2 text-lg font-semibold">{focus.phrase || focus.question}</h3>
+    <p className="mt-2 text-sm leading-relaxed">{focus.reason}</p>
+    <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{focus.source === 'observed' ? 'This phrase appears in the available Search Console query report. Its appearance is not a promise of future traffic.' : focus.source === 'proposed' ? 'Suggested from your page and available evidence. This is a search idea, not measured demand or a promised ranking.' : 'Add this detail in the optional business-goal field above, then analyze again. Your saved tasks stay available.'}</p>
+    <details className="mt-3 text-sm"><summary className="cursor-pointer font-medium">Why this search focus?</summary><div className="mt-2 space-y-2 text-xs leading-relaxed"><p>{focus.intent}</p>{focus.relatedPhrases.length > 0 && <p>Related ways people might search: {focus.relatedPhrases.join(' · ')}</p>}{focus.supportingQuote && <blockquote className="border-l-2 border-emerald-300 pl-3 dark:border-emerald-700">{focus.supportingQuote}</blockquote>}</div></details>
+  </section>;
+}
+
 function ReviewChecks({ strategy, facts, sources }) {
   return <details className="rounded-lg border bg-background/50 p-4 text-sm"><summary className="cursor-pointer font-medium">What we checked</summary><p className="mt-3 text-xs leading-relaxed text-muted-foreground">Six areas, using the evidence available for this review. “Not enough evidence” means we could not reach a supported conclusion.</p><ul className="mt-4 grid gap-3 md:grid-cols-2">{strategy.checks.map(check => <li key={check.area} className="min-w-0 space-y-2 rounded-lg border bg-background/60 p-3"><div><h3 className="font-semibold">{checkAreas[check.area]}</h3><p className="mt-1 text-xs text-muted-foreground">{checkStates[check.status]}</p></div><p className="text-xs leading-relaxed">{check.finding}</p>
     {check.evidenceIds.length > 0 && <details className="text-xs"><summary className="cursor-pointer font-medium">Sources for {checkAreas[check.area].toLowerCase()}</summary><div className="mt-2 space-y-3">{facts.filter(fact => check.evidenceIds.includes(fact.id)).map(fact => <div key={fact.id}><p className="font-medium">{fact.label}</p><p className="mt-1 break-words leading-relaxed text-muted-foreground">{fact.text}</p></div>)}{sources.filter(source => check.evidenceIds.includes(source.id)).map(source => <a key={source.id} href={source.url} target="_blank" rel="noopener noreferrer" className="block break-words underline underline-offset-4">{source.title}<span className="sr-only"> (opens in a new tab)</span></a>)}</div></details>}
@@ -87,7 +106,7 @@ function ReviewChecks({ strategy, facts, sources }) {
 // A partial or older API response must never enable a publish confirmation.
 export function usablePageAssessment(review) {
   const analysis = review?.analysis;
-  if (!analysis || review.provenance?.reviewVersion !== 5 || !Object.hasOwn(actions, analysis.action) ||
+  if (!analysis || ![5, 6].includes(review.provenance?.reviewVersion) || !Object.hasOwn(actions, analysis.action) ||
     !Object.hasOwn(metadataVerdicts, analysis.metadataVerdict) || typeof analysis.metadataReason !== 'string' || !analysis.metadataReason.trim() ||
     !['summary', 'reason', 'nextStep'].every(key => typeof analysis[key] === 'string' && analysis[key].trim()) ||
     !Array.isArray(analysis.evidenceIds) || !Array.isArray(review.evidence?.facts) ||
@@ -105,6 +124,7 @@ export function usablePageAssessment(review) {
     ...(review.research.status === 'available' ? review.research.sources.filter(source => webUrl(source.url)).map(source => source.id) : []),
   ]);
   if (analysis.evidenceIds.some(id => typeof id !== 'string' || !knownIds.has(id)) || !usableStrategy(analysis.strategy, knownIds) || !usableRecommendations(review, knownIds)) return false;
+  if (review.provenance.reviewVersion >= 6 && !usableSearchFocus(analysis.searchFocus, knownIds)) return false;
   if ((analysis.action === 'revise_metadata') !== (analysis.metadataVerdict === 'revise') ||
     (analysis.action === 'keep_current' && analysis.metadataVerdict !== 'keep') ||
     (analysis.action === 'investigate_visibility' && !analysis.evidenceIds.some(id => /^(?:S|Q|H|I)\d+$/.test(id) || id === 'P4'))) return false;
@@ -143,7 +163,7 @@ function SearchPeriod({ label, window, period }) {
   </div>;
 }
 
-export default function PageReviewAssessment({ review, onReviewPage }) {
+export default function PageReviewAssessment({ review, onReviewPage, hideActions = false }) {
   const { analysis, evidence, research } = review;
   const { strategy } = analysis;
   const facts = reviewFacts(review);
@@ -156,11 +176,12 @@ export default function PageReviewAssessment({ review, onReviewPage }) {
 
   return <section aria-label="Page assessment" className="mb-6 overflow-hidden rounded-xl border border-violet-200 bg-violet-50 dark:border-violet-800 dark:bg-violet-950/20">
     <div className="space-y-4 p-5 md:p-6">
-      <div className="border-b border-violet-200 pb-4 dark:border-violet-800"><p className="text-xs font-semibold uppercase tracking-wide text-violet-800 dark:text-violet-200">Review for {pageIdentity(evidence.pageUrl)}</p><a href={evidence.pageUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block max-w-full break-all text-sm underline underline-offset-4">{evidence.pageUrl}<span className="sr-only"> (opens in a new tab)</span></a></div>
+      <div className="border-b border-violet-200 pb-4 dark:border-violet-800"><p className="text-xs font-semibold uppercase tracking-wide text-violet-800 dark:text-violet-200">Review for {pageIdentity(evidence.pageUrl)}</p><a href={evidence.pageUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block max-w-full break-all text-sm underline underline-offset-4">{evidence.pageUrl}<span className="sr-only"> (opens in a new tab)</span></a><p className="mt-2 text-xs text-muted-foreground">Analyzed {observedAt(review.provenance.generatedAt) || 'at an unavailable date'} · Reanalyze after changing the page to check whether these suggestions still fit.</p></div>
+      {analysis.searchFocus && <SearchFocus focus={analysis.searchFocus} />}
       <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Search goal for this page</p><p className="mt-1 text-sm leading-relaxed">{strategy.searchGoal}</p></div>
       <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-violet-800 dark:text-violet-200"><ClipboardCheck className="h-4 w-4" aria-hidden="true" />What matters most</p>
       <div className="space-y-3"><h2 className="text-xl font-semibold">{strategy.finding === 'limited_findings' && !analysis.recommendations.length ? 'No clear change identified' : findingHeadings[strategy.finding]}</h2><p className="font-medium leading-relaxed">{analysis.summary}</p><div><p className="text-sm font-semibold">{['supported_issue', 'opportunity_to_test'].includes(strategy.finding) ? 'Why this is the priority' : 'Why this is our conclusion'}</p><p className="mt-1 text-sm leading-relaxed">{strategy.priorityReason}</p></div><p className="text-xs leading-relaxed text-muted-foreground">{strategy.limitation}</p></div>
-      <PageReviewActions recommendations={analysis.recommendations} facts={facts} sources={sources} finding={strategy.finding} />
+      {!hideActions && <PageReviewActions recommendations={analysis.recommendations} facts={facts} sources={sources} finding={strategy.finding} />}
       <ReviewChecks strategy={strategy} facts={facts} sources={sources} />
       {(!analysis.recommendations.length || nextPage) && <div className="rounded-lg border border-violet-200 bg-background/70 p-4 dark:border-violet-800"><p className="mb-1 text-sm font-semibold">What to do next</p><p className="text-sm leading-relaxed">{analysis.nextStep}</p>
         {nextPage && <div className="mt-3 space-y-3"><p className="break-all text-xs text-muted-foreground">{nextPage}</p><Button variant="outline" onClick={() => onReviewPage?.(nextPage)}>Review recommended page</Button></div>}

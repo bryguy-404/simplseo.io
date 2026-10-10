@@ -63,6 +63,21 @@ function limitedLinkAssessment(url) {
   return review;
 }
 
+function automaticAssessment(review) {
+  return { ...review, provenance: { ...review.provenance, reviewVersion: 6 }, analysis: { ...review.analysis, searchFocus: { phrase: 'website design for local businesses', relatedPhrases: ['business website design'], intent: 'Find a service that builds useful business websites.', reason: 'This page describes website design for local businesses, so this focus helps customers who do not know the brand.', source: 'proposed', evidenceIds: ['P1'], supportingQuote: 'We build useful websites for local businesses.', question: null } } };
+}
+function planFor(review, previous) {
+  const now = new Date().toISOString();
+  const candidates = review.analysis.recommendations.map((recommendation, index) => {
+    const old = previous?.tasks.find(task => task.recommendation.label === recommendation.label);
+    if (old && ['done', 'dismissed'].includes(old.status)) return old;
+    return { id: old?.id || `task-${(previous?.tasks.length || 0) + index + 1}`, status: 'todo', priority: recommendation.significance === 'primary' ? 'first' : recommendation.benefit === 'navigation' ? 'optional' : 'next', recommendation, facts: review.evidence.facts.filter(fact => recommendation.evidenceIds.includes(fact.id)), sources: review.research.sources.filter(source => recommendation.evidenceIds.includes(source.id)), createdAt: old?.createdAt || now, reviewedAt: now, contentFingerprint: review.provenance.contentFingerprint, draft: recommendation.type === 'metadata' ? { title: review.title, description: review.description } : null, retained: false };
+  });
+  const retained = (previous?.tasks || []).filter(task => !candidates.some(item => item.id === task.id)).map(task => ({ ...task, retained: true, priority: task.priority === 'first' ? 'next' : task.priority, status: ['done', 'dismissed'].includes(task.status) || task.contentFingerprint === review.provenance.contentFingerprint ? task.status : 'needs_review' }));
+  const priorityOrder = { first: 0, next: 1, optional: 2 };
+  return { id: 'saved-plan', revision: (previous?.revision || 0) + 1, updatedAt: now, review, tasks: [...candidates, ...retained].sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]) };
+}
+
 test.beforeAll(async () => {
   Object.assign(process.env, { FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099', FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080' });
   app = admin.initializeApp({ projectId: 'demo-simpleseo' }, 'page-task-tests');
@@ -83,8 +98,8 @@ test.beforeEach(async () => {
   await app.firestore().doc(`implementedSeoTips/${docId}`).set({ userId: uid, pageUrl, status: 'implemented', title: 'Old archived website title', implementedAt: '2025-01-01', preRevampArchived: true });
   await app.firestore().doc(`implementedSeoTips/${idFor(otherUrl)}`).delete();
 });
-async function setup(page, { failGeneration = false, withQueries = false, redirects = {}, staleConfirmation = false, assessment = null, activity = null } = {}) {
-  const calls = { generations: [], content: [], activity: [], confirmations: [] };
+async function setup(page, { failGeneration = false, withQueries = false, redirects = {}, staleConfirmation = false, assessment = null, activity = null, persisted = false } = {}) {
+  const calls = { generations: [], content: [], activity: [], confirmations: [], planReads: [], taskUpdates: [], plans: new Map() };
   await page.addInitScript(() => localStorage.setItem('hasSeenChatAssistant', 'true'));
   await page.route('**/*', async route => {
     const url = new URL(route.request().url());
@@ -95,11 +110,26 @@ async function setup(page, { failGeneration = false, withQueries = false, redire
     if (url.pathname === '/api/dashboard/overview') return json({ source: 'google_search_console', property, window: { startDate: '2026-09-10', endDate: '2026-10-07' }, totals: { impressions: 30, clicks: 1, ctr: 1 / 30, position: 11 }, daily: [], pages: [{ pageUrl, impressions: 30, clicks: 1, ctr: 1 / 30, position: 11 }], coverage: { pages: { limit: 100, returned: 1, complete: false } } });
     if (url.pathname === '/api/gsc/fetch-keywords') return json({ property, keywords: withQueries ? [{ page: pageUrl, keyword: 'local websites', impressions: 7, clicks: 1 }] : [] });
     if (url.pathname === '/api/focus-keywords') return json({ keywords: [] });
+    if (url.pathname === '/api/page-review/plan') {
+      if (route.request().method() === 'GET') { const target = url.searchParams.get('pageUrl'); calls.planReads.push(target); return json({ plan: calls.plans.get(target) || null }); }
+      const body = route.request().postDataJSON(); calls.taskUpdates.push(body);
+      const previous = calls.plans.get(body.pageUrl);
+      if (!previous || previous.revision !== body.revision) return json({ error: 'Your task list changed elsewhere. Reload it before updating.' }, 409);
+      const plan = { ...previous, revision: previous.revision + 1, updatedAt: new Date().toISOString(), tasks: previous.tasks.map(task => task.id === body.taskId ? { ...task, status: body.status } : task) };
+      calls.plans.set(body.pageUrl, plan); return json({ plan });
+    }
     if (url.pathname === '/api/page-review/content') { const body = route.request().postDataJSON(); calls.content.push(body.pageUrl); return json({ success: true, data: { ...metadata(body.pageUrl), finalUrl: redirects[body.pageUrl] || body.pageUrl } }); }
     if (url.pathname === '/api/page-review/activity') { const body = route.request().postDataJSON(); calls.activity.push(body.pageUrl); return json(activity ? activity(body) : activityFor(body.pageUrl, withQueries)); }
     if (url.pathname === '/api/page-review/suggestions') {
       const body = route.request().postDataJSON(); calls.generations.push(body);
-      return failGeneration ? json({ error: 'Draft service temporarily unavailable.' }, 503) : json(assessment ? assessment(body) : assessmentFor(body.pageUrl));
+      if (failGeneration) return json({ error: 'Draft service temporarily unavailable.' }, 503);
+      let review = assessment ? assessment(body) : assessmentFor(body.pageUrl);
+      if (persisted) {
+        review = automaticAssessment(review);
+        const plan = planFor(review, calls.plans.get(body.pageUrl)); calls.plans.set(body.pageUrl, plan);
+        return json({ ...review, plan });
+      }
+      return json(review);
     }
     if (url.pathname === '/api/page-review/confirm') {
       // Browser flow: a mocked HTTP boundary writes only the local demo fixture.
@@ -227,22 +257,22 @@ test('failed suggestion cannot become an implementation and unknown URL deep lin
   expect((await app.firestore().doc(`implementedSeoTips/${docId}`).get()).data().preRevampArchived).toBe(true);
 });
 
-test('exact-case page links and optional observed queries remain distinct', async ({ page }) => {
+test('exact-case page links remain distinct and automatic focus does not preselect a query', async ({ page }) => {
   const calls = await setup(page, { withQueries: true });
   await page.goto(`/low-ctr?page=${encodeURIComponent(otherUrl)}`);
   await expect(page.getByLabel('Page to review')).toHaveValue(otherUrl);
-  await expect(page.getByLabel('Search phrase to consider')).toHaveValue('');
+  await expect(page.getByLabel('Search phrase to consider')).toHaveCount(0);
   await expect(page.getByText('Current website title', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Analyze this page' }).click();
   await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toBeVisible();
   expect(calls.generations[0]).toEqual({ pageUrl: otherUrl, focusKeywords: [], includeResearch: true });
   await page.getByLabel('Page to review').selectOption(pageUrl);
-  await expect(page.getByLabel('Search phrase to consider')).toHaveValue('local websites');
+  await expect(page.getByText('We’ll choose a search focus for you', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toBeDisabled();
   await expect(page.getByText('Current website title', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Analyze this page' }).click();
   await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toBeVisible();
-  expect(calls.generations[1]).toEqual({ pageUrl, focusKeywords: ['local websites'], includeResearch: true });
+  expect(calls.generations[1]).toEqual({ pageUrl, focusKeywords: [], includeResearch: true });
 });
 
 test('keeping current wording never offers a draft or confirmation', async ({ page }) => {
@@ -355,20 +385,19 @@ test('legacy drafts, missing v5 strategy and unresolved evidence cannot enable s
   }
 });
 
-test('changing the phrase discards the previous assessment and draft while research stays included', async ({ page }) => {
+test('editing the business goal keeps the previous assessment until a new review succeeds', async ({ page }) => {
   const calls = await setup(page, { withQueries: true });
   await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
   await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
   await page.getByRole('button', { name: 'Analyze this page' }).click();
   await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toBeVisible();
-  await page.getByText('Optional: choose a search phrase', { exact: false }).click();
-  await page.getByLabel('Search phrase to consider').selectOption('');
-  await expect(page.getByRole('region', { name: 'Page assessment' })).toHaveCount(0);
-  await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toBeDisabled();
-  await page.getByRole('button', { name: 'Analyze this page' }).click();
+  await page.getByLabel('What should this page help visitors do?', { exact: false }).fill('Explain my current website design service.');
+  await expect(page.getByRole('region', { name: 'Page assessment' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toBeVisible();
-  expect(calls.generations.map(call => ({ focusKeywords: call.focusKeywords, includeResearch: call.includeResearch }))).toEqual([{ focusKeywords: ['local websites'], includeResearch: true }, { focusKeywords: [], includeResearch: true }]);
+  await page.getByRole('button', { name: 'Analyze again' }).click();
+  await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toBeVisible();
+  expect(calls.generations.map(call => ({ focusKeywords: call.focusKeywords, includeResearch: call.includeResearch }))).toEqual([{ focusKeywords: [], includeResearch: true }, { focusKeywords: [], includeResearch: true }]);
+  expect(calls.generations[1].goal).toBe('Explain my current website design service.');
 });
 
 test('selected page totals, query counts and six-period history load before any AI request', async ({ page }) => {
@@ -623,7 +652,7 @@ test('a small link opportunity is honestly limited and never promoted to the mai
   await assessment.screenshot({ path: 'test-results/prioritized-limited-findings.png', animations: 'disabled', style: 'header, .fixed { visibility: hidden !important; }' });
 });
 
-test('changing the owner goal discards an in-flight analysis and cannot show stale actions', async ({ page }) => {
+test('business goal waits for the current analysis and editing it retains the saved review', async ({ page }) => {
   const calls = await setup(page, { assessment: body => contentAssessment(body.pageUrl) });
   await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
   await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
@@ -635,19 +664,20 @@ test('changing the owner goal discards an in-flight analysis and cannot show sta
   await page.route('**/api/page-review/suggestions', async route => {
     if (!first) return route.fallback();
     first = false; started(); await released;
-    try { await route.fulfill({ status: 200, json: contentAssessment(pageUrl) }); } catch { /* Goal change aborts the old request. */ }
+    try { await route.fulfill({ status: 200, json: contentAssessment(pageUrl) }); } catch { /* The browser may close during a failed test. */ }
   });
   await page.getByRole('button', { name: 'Analyze this page' }).click();
   await waiting;
-  await page.getByLabel('What should this page help visitors do?', { exact: false }).fill('Explain my existing website design service.');
+  await expect(page.getByLabel('What should this page help visitors do?', { exact: false })).toBeDisabled();
   release();
-  await expect(page.getByRole('region', { name: 'Page assessment' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Analyze this page' }).click();
+  await expect(page.getByRole('region', { name: 'Page assessment' })).toBeVisible();
+  await page.getByLabel('What should this page help visitors do?', { exact: false }).fill('Explain my existing website design service.');
+  await page.getByRole('button', { name: 'Analyze again' }).click();
   await expect(page.getByRole('heading', { name: 'Make the opening heading more specific' })).toBeVisible();
-  expect(calls.generations[0].goal).toBe('Explain my existing website design service.');
+  await expect.poll(() => calls.generations[0]?.goal).toBe('Explain my existing website design service.');
   await page.getByLabel('What should this page help visitors do?', { exact: false }).fill('Help visitors understand the service before contacting me.');
-  await expect(page.getByRole('region', { name: 'Page assessment' })).toHaveCount(0);
-  await expect(page.getByRole('region', { name: 'Track a published page-content change' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Page assessment' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Track a published page-content change' })).toBeVisible();
 });
 
 test('invalid action evidence, unlisted destinations and unsafe inspection links cannot enable confirmation', async ({ page }) => {
@@ -669,4 +699,114 @@ test('invalid action evidence, unlisted destinations and unsafe inspection links
     await expect(page.getByRole('region', { name: 'Track a published page-content change' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toBeDisabled();
   }
+});
+
+test('automatic focus and multiple saved tasks survive reload, page switches, failed analysis and checklist updates', async ({ page }) => {
+  const calls = await setup(page, { persisted: true, assessment: body => contentAssessment(body.pageUrl) });
+  await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
+  await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
+  await expect(page.getByLabel('Search phrase to consider')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Analyze this page' }).click();
+  const tasks = page.getByRole('region', { name: 'Saved page tasks' });
+  await expect(tasks.getByRole('heading', { name: 'Your saved task list' })).toBeVisible();
+  await expect(tasks.getByRole('article')).toHaveCount(3);
+  for (const label of ['Make the opening heading more specific', 'Check a helpful link to the related service', 'Check the heading in your website editor']) await expect(tasks.getByRole('article', { name: label }).getByRole('heading')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Automatically selected search focus' }).getByRole('heading')).toHaveText('website design for local businesses');
+  await expect(page.getByText('Suggested from your page and available evidence.', { exact: false })).toBeVisible();
+  expect(calls.generations[0].focusKeywords).toEqual([]);
+  await page.reload();
+  await expect(tasks.getByRole('article')).toHaveCount(3);
+  expect(calls.generations).toHaveLength(1);
+  await page.getByLabel('Page to review').selectOption(otherUrl);
+  await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
+  await expect(tasks).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Automatically selected search focus' })).toHaveCount(0);
+  await page.getByLabel('Page to review').selectOption(pageUrl);
+  await expect(tasks.getByRole('article')).toHaveCount(3);
+  expect(calls.generations).toHaveLength(1);
+  const failed = route => route.fulfill({ status: 503, json: { error: 'Analysis temporarily unavailable. Your saved tasks are unchanged.' } });
+  await page.route('**/api/page-review/suggestions', failed);
+  await page.getByRole('button', { name: 'Analyze again' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Analysis temporarily unavailable' })).toBeVisible();
+  await expect(tasks.getByRole('article')).toHaveCount(3);
+  await page.unroute('**/api/page-review/suggestions', failed);
+  const first = tasks.getByRole('article', { name: 'Make the opening heading more specific' });
+  await first.getByRole('button', { name: 'Mark done' }).click();
+  await expect(tasks.getByText('2 unfinished tasks', { exact: false })).toBeVisible();
+  await expect(tasks.getByText('Completed and dismissed tasks (1)', { exact: true })).toBeVisible();
+  expect(calls.confirmations).toHaveLength(0);
+  expect((await app.firestore().doc(`implementedSeoTips/${docId}`).get()).data().preRevampArchived).toBe(true);
+  await page.reload();
+  await expect(tasks.getByText('2 unfinished tasks', { exact: false })).toBeVisible();
+  await tasks.getByText('Completed and dismissed tasks (1)', { exact: true }).click();
+  await first.locator(':scope > details > summary').click();
+  await first.getByRole('button', { name: 'Reopen task' }).click();
+  await expect(tasks.getByText('3 unfinished tasks', { exact: false })).toBeVisible();
+  await expect(tasks.getByText('Marking a task done only updates this checklist.', { exact: false })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await tasks.screenshot({ path: 'test-results/saved-page-plan-mobile.png', animations: 'disabled', style: 'header, .fixed { visibility: hidden !important; }' });
+  await page.setViewportSize({ width: 1280, height: 850 });
+  await tasks.screenshot({ path: 'test-results/saved-page-plan-desktop.png', animations: 'disabled', style: 'header, .fixed { visibility: hidden !important; }' });
+  await page.getByRole('region', { name: 'Automatically selected search focus' }).screenshot({ path: 'test-results/automatic-search-focus-desktop.png', animations: 'disabled', style: 'header, .fixed { visibility: hidden !important; }' });
+  await page.locator('button[title="Switch to light mode"]:visible').press('Space');
+  await tasks.screenshot({ path: 'test-results/saved-page-plan-light.png', animations: 'disabled', style: 'header, .fixed { visibility: hidden !important; }' });
+  await page.getByRole('region', { name: 'Automatically selected search focus' }).screenshot({ path: 'test-results/automatic-search-focus-light.png', animations: 'disabled', style: 'header, .fixed { visibility: hidden !important; }' });
+});
+
+test('reanalysis retains earlier tasks and metadata wording when the latest review does not repeat them', async ({ page }) => {
+  let second = false;
+  const calls = await setup(page, { persisted: true, assessment: body => second ? assessmentFor(body.pageUrl, 'keep_current') : assessmentFor(body.pageUrl) });
+  await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
+  await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Analyze this page' }).click();
+  const tasks = page.getByRole('region', { name: 'Saved page tasks' });
+  await expect(tasks.getByRole('article')).toHaveCount(1);
+  second = true;
+  await page.getByRole('button', { name: 'Analyze again' }).click();
+  await expect(page.getByRole('heading', { name: 'Keep your current title and description', exact: true })).toBeVisible();
+  await expect(tasks.getByRole('article')).toHaveCount(1);
+  await expect(tasks.getByText('Do next · Saved from an earlier review', { exact: true })).toBeVisible();
+  await expect(tasks.getByText('Saved wording from this task', { exact: true })).toBeVisible();
+  await expect(tasks.getByText(suggestion.title, { exact: true })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toHaveCount(0);
+  await page.getByText('Published a change to this page’s content?', { exact: true }).click();
+  await expect(page.getByText('You can also describe a title or description edit from an earlier saved task.', { exact: false })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Track this published page change' })).toBeDisabled();
+  await page.reload();
+  await expect(tasks.getByText(suggestion.title, { exact: true })).toBeVisible();
+  expect(calls.generations).toHaveLength(2);
+  expect(calls.confirmations).toHaveLength(0);
+});
+
+test('a changed page warns about saved suggestions and a failed checklist update does not pretend to save', async ({ page }) => {
+  const calls = await setup(page, { persisted: true, assessment: body => contentAssessment(body.pageUrl) });
+  await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
+  await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Analyze this page' }).click();
+  const tasks = page.getByRole('region', { name: 'Saved page tasks' });
+  await expect(tasks.getByRole('article')).toHaveCount(3);
+  await page.route('**/api/page-review/content', route => route.fulfill({ status: 200, json: { success: true, data: metadata(pageUrl), provenance: { contentFingerprint: 'changed-content' } } }));
+  await page.reload();
+  await expect(page.getByText('Your page has changed since this saved analysis.', { exact: false })).toBeVisible();
+  await page.route('**/api/page-review/plan', route => route.request().method() === 'POST' ? route.fulfill({ status: 409, json: { error: 'Your task list changed elsewhere. Reload it before updating.' } }) : route.fallback());
+  await tasks.getByRole('article').first().getByRole('button', { name: 'Mark done' }).click();
+  await expect(tasks.getByRole('alert')).toContainText('Your task status was not confirmed as saved');
+  await expect(tasks.getByText('3 unfinished tasks', { exact: false })).toBeVisible();
+  expect(calls.confirmations).toHaveLength(0);
+});
+
+test('a saved plan for another exact page is rejected and new v6 responses require a saved plan and search focus', async ({ page }) => {
+  await setup(page);
+  await page.route('**/api/page-review/plan?*', route => route.fulfill({ status: 200, json: { plan: planFor(automaticAssessment(contentAssessment(otherUrl))) } }));
+  await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
+  await expect(page.getByRole('alert').filter({ hasText: 'The saved tasks for this exact page could not be verified' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Saved page tasks' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeDisabled();
+  await page.unroute('**/api/page-review/plan?*');
+  await page.getByRole('button', { name: 'Retry saved tasks' }).click();
+  await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
+  await page.route('**/api/page-review/suggestions', route => route.fulfill({ status: 200, json: automaticAssessment(assessmentFor(pageUrl)) }));
+  await page.getByRole('button', { name: 'Analyze this page' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'The new task list could not be verified as saved' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toHaveCount(0);
 });

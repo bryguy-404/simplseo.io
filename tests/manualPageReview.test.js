@@ -17,6 +17,7 @@ import { POST as content } from '../app/api/page-review/content/route';
 import { POST as suggestions } from '../app/api/page-review/suggestions/route';
 import { validateReviewSuggestions } from '../app/lib/server/manualPageReview';
 import { consumePageReviewQuota } from '../app/lib/server/requestQuota';
+import { GET as savedPlan } from '../app/api/page-review/plan/route';
 import { PAGE_REVIEW_MODEL } from '../app/lib/pageReviewPolicy';
 
 const pageUrl = 'https://example.test/Services?Topic=Design';
@@ -35,7 +36,9 @@ const reviewStrategy = {
   priorityReason: 'The page offers planning information that the description could communicate.',
   limitation: 'This is a clarity opportunity, not evidence of a ranking problem.', checks: reviewChecks,
 };
+const searchFocus = { phrase: 'custom website design', relatedPhrases: ['website design services'], intent: 'Find help designing a business website.', reason: 'The page describes custom website design and maintenance.', source: 'proposed', evidenceIds: ['P3'], supportingQuote: 'Example Studio builds custom websites for local businesses.', question: null };
 const assessment = {
+  searchFocus,
   action: 'revise_metadata', metadataVerdict: 'revise', metadataReason: 'The description omits the useful project planning information on the page.', summary: 'Explain what visitors can learn about the design process.',
   reason: 'The page explains project planning and the design process, but the description only mentions services.',
   nextStep: 'Review the new description, then publish it on your website if it accurately describes the page.',
@@ -48,6 +51,7 @@ const assessment = {
   recommendations: [{ type: 'metadata', basis: 'opportunity', significance: 'primary', benefit: 'search_snippet', label: 'Explain the planning process', location: 'Page description', reason: 'Help visitors understand the page before visiting.', instruction: 'Review the suggested description and publish it in your website editor.', currentQuote: '', proposedText: null, supportingQuote: '', targetUrl: null, evidenceIds: ['P2', 'P3'] }],
 };
 const keepAssessment = {
+  searchFocus,
   action: 'keep_current', metadataVerdict: 'keep', metadataReason: 'Both fields accurately describe the service and the business.', summary: 'Your current wording clearly describes this page.',
   reason: 'The title identifies the service and business, while the description accurately summarizes the website work offered.',
   nextStep: 'Keep this wording and review another page when you have a useful change to consider.',
@@ -79,6 +83,7 @@ beforeEach(async () => {
   process.env.OPENAI_API_KEY = 'isolated-test-key';
   delete process.env.NEXT_PUBLIC_ENABLE_ACCESS_REQUEST;
   await db.collection('onboarding').doc('alice').set({ isComplete: true, gscProperty: mocks.property, revampRunId: 'new-website' });
+  await db.collection('users').doc('alice').set({ gscSiteUrl: mocks.property, gscAccessToken: 'test-only' });
   publicFetch.mockImplementation(async () => htmlResponse());
   mocks.create.mockImplementation(async body => body.tools ? researchCompletion() : completion(assessment));
 });
@@ -91,7 +96,7 @@ describe('current website page review', () => {
       expect((await endpoint(request({ userId: 'bob' }))).status).toBe(403);
     }
     expect(publicFetch).not.toHaveBeenCalled(); expect(mocks.create).not.toHaveBeenCalled();
-    expect([...records.keys()]).toEqual(['onboarding/alice']);
+    expect([...records.keys()]).toEqual(['onboarding/alice', 'users/alice']);
   });
 
   it('returns exact current HTML tags separately from legacy h1 and Open Graph fallbacks', async () => {
@@ -121,7 +126,7 @@ describe('current website page review', () => {
     expect(result.analysis).toMatchObject({ action: 'revise_metadata', changedFields: ['description'] });
     expect(result.evidence.facts.map(item => item.id)).toEqual(expect.arrayContaining(['P1', 'P2', 'P3', 'S1', 'S2', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6']));
     expect(result.research.status).toBe('available');
-    expect([...records.keys()].filter(key => !key.startsWith('requestLimits/'))).toEqual(['onboarding/alice']);
+    expect([...records.keys()].filter(key => !['requestLimits/', 'users/', 'pageReviewPlans/'].some(prefix => key.startsWith(prefix)))).toEqual(['onboarding/alice']);
   });
 
   it('rejects another property, URL credentials and fragments before fetching', async () => {
@@ -254,6 +259,56 @@ describe('current website page review', () => {
 });
 
 describe('evidence-backed assessment integration', () => {
+  it('saves the automatic focus and tasks, then restores them without another AI call', async () => {
+    const generated = await (await suggestions(request())).json();
+    expect(generated.plan.review.analysis.searchFocus).toMatchObject({ phrase: searchFocus.phrase, source: 'proposed' });
+    expect(generated.plan.tasks).toHaveLength(1);
+    const calls = mocks.create.mock.calls.length;
+    const response = await savedPlan(new Request(`https://simplseo.test/api/page-review/plan?pageUrl=${encodeURIComponent(pageUrl)}`, { headers: { Authorization: 'Bearer alice' } }));
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+    expect((await response.json()).plan).toEqual(generated.plan);
+    expect(mocks.create).toHaveBeenCalledTimes(calls);
+    expect([...records.keys()].filter(key => key.startsWith('implementedSeoTips/'))).toEqual([]);
+  });
+
+  it('keeps the saved plan intact when a later analysis fails or omits a required focus', async () => {
+    const generated = await (await suggestions(request())).json();
+    for (const mode of ['provider-failure', 'missing-focus']) {
+      const incomplete = { ...assessment }; delete incomplete.searchFocus;
+      mocks.create.mockImplementation(async body => {
+        if (body.tools) return researchCompletion();
+        if (mode === 'provider-failure') throw Error('private-provider-error');
+        return completion(incomplete);
+      });
+      expect((await suggestions(request())).status).toBe(mode === 'provider-failure' ? 503 : 502);
+      const response = await savedPlan(new Request(`https://simplseo.test/api/page-review/plan?pageUrl=${encodeURIComponent(pageUrl)}`, { headers: { Authorization: 'Bearer alice' } }));
+      expect((await response.json()).plan).toEqual(generated.plan);
+    }
+  });
+
+  it('retains omitted earlier tasks and uses them as private review context', async () => {
+    const first = await (await suggestions(request())).json();
+    mocks.create.mockImplementation(async body => body.tools ? researchCompletion() : completion(keepAssessment));
+    const next = await (await suggestions(request())).json();
+    expect(next.plan.tasks).toHaveLength(1);
+    expect(next.plan.tasks[0].id).toBe(first.plan.tasks[0].id);
+    expect(next.plan.tasks[0].status).toBe('todo');
+    const privateRequest = mocks.create.mock.calls.filter(([body]) => !body.tools).at(-1)[0];
+    expect(privateRequest.input[1].content).toContain(assessment.recommendations[0].label);
+    const publicRequest = mocks.create.mock.calls.filter(([body]) => body.tools).at(-1)[0];
+    expect(JSON.stringify(publicRequest)).not.toContain(assessment.recommendations[0].label);
+  });
+
+  it('changes the content fingerprint when only an internal link changes', async () => {
+    publicFetch.mockResolvedValue(htmlResponse(pageHtml.replace('</main>', '<a href="/one">Explore the service</a></main>')));
+    const first = await (await content(request())).json();
+    publicFetch.mockResolvedValue(htmlResponse(pageHtml.replace('</main>', '<a href="/two">Explore the service</a></main>')));
+    const second = await (await content(request())).json();
+    expect(first.data.textContent).toBe(second.data.textContent);
+    expect(first.provenance.contentFingerprint).not.toBe(second.provenance.contentFingerprint);
+  });
+
   it('rejects a missing strategy, invented check citations and a supporting task presented as the primary opportunity', async () => {
     const missing = { ...assessment }; delete missing.strategy;
     const invented = { ...assessment, strategy: { ...reviewStrategy, checks: reviewChecks.map(check => check.area === 'content' ? { ...check, evidenceIds: ['P99'] } : check) } };
@@ -264,7 +319,7 @@ describe('evidence-backed assessment integration', () => {
       expect(response.status).toBe(502);
       expect((await response.json()).error).toMatch(/clearly supported review/);
     }
-    expect([...records.keys()].filter(key => !key.startsWith('requestLimits/'))).toEqual(['onboarding/alice']);
+    expect([...records.keys()].filter(key => !['requestLimits/', 'users/', 'pageReviewPlans/'].some(prefix => key.startsWith(prefix)))).toEqual(['onboarding/alice']);
   });
 
   it('returns a useful keep-current decision without inventing a draft or an edit', async () => {
@@ -273,11 +328,11 @@ describe('evidence-backed assessment integration', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('private, no-store');
     const result = await response.json();
-    expect(result).toMatchObject({ title: null, description: null, analysis: { action: 'keep_current', changedFields: [], evidenceIds: ['P1', 'P2'], strategy: { finding: 'limited_findings' } }, provenance: { reviewVersion: 5, model: PAGE_REVIEW_MODEL } });
+    expect(result).toMatchObject({ title: null, description: null, analysis: { action: 'keep_current', changedFields: [], evidenceIds: ['P1', 'P2'], strategy: { finding: 'limited_findings' } }, provenance: { reviewVersion: 6, model: PAGE_REVIEW_MODEL } });
     expect(result.evidence.current).toMatchObject({ totals: null, totalsStatus: 'no_data', queriesStatus: 'no_data' });
     expect(mocks.create).toHaveBeenCalledTimes(2);
     expect(mocks.query).toHaveBeenCalledTimes(8);
-    expect([...records.keys()].filter(key => !key.startsWith('requestLimits/'))).toEqual(['onboarding/alice']);
+    expect([...records.keys()].filter(key => !['requestLimits/', 'users/', 'pageReviewPlans/'].some(prefix => key.startsWith(prefix)))).toEqual(['onboarding/alice']);
   });
 
   it('keeps accurate metadata while offering a visibility investigation as the useful next action', async () => {
@@ -293,15 +348,15 @@ describe('evidence-backed assessment integration', () => {
     const result = await response.json();
     expect(result).toMatchObject({ title: null, description: null,
       analysis: { action: 'investigate_visibility', metadataVerdict: 'keep', metadataReason: keepAssessment.metadataReason, changedFields: [] },
-      provenance: { reviewVersion: 5 } });
-    expect([...records.keys()].filter(key => !key.startsWith('requestLimits/'))).toEqual(['onboarding/alice']);
+      provenance: { reviewVersion: 6 } });
+    expect([...records.keys()].filter(key => !['requestLimits/', 'users/', 'pageReviewPlans/'].some(prefix => key.startsWith(prefix)))).toEqual(['onboarding/alice']);
   });
 
   it('uses strict bounded Responses output, private storage settings and no automatic retries', async () => {
     expect((await suggestions(request())).status).toBe(200);
     expect(mocks.options).toHaveBeenCalledExactlyOnceWith({ apiKey: 'isolated-test-key', maxRetries: 0, timeout: 45000 });
     const [body, options] = mocks.create.mock.calls[1];
-    expect(body).toMatchObject({ model: PAGE_REVIEW_MODEL, store: false, max_output_tokens: 6500, reasoning: { effort: 'medium' },
+    expect(body).toMatchObject({ model: PAGE_REVIEW_MODEL, store: false, max_output_tokens: 9000, reasoning: { effort: 'medium' },
       text: { format: { name: 'page_review', type: 'json_schema', strict: true, schema: { additionalProperties: false } } } });
     expect(body).not.toHaveProperty('tools');
     expect(body.model).not.toBe('gpt-4-turbo');
@@ -455,6 +510,7 @@ describe('page-review spending boundaries', () => {
     expect((await response.json()).error).not.toMatch(/turn off|disable|research allowance/i);
     expect(mocks.create).toHaveBeenCalledTimes(40);
     await db.collection('onboarding').doc('bob').set({ isComplete: true, gscProperty: mocks.property, revampRunId: 'bob-current-website' });
+    await db.collection('users').doc('bob').set({ gscSiteUrl: mocks.property, gscAccessToken: 'test-only' });
     expect((await suggestions(request({}, 'bob'))).status).toBe(200);
     expect(mocks.create).toHaveBeenCalledTimes(42);
   });

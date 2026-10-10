@@ -12,7 +12,7 @@ export const ACCOUNT_OWNED_COLLECTIONS = [
   'implementedSeoTips', 'contentAuditResults', 'aiSuggestions',
   'internalLinkSuggestions', 'intentMismatches', 'pageContentCache',
   'seoMetaTitles', 'seoMetaDescriptions', 'genericKeywordsCache',
-  'conversations', 'contactMessages', 'requestLimits',
+  'conversations', 'contactMessages', 'requestLimits', 'pageReviewPlans',
 ];
 const PREFIXED_COLLECTIONS = [
   'implementedSeoTips', 'contentAuditResults', 'aiSuggestions',

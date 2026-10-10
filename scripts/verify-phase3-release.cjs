@@ -1,9 +1,9 @@
-// Read-only release checks for one explicitly supplied production account.
+// Release checks for one explicitly supplied production account.
 // Usage: node scripts/verify-phase3-release.cjs <uid> <exact-property> [--draft] [--research]
 // --draft makes one explicit review request, including automatic bounded web
 // research and one assessment. --research is retained as a compatibility flag
 // requiring --draft; research is already included in every current review.
-// Neither flag confirms an edit; keeping current wording is a valid review.
+// --draft saves its review/task plan; neither flag confirms an edit.
 // Login, OAuth refresh and the optional AI request may update their normal
 // session/credential/quota metadata; website work and history must not change.
 require('dotenv').config({ path: '.env.local', quiet: true });
@@ -253,7 +253,7 @@ async function main() {
       ...draft.currentPage.technical.robotsMeta.map(item => item.content),
     ].some(passage => typeof passage === 'string' && passage.includes(value.trim()));
     const plain = (value, max) => textWithin(value, 1, max) && !/[\r\n]|<[^>]*>|```|https?:\/\//i.test(value);
-    assert(plain(analysis.pageGoal, 200) && Array.isArray(analysis.recommendations) && analysis.recommendations.length <= 3
+    assert(plain(analysis.pageGoal, 200) && Array.isArray(analysis.recommendations) && analysis.recommendations.length <= 6
       && (analysis.recommendations.length > 0 || ['keep_current', 'collect_data'].includes(analysis.action)),
     'The expert review has no valid page goal or executable recommendations.');
     const strategy = analysis.strategy;
@@ -324,6 +324,8 @@ async function main() {
       userId: uid, websiteRunId: runId, property, pageUrl: property, finalUrl: page.finalUrl,
       title: page.htmlTitle, description: page.seoMetaDescription,
       h1: page.h1, textContent: page.textContent, headings: page.headings,
+      mainContent: page.mainContent, contentSections: page.contentSections,
+      internalLinks: page.internalLinks, technical: page.technical,
     })).digest('hex');
     assert(provenance.contentFingerprint === fingerprint, 'The content fingerprint does not match the returned current website content.');
   }
@@ -487,7 +489,7 @@ async function main() {
     stage = 'new route authorization';
     const routes = [
       ['dashboard/overview', 'GET'], ['page-review/content', 'POST'], ['page-review/activity', 'POST'],
-      ['page-review/suggestions', 'POST'], ['page-review/confirm', 'POST'],
+      ['page-review/suggestions', 'POST'], ['page-review/confirm', 'POST'], ['page-review/plan', 'GET'], ['page-review/plan', 'POST'],
     ];
     // Confirmation is probed only anonymously or with a mismatched supplied UID.
     // Never send a confirmation that the account could authorize successfully.
@@ -546,14 +548,28 @@ async function main() {
       assert(draftResponse.ok, 'The one requested review did not return a usable response. No retry or confirmation was attempted.');
       const draft = await draftResponse.json();
       verifyCurrentPage(draft.currentPage, draft.provenance, before.setup.revampRunId, true);
-      assert(draft.provenance.reviewVersion === 5 && /^gpt-[\w.-]{1,80}$/.test(draft.provenance.model), 'The assessment is not from the current review implementation.');
+      assert(draft.provenance.reviewVersion === 6 && /^gpt-[\w.-]{1,80}$/.test(draft.provenance.model), 'The assessment is not from the current review implementation.');
       verifyReviewEvidence(draft.evidence, reviewStartedAt);
       verifyResearch(draft.research);
       verifyDiagnostics(draft.diagnostics, draft.currentPage, draft.evidence);
       verifyTimeline(draft.timeline);
       assert(draft.ownerGoal === '', 'The review unexpectedly introduced an owner-supplied goal.');
       verifyAssessment(draft);
+      const focus = draft.analysis.searchFocus;
+      assert(focus && ['observed', 'proposed', 'needs_input'].includes(focus.source)
+        && (focus.source === 'needs_input' ? focus.phrase === null && textWithin(focus.question, 1, 180) : textWithin(focus.phrase, 1, 120))
+        && textWithin(focus.reason, 1, 320), 'The automatic search focus is missing or invalid.');
+      if (focus.source === 'observed') assert([...draft.evidence.current.queries, ...draft.evidence.previous.queries]
+        .some(row => row.query.trim().toLowerCase() === focus.phrase.trim().toLowerCase()), 'Observed search focus was not returned by Google.');
+      const restoredResponse = await api(`page-review/plan?pageUrl=${encodeURIComponent(property)}`, { headers });
+      assert(restoredResponse.ok && restoredResponse.headers.get('cache-control') === 'private, no-store', 'Saved plan could not be read securely.');
+      const restored = (await restoredResponse.json()).plan;
+      assert(draft.plan && restored && restored.id === draft.plan.id && restored.revision === draft.plan.revision
+        && JSON.stringify(restored.tasks) === JSON.stringify(draft.plan.tasks)
+        && restored.review.provenance.generatedAt === draft.provenance.generatedAt
+        && JSON.stringify(restored.review.analysis.searchFocus) === JSON.stringify(focus), 'Saved tasks or search focus changed when loaded again.');
       draftMetadata = { requested: true, requests: 1, model: draft.provenance.model, action: draft.analysis.action, metadataVerdict: draft.analysis.metadataVerdict,
+        searchFocus: focus, planRestored: true, savedTaskCount: restored.tasks.length, savedPlanRevision: restored.revision,
         pageGoal: draft.analysis.pageGoal, strategy: draft.analysis.strategy, reviewSummary: draft.analysis.summary, reviewReason: draft.analysis.reason,
         recommendations: draft.analysis.recommendations,
         indexCoverage: draft.diagnostics.inspection.coverageState,

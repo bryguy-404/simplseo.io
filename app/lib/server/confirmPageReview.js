@@ -4,6 +4,7 @@ import { propertyContainsUrl } from '../revampState';
 import { RequestError } from './requestAuth';
 import { readCurrentPageForReview } from './manualPageReview';
 import { ensureCurrentHistory, historyRef } from './revampHistory';
+import { readPageReviewPlan } from './pageReviewPlans';
 
 function confirmationText(value, name, maxLength) {
   if (!usableSuggestion(value) || value.trim().length > maxLength || /[\r\n]|<[^>]*>|\[[^\]]*\]/.test(value)) {
@@ -40,6 +41,11 @@ export async function confirmPageReview(userId, input) {
   }
   if (input.focusKeyword !== undefined && (typeof input.focusKeyword !== 'string' || input.focusKeyword.length > 120)) throw new RequestError('Use a short focus keyword.');
   const focusKeyword = input.focusKeyword?.trim() || '';
+  const savedFocus = focusKeyword ? (await readPageReviewPlan(userId, pageUrl))?.review?.analysis?.searchFocus : null;
+  // The client cannot promote a suggested topic to an observed Google query.
+  const keywordSource = savedFocus?.phrase === focusKeyword
+    ? savedFocus.source === 'observed' ? 'gsc-observed' : 'ai-generated'
+    : 'user-selected';
   await ensureCurrentHistory(userId);
   const review = await readCurrentPageForReview(userId, pageUrl);
   if (review.provenance.property !== provenance.property || review.provenance.websiteRunId !== provenance.websiteRunId) {
@@ -102,7 +108,7 @@ export async function confirmPageReview(userId, input) {
       websiteRunId: provenance.websiteRunId, gscProperty: property, preRevampArchived: false,
       source: 'manual-page-review', confirmationMethod: 'user-confirmed',
       ...(changeType === 'page_content' ? { changeType, pageChangeSummary } : {}),
-      ...(focusKeyword ? { focusKeyword, keywordSource: 'user-selected' } : {}),
+      ...(focusKeyword ? { focusKeyword, keywordSource } : {}),
       // This is what our server could read at confirmation time, not an old
       // baseline or a claim that the user's edits match those HTML tags.
       confirmedPageObservation: {

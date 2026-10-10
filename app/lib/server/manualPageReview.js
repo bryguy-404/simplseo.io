@@ -8,6 +8,7 @@ import { RequestError } from './requestAuth';
 import { collectPageReviewEvidence } from './pageReviewEvidence';
 import { collectPageReviewDiagnostics } from './pageReviewDiagnostics';
 import { consumePageReviewQuota } from './requestQuota';
+import { readPageReviewPlan, savePageReviewPlan } from './pageReviewPlans';
 import { PAGE_REVIEW_MODEL, PAGE_REVIEW_TIMELINE, buildReviewRequest, buildResearchRequest, responseText, validatePageAssessment, parseWebResearch } from '../pageReviewPolicy';
 
 export async function readCurrentPageForReview(userId, pageUrl) {
@@ -26,6 +27,8 @@ export async function readCurrentPageForReview(userId, pageUrl) {
     userId, websiteRunId, property, pageUrl, finalUrl: currentPage.finalUrl,
     title: currentPage.htmlTitle, description: currentPage.seoMetaDescription,
     h1: currentPage.h1, textContent: currentPage.textContent, headings: currentPage.headings,
+    mainContent: currentPage.mainContent, contentSections: currentPage.contentSections,
+    internalLinks: currentPage.internalLinks, technical: currentPage.technical,
   })).digest('hex');
   await assertReviewStillCurrent(userId, { property, websiteRunId });
   return { currentPage, provenance: { property, websiteRunId, pageUrl, finalUrl: currentPage.finalUrl, contentFingerprint } };
@@ -79,10 +82,12 @@ async function researchPage(openai, currentPage, signal) {
 }
 
 export async function generatePageReviewSuggestions(userId, pageUrl, keywordInput, { signal, goal = '' } = {}) {
+  const startedAt = new Date().toISOString();
   if (typeof goal !== 'string' || goal.length > 180 || /[\r\n\u0000-\u001f]/.test(goal)) throw new RequestError('Use a short, single-line goal for this page.');
   const ownerGoal = goal.trim();
   const focusKeywords = normalizeKeywords(keywordInput);
   const review = await readCurrentPageForReview(userId, pageUrl);
+  const previousPlan = await readPageReviewPlan(userId, pageUrl);
   const { currentPage } = review;
   if (currentPage.finalUrl !== pageUrl) throw new RequestError('This page redirects to another URL. Review the destination page before generating suggestions.', 409);
   if (currentPage.textContent.length < 80 || currentPage.textContent.split(/\s+/).length < 12) {
@@ -101,15 +106,18 @@ export async function generatePageReviewSuggestions(userId, pageUrl, keywordInpu
   if (signal?.aborted) throw new RequestError('The page review was cancelled.', 409);
   let response;
   try {
-    response = await openai.responses.create(buildReviewRequest({ currentPage, evidence, research, diagnostics, ownerGoal, focusKeywords }),
+    response = await openai.responses.create(buildReviewRequest({ currentPage, evidence, research, diagnostics, ownerGoal, focusKeywords, priorTasks: previousPlan?.tasks || [] }),
       { timeout: 65000, ...(signal ? { signal } : {}) });
   } catch {
     throw new RequestError('The page review service is temporarily unavailable. Your website has not been changed. Please try again later.', 503);
   }
   let result;
-  try { result = validatePageAssessment(responseText(response), { currentPage, evidence, research, diagnostics, requirePlan: true, requireStrategy: true }); }
+  try { result = validatePageAssessment(responseText(response), { currentPage, evidence, research, diagnostics, requirePlan: true, requireStrategy: true, requireSearchFocus: true }); }
   catch { throw new RequestError('The service did not return a clearly supported review. Your website has not been changed. Please try again.', 502); }
   await assertReviewStillCurrent(userId, review.provenance);
-  return { ...result, currentPage, evidence, research, diagnostics, timeline: PAGE_REVIEW_TIMELINE, ownerGoal,
-    provenance: { ...review.provenance, generatedAt: new Date().toISOString(), reviewVersion: 5, model: PAGE_REVIEW_MODEL } };
+  if (signal?.aborted) throw new RequestError('The page review was cancelled. Your saved plan is unchanged.', 409);
+  const completedReview = { ...result, currentPage, evidence, research, diagnostics, timeline: PAGE_REVIEW_TIMELINE, ownerGoal,
+    provenance: { ...review.provenance, generatedAt: new Date().toISOString(), reviewVersion: 6, model: PAGE_REVIEW_MODEL } };
+  const plan = await savePageReviewPlan(userId, completedReview, { startedAt });
+  return { ...completedReview, plan };
 }

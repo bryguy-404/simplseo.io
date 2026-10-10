@@ -11,6 +11,7 @@ import { db, records, reset } from '../app/lib/firebaseAdmin';
 import { publicFetch } from '../app/lib/server/publicFetch';
 import { seoImplementationId } from '../app/lib/pageTaskFlow';
 import { POST as confirm } from '../app/api/page-review/confirm/route';
+import { savePageReviewPlan } from '../app/lib/server/pageReviewPlans';
 
 const pageUrl = 'https://example.test/Services?Topic=Design';
 const id = seoImplementationId('alice', pageUrl);
@@ -40,6 +41,14 @@ beforeEach(async () => {
 });
 
 describe('server-confirmed manual page changes', () => {
+  it.each(['observed', 'proposed'])('records the saved automatic focus source rather than trusting the client: %s', async source => {
+    await savePageReviewPlan('alice', { ...draft, provenance: { ...provenance, generatedAt: new Date().toISOString(), contentFingerprint: 'fixture' },
+      analysis: { recommendations: [], searchFocus: { phrase: 'web design', source } } });
+    const response = await confirm(request({ focusKeyword: 'web design', keywordSource: 'invented-client-source' }));
+    expect(response.status).toBe(200);
+    expect((await response.json()).record.keywordSource).toBe(source === 'observed' ? 'gsc-observed' : 'ai-generated');
+  });
+
   it('authenticates before any fetch or data write and rejects a supplied other account', async () => {
     expect((await confirm(request({}, null))).status).toBe(401);
     expect((await confirm(request({ userId: 'bob' }))).status).toBe(403);

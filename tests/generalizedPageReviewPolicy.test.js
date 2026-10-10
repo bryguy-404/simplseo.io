@@ -63,9 +63,13 @@ describe('generalized expert page review', () => {
     expect(() => validate({ ...review(), recommendations: undefined })).toThrow();
     expect(() => validate({ ...review(), recommendations: [] })).toThrow();
     expect(() => validate({ ...review(), recommendations: [recommendation(), recommendation()] })).toThrow();
-    expect(() => validate({ ...review(), recommendations: Array.from({ length: 4 }, (_, n) => ({ ...recommendation(), label: `Action ${n}` })) })).toThrow();
+    expect(() => validate({ ...review(), recommendations: Array.from({ length: 7 }, (_, n) => ({ ...recommendation(), label: `Action ${n}` })) })).toThrow();
     expect(() => validate({ ...review(), recommendations: [{ ...recommendation(), type: 'metadata', proposedText: null, supportingQuote: '' }] })).toThrow();
     expect(validate({ ...review(), action: 'keep_current', recommendations: [] }).analysis.recommendations).toEqual([]);
+  });
+  it('allows up to six separately labeled supported tasks instead of imposing a single-change flow', () => {
+    const recommendations = Array.from({ length: 6 }, (_, n) => ({ ...recommendation(), label: `Review product detail ${n + 1}` }));
+    expect(validate({ ...review(), recommendations }).analysis.recommendations).toHaveLength(6);
   });
   it('rejects a false noindex diagnosis even when it cites a valid Google fact', () => {
     const technical = { ...recommendation(), type: 'technical', basis: 'observed_issue', label: 'Remove the noindex directive',
@@ -79,6 +83,24 @@ describe('generalized expert page review', () => {
   });
   it('requires a contiguous quote from one field rather than joined source fields', () => {
     expect(() => validate({ ...review(), recommendations: [{ ...recommendation(), supportingQuote: `${page.htmlTitle} ${page.seoMetaDescription}` }] })).toThrow();
+  });
+  it('normalizes a redundant exact page quote when a task does not propose replacement wording', () => {
+    const task = { ...recommendation(), proposedText: null };
+    expect(validate({ ...review(), recommendations: [task] }).analysis.recommendations[0].supportingQuote).toBe('');
+    expect(() => validate({ ...review(), recommendations: [{ ...task, supportingQuote: 'An invented product claim.' }] })).toThrow();
+  });
+  it('distinguishes a sourced robots meta noindex directive from an unsupported robots.txt block', () => {
+    const currentPage = { ...page, technical: { noindex: { generic: true }, robotsMeta: [{ content: 'noindex, follow' }] } };
+    const contextWithNoindex = { ...context, currentPage,
+      diagnostics: { ...diagnostics, inspection: { status: 'available', verdict: 'FAIL', indexingState: 'BLOCKED_BY_META_TAG', robotsTxtState: 'ALLOWED' } } };
+    const task = { ...recommendation(), type: 'technical', basis: 'observed_issue', label: 'Remove noindex',
+      reason: 'The robots meta directive blocks indexing.', instruction: 'Remove noindex and verify the robots directive no longer blocks indexing.',
+      currentQuote: 'noindex, follow', proposedText: null, supportingQuote: '', evidenceIds: ['P4', 'I1'] };
+    const data = { ...review(), action: 'investigate_visibility', evidenceIds: ['P4'], recommendations: [task] };
+    expect(validatePageAssessment(JSON.stringify(data), contextWithNoindex).analysis.recommendations[0].type).toBe('technical');
+    for (const reason of ['The robots.txt file blocks this page.', 'Robots block crawling of this page.']) {
+      expect(() => validatePageAssessment(JSON.stringify({ ...data, recommendations: [{ ...task, reason, instruction: 'Remove the crawl block.' }] }), contextWithNoindex)).toThrow();
+    }
   });
   it('accepts an exact supplied diagnostic related page for review, preserving path and query case', () => {
     const targetPageUrl = 'https://example.com/Guides/Care?Finish=Glazed';

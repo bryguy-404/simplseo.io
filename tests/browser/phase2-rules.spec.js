@@ -119,7 +119,7 @@ test('token mutation and every server-managed collection are denied to clients',
     expect((await patch(request, path, { gscRefreshToken: 'forged' })).status()).toBe(403);
     expect((await request.delete(`${base}/${path}`, { headers: { Authorization: `Bearer ${token}` } })).status()).toBe(403);
   }
-  for (const collection of ['focusKeywords', 'siteCrawls', 'contentKeywordEdits', 'conversations', 'gscOAuthStates', 'progressJobs', 'requestLimits', 'genericKeywordsCache', 'skippedKeywords', 'createdContentOpportunities', 'trainingEvents', 'playbookStrategies', 'conversationSummaries', 'appConfig', 'accessRequests', 'approvedUsers', 'invitationCodes', 'contactMessages', 'deletedUsers']) {
+  for (const collection of ['focusKeywords', 'siteCrawls', 'contentKeywordEdits', 'conversations', 'gscOAuthStates', 'progressJobs', 'requestLimits', 'pageReviewPlans', 'genericKeywordsCache', 'skippedKeywords', 'createdContentOpportunities', 'trainingEvents', 'playbookStrategies', 'conversationSummaries', 'appConfig', 'accessRequests', 'approvedUsers', 'invitationCodes', 'contactMessages', 'deletedUsers']) {
     expect((await patch(request, `${collection}/${uid}`, { userId: uid }, false)).status(), collection).toBe(403);
   }
 });
