@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../../contexts/AuthContext';
+import { useOnboarding } from '../../contexts/OnboardingContext';
 import { authenticatedFetch } from '../../lib/authenticatedFetch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,44 +21,50 @@ const reasons = {
 };
 const metric = (value, percent = false) => value == null ? '—' : percent ? `${(value * 100).toFixed(2)}%` : Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 });
 
-export default function PageProgress() {
+export default function PageProgress({ onResult }) {
   const { user } = useAuth();
+  const { data } = useOnboarding();
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const sequence = useRef(0);
+  const invalidateRequests = useCallback(() => { sequence.current++; }, []);
   const load = useCallback(async (refresh = false) => {
     if (!user?.id) return;
+    const attempt = ++sequence.current;
     setBusy(true); setError(null);
     try {
       const response = await authenticatedFetch('/api/progress', { method: refresh ? 'POST' : 'GET' });
       const body = await response.json();
+      if (attempt !== sequence.current) return;
       if (!response.ok) throw new Error(body.error || 'Unable to load progress. Please try again.');
       setResult(body);
-    } catch (failure) { setError(failure.message); }
-    finally { setBusy(false); }
+    } catch (failure) { if (attempt === sequence.current) setError(failure.message); }
+    finally { if (attempt === sequence.current) setBusy(false); }
   }, [user?.id]);
-  useEffect(() => { setResult(null); load(); }, [load]);
+  useEffect(() => { setResult(null); load(); return invalidateRequests; }, [load, invalidateRequests, data.gscProperty, data.revampRunId]);
+  useEffect(() => { onResult?.(result); }, [result, onResult]);
   useEffect(() => {
     const reload = () => load();
     window.addEventListener('seo-implementation-changed', reload);
     return () => window.removeEventListener('seo-implementation-changed', reload);
   }, [load]);
 
-  return <Card className="mb-6">
+  return <Card id="page-progress" className="mb-6 scroll-mt-6">
     <CardHeader>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <CardTitle>Page progress</CardTitle>
-        <Button variant="outline" onClick={() => load(true)} disabled={busy || result?.paused}>
+        <CardTitle role="heading" aria-level={2}>Page progress</CardTitle>
+        <Button variant="outline" onClick={() => load(true)} disabled={busy || result?.paused || !result?.records?.length}>
           {busy ? 'Checking…' : 'Check progress'}
         </Button>
       </div>
-      <CardDescription>Google Search Console observations from 28 days before and 28 days after a confirmed change. The day of the change is excluded.</CardDescription>
+      <CardDescription>See what happens after the changes you make to your current website.</CardDescription>
     </CardHeader>
     <CardContent className="space-y-4">
       {error && <p role="alert" className="text-destructive">{error}</p>}
       {!result && !error && <p role="status">Loading progress…</p>}
       {result?.paused && <p role="status">{reasons.account_review_required}</p>}
-      {result && !result.records?.length && <p className="text-muted-foreground">No current changes are being tracked. Confirm a change after updating your website to begin. <Link className="underline" href="/revamp/history">Previous website work</Link> remains available.</p>}
+      {result && !result.records?.length && <div className="rounded-lg border border-dashed p-5 space-y-2"><p className="font-medium">Ready for your first change</p><p className="text-sm text-muted-foreground">No current changes are being tracked. After editing a page on your website, confirm it in the page review to start tracking. Previous website work stays separate.</p><Link className="inline-block underline text-sm" href="/low-ctr">Choose a page to review</Link></div>}
       {(result?.records || []).map(record => {
         const assessment = record.assessment || {};
         const { baseline, post, windows, comparison } = assessment;
@@ -66,6 +73,7 @@ export default function PageProgress() {
             <a className="underline break-all" href={record.pageUrl} target="_blank" rel="noopener noreferrer">{record.pageUrl}</a>
             <span className="text-sm font-medium">{stateLabels[assessment.state] || 'Not checked yet'}</span>
           </div>
+          {record.implementedAt && <p className="text-sm text-muted-foreground">Change confirmed {record.implementedAt.length === 10 ? record.implementedAt : new Date(record.implementedAt).toLocaleDateString()}.</p>}
           {reasons[assessment.reason] && <p className="text-sm text-muted-foreground">{reasons[assessment.reason]}</p>}
           {windows && <p className="text-sm text-muted-foreground">Before: {windows.baseline.startDate} – {windows.baseline.endDate}<br />After: {windows.post.startDate} – {windows.post.endDate} · Dates use Pacific time.</p>}
           {baseline && post && <div className="overflow-x-auto"><table className="w-full text-sm">
@@ -77,7 +85,7 @@ export default function PageProgress() {
           {(baseline?.fetchedAt || post?.fetchedAt) && <p className="text-xs text-muted-foreground">Observed {new Date(post?.fetchedAt || baseline.fetchedAt).toLocaleString()} · {assessment.property}</p>}
         </div>;
       })}
-      {result && <p className="text-xs text-muted-foreground">A comparison needs at least {result.policy?.minImpressionsPerWindow || 100} impressions in each period and {result.policy?.minCombinedClicks || 10} clicks combined. These are display thresholds, not a statistical test. Changes in traffic do not prove that your edits caused them. Automatic success, pivot and audit decisions remain off.</p>}
+      {result && <details className="text-sm border-t pt-3"><summary className="cursor-pointer text-muted-foreground">How progress is measured</summary><div className="mt-3 space-y-2 text-muted-foreground"><p>We compare Google Search Console observations from 28 days before and 28 days after a confirmed change. The day of the change is excluded, and recent reporting needs time to settle.</p><p>A comparison needs at least {result.policy?.minImpressionsPerWindow || 100} impressions in each period and {result.policy?.minCombinedClicks || 10} clicks combined. Low activity can leave this fixed comparison inconclusive even after more time passes.</p><p>These are display thresholds, not a statistical test. Changes in traffic do not prove that your edits caused them. Automatic success, pivot and audit decisions remain off.</p><Link className="underline" href="/revamp/history">Previous website work</Link></div></details>}
     </CardContent>
   </Card>;
 }

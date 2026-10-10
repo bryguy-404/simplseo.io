@@ -74,15 +74,13 @@ const MainLayout = ({
     setIsMobileMenuOpen(false);
   }, [pathname]);
 
-  // Show chat assistant only on first visit
+  // Keep the daily workspace focused. Chat opens only when requested, including
+  // a deliberate contextual-help action; a first visit must not send AI work.
   useEffect(() => {
     if (typeof window !== "undefined") {
       const hasSeenChat = localStorage.getItem("hasSeenChatAssistant");
       
       if (!hasSeenChat) {
-        // First time visitor - show chat
-        setIsChatOpen(true);
-        setUnreadMessages(1);
         localStorage.setItem("hasSeenChatAssistant", "true");
       }
     }

@@ -1,8 +1,8 @@
 # SimpleSEO master roadmap
 
-Status on October 10 2026: Bryan accepted the account recovery checkpoint after checking history, refreshing, and signing out and back in. Phase 2 is implemented, deployed and verified with the live account. Sourced observation collection is enabled; automatic outcome decisions and notifications remain disabled. Bryan's Phase 2 checkpoint and observation of the next automatic scheduled invocations remain open. See [recovery operations](RECOVERY.md) and [Phase 2 release](PHASE2.md).
+Status on October 10 2026: Bryan accepted Phase 2 after checking all screens and reporting no errors. Sourced observation collection is enabled; automatic outcome decisions and notifications remain disabled. He authorized Phase 3, with his rebuilt Bryan Develops website as the active pilot. Phase 3 implementation is in progress. Observation of the next automatic scheduled invocations remains open. See [recovery operations](RECOVERY.md) and [Phase 2 release](PHASE2.md).
 
-The first release restores Bryan's existing account without requiring every page to appear in Google. Keep Firebase, Firestore and Vercel. Users continue making website changes themselves. Bryan authorized Phase 2 after accepting recovery; Phases 3–5 remain roadmap items.
+The first release restores Bryan's existing account without requiring every page to appear in Google. Keep Firebase, Firestore and Vercel. Users continue making website changes themselves. The existing public URL and access remain unchanged. Bryan wants to use the tool on the current website, judge its practical value, fix inconsistencies during use, and later share it with friends and family. Old work stays archived and does not drive current recommendations; no history deletion or artificial data reset is needed. Phases 4–5 remain roadmap items.
 
 ## Phase 0 Preparation and safeguards
 
@@ -73,13 +73,17 @@ Audit the remaining authorization surface, Firestore rules and account deletion 
 
 Implemented scope and release evidence are in [Phase 2](PHASE2.md), with supporting [data policy](PHASE2_DATA.md), [API access inventory](PHASE2_ACCESS.md), and [Firestore/deletion audit](PHASE2_RULES.md). The new collector can show observations and comparisons; automatic success/pivot/audit decisions, outcome emails and playbook promotion remain disabled. A count threshold is not proof that an SEO edit caused a result.
 
-Bryan's next checkpoint: reload Dashboard and Low CTR Fixes, confirm Page progress and preserved history are understandable, and confirm a real website edit only after making it. Do not create fake implementations to populate the chart. Stop for this feedback before the Phase 3 dashboard redesign.
+Bryan accepted the screen/navigation checkpoint: Dashboard, Low CTR Fixes and history load without errors. A new real implementation remains the next usage checkpoint, now supported by Phase 3's current-page task flow. Do not create fake implementations to populate the chart.
 
 Operational follow-up: upgrade or retire the retained Firebase Functions Node 20 runtime before its CLI-reported October 30, 2026 decommission date, preserving the disabled legacy writer. Observe scheduled collection separately from successful manual route checks.
 
 ## Phase 3 A clearer dashboard and task flow
 
 Prioritize page progress, the next useful action, change confirmation and understandable history. Reduce distracting metrics. Provide rebuild guidance with current URLs and intentional redirect planning; keep platform-specific website editing manual.
+
+Implementation focus: a current-site dashboard with one dated Search Console window and direct page totals; explicit page selection and current HTML review; on-demand title/description drafts without requiring an old saved keyword; guarded confirmation of a real manual edit; redirect destination handling; less prominent history; an exportable URL plan for rebuilds. Search data is not an indexing report and Google does not supply the page's HTML title/description through this performance API.
+
+Bryan's Phase 3 checkpoint: choose one current page, inspect the fetched website wording, generate a draft, and decide whether the proposed change is useful. Only after publishing a real edit should he confirm it. Check that the saved change remains after refresh and appears in Page progress. Allow enough finalized search activity for comparison; progress is an observation, not proof that the tool caused an improvement. Continue with feedback before broadening recommendation features.
 
 ## Phase 4 Better recommendations and new content
 

@@ -45,3 +45,5 @@ Open checks: Bryan's checkpoint below and the next actual scheduled invocations 
 An empty progress panel is expected when all existing work belongs to the archived website. Do not reactivate that work or invent edits just to populate the panel. New comparisons require complete reporting periods and enough activity; low traffic can leave a fixed comparison inconclusive.
 
 Stop for feedback before Phase 3. The next automatically scheduled monitoring invocation still needs observation. No recurring automation has been created for that follow-up.
+
+Bryan accepted this screen/navigation checkpoint on October 10, 2026 and authorized Phase 3. He wants to begin new work using the current website and current Search Console observations; archived results are secondary. The public URL and access remain unchanged. The first real newly confirmed website edit remains a usage checkpoint, not a synthetic test to create in production.

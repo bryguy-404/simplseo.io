@@ -13,10 +13,14 @@ export async function POST(request) {
     if (body.runId && body.runId !== runId) throw new RequestError('Reload the current website setup.', 409);
     if (body.keywords && (!Array.isArray(body.keywords) || body.keywords.some(k => !k || typeof k.keyword !== 'string' || typeof k.pageUrl !== 'string'))) throw new RequestError('Invalid keyword selection.');
     await ensureHistory(uid, runId);
-    const patch = { ...completeRevampPatch(), revampRunId: runId };
+    let patch;
     await db.runTransaction(async tx => {
       const current = (await tx.get(ref)).data();
       if (current.revampRunId && current.revampRunId !== runId) throw new RequestError('Reload the current website setup.', 409);
+      // Revisiting an already-complete setup must not pause a reviewed account
+      // again. A genuinely new/in-progress update still requires its review.
+      patch = { ...completeRevampPatch(), revampRunId: runId,
+        ...(current.revampStatus === 'complete' && current.progressReviewRequired === false ? { progressReviewRequired: false } : {}) };
       const focusRef = db.collection('focusKeywords').doc(uid);
       const focus = (await tx.get(focusRef)).data();
       // Skipping is deliberately a no-op for keywords, including archive flags.

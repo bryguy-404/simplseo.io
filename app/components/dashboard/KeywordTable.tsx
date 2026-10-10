@@ -6,7 +6,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TrendingDown, TrendingUp, Link2 } from "lucide-react";
+import { Link2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -57,7 +57,7 @@ const KeywordTable = ({ keywords, title, description, showPagination = true }: K
             <TableRow>
               <TableHead>Keyword</TableHead>
               <TableHead className="text-right">Clicks</TableHead>
-              <TableHead className="text-right">Position</TableHead>
+              <TableHead className="text-right">Average position</TableHead>
               <TableHead className="text-right">Impressions</TableHead>
               <TableHead className="text-left">Page</TableHead>
               {/* <TableHead className="text-right">CTR</TableHead> */}
@@ -79,11 +79,6 @@ const KeywordTable = ({ keywords, title, description, showPagination = true }: K
                 <TableCell className="text-right">{item.clicks}</TableCell>
                 <TableCell className="text-right flex items-center justify-end gap-1">
                   {item.position}
-                  {item.position <= 10 ? (
-                    <TrendingUp className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <TrendingDown className="h-4 w-4 text-yellow-500" />
-                  )}
                 </TableCell>
                 <TableCell className="text-right">{item.impressions}</TableCell>
                 <TableCell className="text-left">

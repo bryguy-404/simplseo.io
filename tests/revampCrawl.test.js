@@ -27,7 +27,7 @@ it('a bounded successful scan stages review rather than retiring absent pages', 
   fetch.mockImplementation(async url => {
     if (String(url).includes('/api/scrape-content')) return Response.json({ data: { title: 'Current page' } });
     if (String(url).includes('.xml')) return new Response('', { status: 404 });
-    return new Response('<html><head><title>Home</title></head><body><a href="/new">New page</a></body></html>');
+    return new Response('<html><head><title>Home</title></head><body><a href="/new">New page</a></body></html>', { headers: { 'Content-Type': 'text/html' } });
   });
   const response = await POST(request());
   expect(response.status).toBe(200);

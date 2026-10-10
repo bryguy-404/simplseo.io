@@ -8,6 +8,7 @@ import { useOnboarding } from '../contexts/OnboardingContext';
 import { authenticatedFetch } from '../lib/authenticatedFetch';
 import { reconnectGsc } from '../lib/reconnectGsc';
 import { Button } from '@/components/ui/button';
+import WebsiteRebuildGuide from '../components/dashboard/WebsiteRebuildGuide';
 
 export default function RevampPage() {
   const { user, isLoading } = useAuth();
@@ -47,6 +48,7 @@ export default function RevampPage() {
       <Link className="underline self-center" href="/revamp/history">Previous website work</Link>
     </div>
     {error && <p role="alert" className="text-red-600">{error}</p>}
+    <WebsiteRebuildGuide pages={data.revampPages || []} property={data.gscProperty} />
     <section className="border rounded-lg p-5 space-y-4">
       <h2 className="text-xl font-semibold">Tracked pages</h2>
       <p>A limited scan may miss pages. Existing pages and preferences remain saved until you review changes.</p>

@@ -33,6 +33,15 @@ describe('recovery API and history', () => {
     await db.collection('onboarding').doc('alice').update({ isComplete: false });
     expect((await complete(request({}))).status).toBe(409);
   });
+  it('keeps sourced collection enabled when saving an already reviewed website setup', async () => {
+    await complete(request({}));
+    await db.collection('onboarding').doc('alice').update({ progressReviewRequired: false });
+    const response = await complete(request({ keywords: [{ keyword: 'current page', pageUrl: 'https://example.test/new' }] }));
+    expect(response.status).toBe(200);
+    expect(records.get('onboarding/alice').progressReviewRequired).toBe(false);
+    await archive(request({ revampDate: '2026-01-01' }));
+    expect(records.get('onboarding/alice').progressReviewRequired).toBe(true);
+  });
   it('preserves immutable history before replacing current keywords', async () => {
     await complete(request({ keywords: [{ keyword: 'new', pageUrl: 'https://example.test/new' }] }));
     expect(records.get('focusKeywords/alice').preRevampArchived).toBe(false);
