@@ -107,9 +107,9 @@ export async function generatePageReviewSuggestions(userId, pageUrl, keywordInpu
     throw new RequestError('The page review service is temporarily unavailable. Your website has not been changed. Please try again later.', 503);
   }
   let result;
-  try { result = validatePageAssessment(responseText(response), { currentPage, evidence, research, diagnostics, requirePlan: true }); }
+  try { result = validatePageAssessment(responseText(response), { currentPage, evidence, research, diagnostics, requirePlan: true, requireStrategy: true }); }
   catch { throw new RequestError('The service did not return a clearly supported review. Your website has not been changed. Please try again.', 502); }
   await assertReviewStillCurrent(userId, review.provenance);
   return { ...result, currentPage, evidence, research, diagnostics, timeline: PAGE_REVIEW_TIMELINE, ownerGoal,
-    provenance: { ...review.provenance, generatedAt: new Date().toISOString(), reviewVersion: 4, model: PAGE_REVIEW_MODEL } };
+    provenance: { ...review.provenance, generatedAt: new Date().toISOString(), reviewVersion: 5, model: PAGE_REVIEW_MODEL } };
 }

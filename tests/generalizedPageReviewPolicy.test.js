@@ -80,6 +80,23 @@ describe('generalized expert page review', () => {
   it('requires a contiguous quote from one field rather than joined source fields', () => {
     expect(() => validate({ ...review(), recommendations: [{ ...recommendation(), supportingQuote: `${page.htmlTitle} ${page.seoMetaDescription}` }] })).toThrow();
   });
+  it('accepts an exact supplied diagnostic related page for review, preserving path and query case', () => {
+    const targetPageUrl = 'https://example.com/Guides/Care?Finish=Glazed';
+    const relatedContext = { ...context, diagnostics: { ...diagnostics, relatedPages: [{ pageUrl: targetPageUrl, status: 'available', currentPage: { textContent: 'Care for glazed pottery.' } }] } };
+    const assessment = { ...review(), action: 'review_page', targetPageUrl };
+    expect(validatePageAssessment(JSON.stringify(assessment), relatedContext).analysis.targetPageUrl).toBe(targetPageUrl);
+    for (const target of [targetPageUrl.toLowerCase(), 'https://example.com/unseen', page.url, null]) {
+      expect(() => validatePageAssessment(JSON.stringify({ ...assessment, targetPageUrl: target }), relatedContext)).toThrow();
+    }
+  });
+  it('rejects unsafe or off-origin review targets even if a supplied related-page array contains them', () => {
+    for (const targetPageUrl of ['https://other.example.com/care', 'https://user:pass@example.com/care', 'https://example.com/care#section', 'javascript:alert(1)', '/care']) {
+      for (const source of ['evidence', 'diagnostics']) {
+        const relatedContext = { ...context, [source]: { ...context[source], relatedPages: [{ pageUrl: targetPageUrl }] } };
+        expect(() => validatePageAssessment(JSON.stringify({ ...review(), action: 'review_page', targetPageUrl }), relatedContext)).toThrow();
+      }
+    }
+  });
   it('bounds query data sent to AI, treats owner goals as data, and supplies review checkpoints', () => {
     const queries = Array.from({ length: 1000 }, (_, n) => ({ query: `phrase ${n}`, impressions: 1000 - n }));
     const request = buildReviewRequest({ currentPage: page, evidence: { ...evidence, current: { queries }, previous: { queries } }, diagnostics, research,

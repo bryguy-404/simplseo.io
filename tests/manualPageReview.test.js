@@ -22,6 +22,19 @@ import { PAGE_REVIEW_MODEL } from '../app/lib/pageReviewPolicy';
 const pageUrl = 'https://example.test/Services?Topic=Design';
 const pageHtml = '<html><head><title>Custom Web Design | Example Studio</title><meta name="description" content="Custom websites and ongoing maintenance for local businesses."></head><body><main><h1>Web design for local businesses</h1><p>Example Studio builds custom websites for local businesses. Read about the design process, project planning and ongoing website maintenance. Contact Example Studio to discuss your website.</p></main></body></html>';
 const draft = { title: 'Custom Web Design | Example Studio', description: 'Explore custom website design and ongoing maintenance from Example Studio. Learn about the process and contact us to discuss your website.' };
+const reviewChecks = [
+  { area: 'indexing', status: 'unknown', finding: 'Google inspection is unavailable.', evidenceIds: [] },
+  { area: 'search_intent', status: 'suitable', finding: 'The page explains a website design service.', evidenceIds: ['P3'] },
+  { area: 'content', status: 'suitable', finding: 'The page describes planning and maintenance.', evidenceIds: ['P3'] },
+  { area: 'headings', status: 'suitable', finding: 'The main heading identifies the service.', evidenceIds: ['P3'] },
+  { area: 'metadata', status: 'opportunity', finding: 'The description could mention the planning process.', evidenceIds: ['P2', 'P3'] },
+  { area: 'internal_links', status: 'unknown', finding: 'No useful link evidence is supplied.', evidenceIds: [] },
+];
+const reviewStrategy = {
+  searchGoal: 'Help people looking for website design understand this service.', focusArea: 'metadata', finding: 'opportunity_to_test',
+  priorityReason: 'The page offers planning information that the description could communicate.',
+  limitation: 'This is a clarity opportunity, not evidence of a ranking problem.', checks: reviewChecks,
+};
 const assessment = {
   action: 'revise_metadata', metadataVerdict: 'revise', metadataReason: 'The description omits the useful project planning information on the page.', summary: 'Explain what visitors can learn about the design process.',
   reason: 'The page explains project planning and the design process, but the description only mentions services.',
@@ -31,7 +44,8 @@ const assessment = {
   supportingQuotes: { title: '', description: 'Read about the design process, project planning and ongoing website maintenance.' },
   targetPageUrl: null,
   pageGoal: 'Help visitors understand the website design service.',
-  recommendations: [{ type: 'metadata', basis: 'opportunity', label: 'Explain the planning process', location: 'Page description', reason: 'Help visitors understand the page before visiting.', instruction: 'Review the suggested description and publish it in your website editor.', currentQuote: '', proposedText: null, supportingQuote: '', targetUrl: null, evidenceIds: ['P2', 'P3'] }],
+  strategy: reviewStrategy,
+  recommendations: [{ type: 'metadata', basis: 'opportunity', significance: 'primary', benefit: 'search_snippet', label: 'Explain the planning process', location: 'Page description', reason: 'Help visitors understand the page before visiting.', instruction: 'Review the suggested description and publish it in your website editor.', currentQuote: '', proposedText: null, supportingQuote: '', targetUrl: null, evidenceIds: ['P2', 'P3'] }],
 };
 const keepAssessment = {
   action: 'keep_current', metadataVerdict: 'keep', metadataReason: 'Both fields accurately describe the service and the business.', summary: 'Your current wording clearly describes this page.',
@@ -40,6 +54,8 @@ const keepAssessment = {
   evidenceIds: ['P1', 'P2'], title: null, description: null,
   fieldReasons: { title: '', description: '' }, supportingQuotes: { title: '', description: '' }, targetPageUrl: null,
   pageGoal: 'Help visitors understand the website design service.', recommendations: [],
+  strategy: { ...reviewStrategy, focusArea: 'none', finding: 'limited_findings', priorityReason: 'No clear change is supported by this review.',
+    checks: reviewChecks.map(check => check.area === 'metadata' ? { ...check, status: 'suitable', finding: 'The title and description accurately describe the service.' } : check) },
 };
 const completion = payload => ({ status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify(payload), annotations: [] }] }] });
 const researchCompletion = () => ({ status: 'completed', output: [
@@ -238,13 +254,26 @@ describe('current website page review', () => {
 });
 
 describe('evidence-backed assessment integration', () => {
+  it('rejects a missing strategy, invented check citations and a supporting task presented as the primary opportunity', async () => {
+    const missing = { ...assessment }; delete missing.strategy;
+    const invented = { ...assessment, strategy: { ...reviewStrategy, checks: reviewChecks.map(check => check.area === 'content' ? { ...check, evidenceIds: ['P99'] } : check) } };
+    const inconsistent = { ...assessment, recommendations: assessment.recommendations.map(item => ({ ...item, significance: 'supporting' })) };
+    for (const payload of [missing, invented, inconsistent]) {
+      mocks.create.mockImplementation(async body => body.tools ? researchCompletion() : completion(payload));
+      const response = await suggestions(request());
+      expect(response.status).toBe(502);
+      expect((await response.json()).error).toMatch(/clearly supported review/);
+    }
+    expect([...records.keys()].filter(key => !key.startsWith('requestLimits/'))).toEqual(['onboarding/alice']);
+  });
+
   it('returns a useful keep-current decision without inventing a draft or an edit', async () => {
     mocks.create.mockImplementation(async body => body.tools ? researchCompletion() : completion(keepAssessment));
     const response = await suggestions(request());
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('private, no-store');
     const result = await response.json();
-    expect(result).toMatchObject({ title: null, description: null, analysis: { action: 'keep_current', changedFields: [], evidenceIds: ['P1', 'P2'] }, provenance: { reviewVersion: 4, model: PAGE_REVIEW_MODEL } });
+    expect(result).toMatchObject({ title: null, description: null, analysis: { action: 'keep_current', changedFields: [], evidenceIds: ['P1', 'P2'], strategy: { finding: 'limited_findings' } }, provenance: { reviewVersion: 5, model: PAGE_REVIEW_MODEL } });
     expect(result.evidence.current).toMatchObject({ totals: null, totalsStatus: 'no_data', queriesStatus: 'no_data' });
     expect(mocks.create).toHaveBeenCalledTimes(2);
     expect(mocks.query).toHaveBeenCalledTimes(8);
@@ -256,14 +285,15 @@ describe('evidence-backed assessment integration', () => {
       summary: 'Check whether customers can find this service page.',
       reason: 'The title describes the service, but the available search history remains sparse.',
       nextStep: 'Inspect this exact URL in Search Console, then check whether relevant pages link to it.',
-      evidenceIds: ['P1', 'H1', 'H6'], recommendations: [{ ...assessment.recommendations[0], type: 'check', basis: 'needs_check', label: 'Review relevant internal links', location: 'Page content', instruction: 'Check whether the service links describe their destination.' }] };
+      strategy: { ...keepAssessment.strategy, finding: 'insufficient_evidence', focusArea: 'internal_links', priorityReason: 'The review lacks link evidence to explain sparse visibility.' },
+      evidenceIds: ['P1', 'H1', 'H6'], recommendations: [{ ...assessment.recommendations[0], type: 'check', basis: 'needs_check', benefit: 'diagnosis', label: 'Review relevant internal links', location: 'Page content', instruction: 'Check whether the service links describe their destination.' }] };
     mocks.create.mockImplementation(async body => body.tools ? researchCompletion() : completion(visibility));
     const response = await suggestions(request());
     expect(response.status).toBe(200);
     const result = await response.json();
     expect(result).toMatchObject({ title: null, description: null,
       analysis: { action: 'investigate_visibility', metadataVerdict: 'keep', metadataReason: keepAssessment.metadataReason, changedFields: [] },
-      provenance: { reviewVersion: 4 } });
+      provenance: { reviewVersion: 5 } });
     expect([...records.keys()].filter(key => !key.startsWith('requestLimits/'))).toEqual(['onboarding/alice']);
   });
 
@@ -295,10 +325,11 @@ describe('evidence-backed assessment integration', () => {
       tool_choice: 'required', tools: [{ type: 'web_search', search_context_size: 'low' }] });
     expect(searchOptions.timeout).toBe(45000);
     const publicInput = JSON.parse(searchBody.input[1].content);
-    expect(Object.keys(publicInput).sort()).toEqual(['heading', 'pageUrl', 'publicPageExcerpt', 'title']);
+    expect(Object.keys(publicInput).sort()).toEqual(['heading', 'headings', 'pageUrl', 'publicPageExcerpt', 'title']);
     expect(publicInput).toMatchObject({ pageUrl, title: draft.title, heading: 'Web design for local businesses' });
     expect(publicInput.publicPageExcerpt).toContain('Example Studio');
-    expect(publicInput.publicPageExcerpt.length).toBeLessThanOrEqual(1600);
+    expect(publicInput.publicPageExcerpt.length).toBeLessThanOrEqual(3500);
+    expect(publicInput.headings.length).toBeLessThanOrEqual(8);
     expect(JSON.stringify(searchBody)).not.toMatch(/private-customer-query-marker|12345|alice|isolated-test-key|new-website/);
     const analysisInput = JSON.parse(analysisBody.input[1].content);
     expect(analysisBody).not.toHaveProperty('tools');

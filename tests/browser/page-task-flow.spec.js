@@ -9,6 +9,12 @@ let docId;
 const suggestion = { title: 'Website design for local businesses | Example', description: 'Explore thoughtful website design for local businesses. See our work and discuss a site that fits your customers.' };
 function idFor(url) { let hash = 0; for (let i = 0; i < url.length; i++) hash = ((hash << 5) - hash + url.charCodeAt(i)) | 0; return `${uid}_${Math.abs(hash).toString(16).padStart(8, '0').substring(0, 8)}`; }
 const metadata = url => ({ htmlTitle: 'Current website title', seoMetaDescription: 'Current page description', h1: 'Website design', textContent: 'We build useful websites for local businesses.', headings: [{ tag: 'h1', text: 'Website design' }], url, finalUrl: url, fetchedAt: '2026-10-10T15:00:00.000Z', source: 'live_website' });
+const checkAreas = ['indexing', 'search_intent', 'content', 'headings', 'metadata', 'internal_links'];
+function strategyFor(action, overrides = {}) {
+  const focusArea = action === 'revise_metadata' ? 'metadata' : action === 'improve_content' ? 'headings' : ['keep_current', 'collect_data'].includes(action) ? 'none' : 'search_intent';
+  const finding = action === 'revise_metadata' ? 'supported_issue' : action === 'keep_current' ? 'limited_findings' : action === 'improve_content' ? 'opportunity_to_test' : 'insufficient_evidence';
+  return { searchGoal: 'Help local businesses find and understand the website design service.', focusArea, finding, priorityReason: focusArea === 'none' ? 'The available evidence does not establish a main page change to prioritize.' : 'This is the most useful supported step for clarifying the existing service before making smaller changes.', limitation: 'This review cannot establish what caused search performance or promise a ranking improvement.', checks: checkAreas.map(area => ({ area, status: area === focusArea && finding !== 'insufficient_evidence' ? finding === 'supported_issue' ? 'issue' : 'opportunity' : 'unknown', finding: area === focusArea ? 'The existing page evidence supports reviewing this area.' : 'The available evidence does not establish a specific issue in this area.', evidenceIds: area === focusArea ? [area === 'search_intent' ? 'S1' : 'P1'] : [] })), ...overrides };
+}
 function historyFor() {
   return Array.from({ length: 6 }, (_, index) => {
     const end = new Date('2026-10-07T12:00:00Z'); end.setUTCDate(end.getUTCDate() - index * 28);
@@ -20,8 +26,8 @@ function assessmentFor(url, action = 'revise_metadata') {
   return {
     ...(action === 'revise_metadata' ? suggestion : { title: null, description: null }),
     currentPage: metadata(url),
-    provenance: { property, websiteRunId: 'page-task-run', pageUrl: url, finalUrl: url, contentFingerprint: 'fixture-content', generatedAt: new Date().toISOString() },
-    analysis: { action, pageGoal: 'Help local businesses understand the website design service.', recommendations: ['keep_current', 'collect_data'].includes(action) ? [] : [{ id: 'action-1', type: action === 'revise_metadata' ? 'metadata' : 'check', basis: action === 'revise_metadata' ? 'observed_issue' : 'needs_check', label: action === 'revise_metadata' ? 'Clarify the title and description' : 'Inspect the page and its internal links', location: action === 'revise_metadata' ? 'SEO settings for this page' : 'This exact URL in Google Search Console', reason: 'Use the available page and search evidence to choose a useful next step.', instruction: action === 'revise_metadata' ? 'Use the editor below to review the proposed title and description.' : 'Inspect this URL in Search Console and review its internal links before changing the wording.', currentQuote: action === 'revise_metadata' ? 'Current website title' : '', proposedText: null, supportingQuote: 'We build useful websites for local businesses.', targetUrl: null, evidenceIds: ['P1'] }], metadataVerdict: action === 'revise_metadata' ? 'revise' : 'keep', metadataReason: action === 'revise_metadata' ? 'The wording can describe the existing service more clearly.' : 'The current wording does not need another rewrite.', summary: action === 'revise_metadata' ? 'Name the service already described on this page.' : 'No supported wording change is justified by the current evidence.', reason: action === 'revise_metadata' ? 'The heading names website design, but the current title only says “Current website title”.' : 'There is too little search activity to identify a specific wording problem.', nextStep: action === 'revise_metadata' ? 'Review the wording below and publish it only if it fits your business.' : 'Keep this wording while you collect more search activity.', evidenceIds: ['P1', 'S1'], changedFields: action === 'revise_metadata' ? ['title', 'description'] : [], fieldReasons: { title: 'Name the website design service.', description: 'Summarize the actual service described on the page.' }, targetPageUrl: null },
+    provenance: { property, websiteRunId: 'page-task-run', pageUrl: url, finalUrl: url, contentFingerprint: 'fixture-content', generatedAt: new Date().toISOString(), reviewVersion: 5 },
+    analysis: { action, strategy: strategyFor(action), pageGoal: 'Help local businesses understand the website design service.', recommendations: ['keep_current', 'collect_data'].includes(action) ? [] : [{ id: 'action-1', type: action === 'revise_metadata' ? 'metadata' : 'check', significance: 'primary', benefit: action === 'revise_metadata' ? 'search_snippet' : 'diagnosis', basis: action === 'revise_metadata' ? 'observed_issue' : 'needs_check', label: action === 'revise_metadata' ? 'Clarify the title and description' : 'Inspect the page and its internal links', location: action === 'revise_metadata' ? 'SEO settings for this page' : 'This exact URL in Google Search Console', reason: 'Use the available page and search evidence to choose a useful next step.', instruction: action === 'revise_metadata' ? 'Use the editor below to review the proposed title and description.' : 'Inspect this URL in Search Console and review its internal links before changing the wording.', currentQuote: action === 'revise_metadata' ? 'Current website title' : '', proposedText: null, supportingQuote: 'We build useful websites for local businesses.', targetUrl: null, evidenceIds: ['P1'] }], metadataVerdict: action === 'revise_metadata' ? 'revise' : 'keep', metadataReason: action === 'revise_metadata' ? 'The wording can describe the existing service more clearly.' : 'The current wording does not need another rewrite.', summary: action === 'revise_metadata' ? 'Name the service already described on this page.' : 'No supported wording change is justified by the current evidence.', reason: action === 'revise_metadata' ? 'The heading names website design, but the current title only says “Current website title”.' : 'There is too little search activity to identify a specific wording problem.', nextStep: action === 'revise_metadata' ? 'Review the wording below and publish it only if it fits your business.' : 'Keep this wording while you collect more search activity.', evidenceIds: ['P1', 'S1'], changedFields: action === 'revise_metadata' ? ['title', 'description'] : [], fieldReasons: { title: 'Name the website design service.', description: 'Summarize the actual service described on the page.' }, targetPageUrl: null },
     evidence: { source: 'google_search_console', property, pageUrl: url, window: { startDate: '2026-09-10', endDate: '2026-10-07' }, previousWindow: { startDate: '2026-08-13', endDate: '2026-09-09' }, fetchedAt: '2026-10-10T15:00:00.000Z', status: 'available', current: { totals: { impressions: 30, clicks: 1, ctr: 1 / 30, position: 11 }, totalsStatus: 'available', queries: [], queriesStatus: 'no_data' }, previous: { totals: { impressions: 25, clicks: 1, ctr: 1 / 25, position: 12 }, totalsStatus: 'available', queries: [], queriesStatus: 'no_data' }, relatedPages: [], history: historyFor(), selectedPhrase: { value: '', source: 'none' }, limitations: ['Search Console can omit some queries. A change in traffic does not prove causation.'], facts: [{ id: 'P1', kind: 'page', label: 'Page heading', text: 'The main heading is Website design.' }, { id: 'S1', kind: 'search', label: 'Recent appearances', text: 'Google reported 30 appearances in the recent period.' }] },
     diagnostics: { inspection: { status: 'available', url, property, checkedAt: '2026-10-10T15:00:00.000Z', verdict: 'PASS', coverageState: 'Submitted and indexed', indexingState: 'INDEXING_ALLOWED', robotsTxtState: 'ALLOWED', pageFetchState: 'SUCCESSFUL', lastCrawlTime: '2026-10-05T12:00:00.000Z', googleCanonical: url, userCanonical: url, inspectionUrl: 'https://search.google.com/search-console/inspect?resource_id=https%3A%2F%2Fexample.test%2F&id=fixture' }, facts: [], relatedPages: [], limitations: [] },
     timeline: [{ label: 'Check Google’s next visit', when: 'After 1–2 weeks', description: 'Check whether Google has crawled the page again.' }, { label: 'Look for early signals', when: 'Around 4 weeks', description: 'Compare relevant searches and allow for small samples.' }, { label: 'Review the change', when: 'Around 8–12 weeks', description: 'Review search activity and customer inquiries; allow longer with sparse data.' }],
@@ -38,12 +44,22 @@ function activityFor(url, withQueries = false) {
 function contentAssessment(url) {
   const review = assessmentFor(url, 'improve_content');
   review.analysis = { ...review.analysis, summary: 'Make the opening heading describe the service.', reason: 'A clearer heading can help visitors understand what this page offers.', nextStep: 'Review the heading suggestion and publish it only if it accurately describes this page.', recommendations: [
-    { id: 'action-1', type: 'heading', basis: 'opportunity', label: 'Make the opening heading more specific', location: 'The first heading at the top of this page', reason: 'The page already describes local website design, so the heading can make that purpose clearer.', instruction: 'Replace the opening heading only if the proposed wording accurately describes this page.', currentQuote: 'Website design', proposedText: 'Useful websites for local businesses', supportingQuote: 'We build useful websites for local businesses.', targetUrl: null, evidenceIds: ['P1'] },
-    { id: 'action-2', type: 'internal_link', basis: 'needs_check', label: 'Check a helpful link to the related service', location: 'The existing service explanation on this page', reason: 'An existing related page may answer the visitor’s next question.', instruction: 'Read the related page and add a descriptive link only where it helps the visitor.', currentQuote: '', proposedText: null, supportingQuote: 'We build useful websites for local businesses.', targetUrl: otherUrl, evidenceIds: ['P1'] },
-    { id: 'action-3', type: 'check', basis: 'needs_check', label: 'Check the heading in your website editor', location: 'The opening heading in the published page', reason: 'Downloaded HTML does not establish how the heading is rendered.', instruction: 'View the page in a browser before changing any visually hidden or decorative text.', currentQuote: '', proposedText: null, supportingQuote: '', targetUrl: null, evidenceIds: ['P1'] },
+    { id: 'action-1', type: 'heading', significance: 'primary', benefit: 'page_clarity', basis: 'opportunity', label: 'Make the opening heading more specific', location: 'The first heading at the top of this page', reason: 'The page already describes local website design, so the heading can make that purpose clearer.', instruction: 'Replace the opening heading only if the proposed wording accurately describes this page.', currentQuote: 'Website design', proposedText: 'Useful websites for local businesses', supportingQuote: 'We build useful websites for local businesses.', targetUrl: null, evidenceIds: ['P1'] },
+    { id: 'action-2', type: 'internal_link', significance: 'supporting', benefit: 'navigation', basis: 'needs_check', label: 'Check a helpful link to the related service', location: 'The existing service explanation on this page', reason: 'An existing related page may answer the visitor’s next question.', instruction: 'Read the related page and add a descriptive link only where it helps the visitor.', currentQuote: '', proposedText: null, supportingQuote: 'We build useful websites for local businesses.', targetUrl: otherUrl, evidenceIds: ['P1'] },
+    { id: 'action-3', type: 'check', significance: 'supporting', benefit: 'diagnosis', basis: 'needs_check', label: 'Check the heading in your website editor', location: 'The opening heading in the published page', reason: 'Downloaded HTML does not establish how the heading is rendered.', instruction: 'View the page in a browser before changing any visually hidden or decorative text.', currentQuote: '', proposedText: null, supportingQuote: '', targetUrl: null, evidenceIds: ['P1'] },
   ] };
   review.evidence.relatedPages = [{ pageUrl: otherUrl, impressions: 2, clicks: 0 }];
   review.diagnostics.relatedPages = [{ pageUrl: otherUrl, status: 'unavailable' }];
+  review.analysis.strategy.checks = review.analysis.strategy.checks.map(check => check.area === 'headings' ? { ...check, evidenceIds: ['P1', 'W1'] } : check);
+  return review;
+}
+
+function limitedLinkAssessment(url) {
+  const review = contentAssessment(url);
+  review.analysis.recommendations = [{ ...review.analysis.recommendations[1], id: 'action-1' }];
+  review.analysis.strategy = strategyFor('keep_current', { priorityReason: 'The evidence supports a small navigation improvement, not a larger page rewrite.', checks: strategyFor('keep_current').checks.map(check => check.area === 'internal_links' ? { ...check, status: 'opportunity', finding: 'A clearer link may help visitors reach the existing service page.', evidenceIds: ['P1'] } : check) });
+  review.analysis.summary = 'A helpful service link is a small navigation improvement.';
+  review.analysis.reason = 'This does not establish that the link explains search performance.';
   return review;
 }
 
@@ -115,7 +131,7 @@ test('no-keyword task generates only on request, retries a failed save, preserve
   await page.screenshot({ path: 'test-results/design-current-page.png', fullPage: true });
   await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toBeDisabled();
   await page.getByRole('button', { name: 'Analyze this page' }).click();
-  await expect(page.getByRole('heading', { name: 'Review a wording change', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Fix this issue first', exact: true })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toHaveValue(suggestion.title);
   expect(calls.generations).toEqual([{ pageUrl, focusKeywords: [], includeResearch: true }]);
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
@@ -236,7 +252,7 @@ test('keeping current wording never offers a draft or confirmation', async ({ pa
   await expect(page.getByRole('checkbox', { name: 'Include web research' })).toHaveCount(0);
   await expect(page.getByText('Web research is included', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Analyze this page' }).click();
-  await expect(page.getByRole('heading', { name: 'Keep your current wording', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'No clear change identified', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Keep your current title and description', exact: true })).toBeVisible();
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
   await page.screenshot({ path: 'test-results/phase4-keep-current.png', fullPage: true });
@@ -264,7 +280,7 @@ test('unavailable research and search data are explicit and never shown as zero 
   await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
   await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
   await page.getByRole('button', { name: 'Analyze this page' }).click();
-  await expect(page.getByRole('heading', { name: 'Gather more evidence', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'We need more evidence to choose the main improvement', exact: true })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: 'Web research was unavailable' })).toBeVisible();
   await expect(page.getByText('Search data was unavailable for this review.', { exact: false })).toBeVisible();
   await page.getByText('Why this recommendation?', { exact: true }).click();
@@ -276,19 +292,20 @@ test('unavailable research and search data are explicit and never shown as zero 
   expect(calls.generations[0].includeResearch).toBe(true);
 });
 
-test('research sources and an allowed related page remain inspectable', async ({ page }) => {
+test('research sources and a diagnostics-only related page remain inspectable', async ({ page }) => {
   const relatedUrl = 'https://example.test/Related-service/?Location=A';
   await setup(page, { assessment: body => {
     const review = assessmentFor(body.pageUrl, 'review_page');
-    review.analysis = { ...review.analysis, summary: 'Review the service page for this search.', reason: 'A separate service page may be a closer match.', nextStep: 'Read the service page before deciding what to edit.', targetPageUrl: relatedUrl, evidenceIds: ['P1', 'W1'] };
-    review.evidence.relatedPages = [{ pageUrl: relatedUrl, impressions: 5, clicks: 0 }];
+    review.analysis = { ...review.analysis, summary: 'Review the service page for this search.', reason: 'A separate service page may be a closer match.', nextStep: 'Read the service page before deciding what to edit.', targetPageUrl: relatedUrl, evidenceIds: ['P1', 'D1', 'W1'] };
+    review.diagnostics.relatedPages = [{ pageUrl: relatedUrl, status: 'available', currentPage: metadata(relatedUrl) }];
+    review.diagnostics.facts = [{ id: 'D1', kind: 'page', label: 'Existing service page', text: `This existing linked service page was read: ${relatedUrl}` }];
     review.research = { status: 'available', summary: '### Public website context\n\nA **service example** provides context for how services are described. Read [the supplied source](https://COMPETITOR.test:443/services/).\n\n- [Unlisted source](https://unlisted.test/) is not verified.\n- [Unsafe link](javascript:alert%281%29) is not a citation.\n\n![External image](https://images.test/tracker.png)\n\n<a href="https://unlisted.test/raw">Raw HTML link</a>', sources: [{ id: 'W1', url: 'https://competitor.test/services/', title: 'Example service page' }], checkedAt: '2026-10-10T15:00:00.000Z', limitation: 'Public website context is not a report of Google rankings.' };
     return review;
   } });
   await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
   await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
   await page.getByRole('button', { name: 'Analyze this page' }).click();
-  await expect(page.getByRole('heading', { name: 'Review another page', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'We need more evidence to choose the main improvement', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Review recommended page', exact: true })).toBeVisible();
   await expect(page.getByLabel('Page to review').locator('option').filter({ hasText: relatedUrl })).toHaveCount(0);
   await page.getByText('Why this recommendation?', { exact: true }).click();
@@ -312,24 +329,30 @@ test('research sources and an allowed related page remain inspectable', async ({
   await expect(page.getByRole('region', { name: 'Page assessment' })).toHaveCount(0);
 });
 
-test('a legacy draft or unresolved evidence cannot enable saving', async ({ page }) => {
+test('legacy drafts, missing v5 strategy and unresolved evidence cannot enable saving', async ({ page }) => {
   let responseCount = 0;
   await setup(page, { assessment: body => {
     responseCount += 1;
-    const review = assessmentFor(body.pageUrl);
+    const review = assessmentFor(body.pageUrl, responseCount >= 6 ? 'review_page' : 'revise_metadata');
     if (responseCount === 1) delete review.analysis;
-    else review.analysis.evidenceIds = ['invented-source'];
+    else if (responseCount === 2) review.analysis.evidenceIds = ['invented-source'];
+    else if (responseCount === 3) delete review.analysis.strategy;
+    else if (responseCount === 4) review.provenance.reviewVersion = 4;
+    else if (responseCount === 5) review.analysis.strategy.checks[0].evidenceIds = ['invented-check-source'];
+    else {
+      review.analysis.targetPageUrl = responseCount === 6 ? 'https://other.test/service/' : body.pageUrl;
+      review.diagnostics.relatedPages = [{ pageUrl: review.analysis.targetPageUrl, status: 'available', currentPage: metadata(review.analysis.targetPageUrl) }];
+    }
     return review;
   } });
   await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
   await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
-  await page.getByRole('button', { name: 'Analyze this page' }).click();
-  await expect(page.getByRole('alert').filter({ hasText: 'A complete, supported page assessment was not returned' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toBeDisabled();
-  await page.getByRole('button', { name: 'Analyze again' }).click();
-  await expect(page.getByRole('alert').filter({ hasText: 'A complete, supported page assessment was not returned' })).toBeVisible();
-  await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toBeDisabled();
+  for (let index = 0; index < 7; index += 1) {
+    await page.getByRole('button', { name: index === 0 ? 'Analyze this page' : 'Analyze again' }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'A complete, supported page assessment was not returned' })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toBeDisabled();
+  }
 });
 
 test('changing the phrase discards the previous assessment and draft while research stays included', async ({ page }) => {
@@ -450,7 +473,7 @@ test('keeping metadata can still recommend investigating visibility with the exa
   await page.getByRole('button', { name: 'Analyze this page' }).click();
   const assessment = page.getByRole('region', { name: 'Page assessment' });
   await expect(assessment.getByRole('heading', { name: 'Keep your current title and description', exact: true })).toBeVisible();
-  await expect(assessment.getByRole('heading', { name: 'Check this page’s search visibility', exact: true })).toBeVisible();
+  await expect(assessment.getByRole('heading', { name: 'We need more evidence to choose the main improvement', exact: true })).toBeVisible();
   await expect(assessment.getByRole('link', { name: `${pageUrl} (opens in a new tab)`, exact: true })).toHaveAttribute('href', pageUrl);
   await expect(assessment.getByText(/Inspect this URL in Search Console/)).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toHaveCount(0);
@@ -475,9 +498,29 @@ test('generalized page review prioritizes a concrete action, preserves metadata 
   await page.getByRole('button', { name: 'Analyze this page' }).click();
   const assessment = page.getByRole('region', { name: 'Page assessment' });
   await expect(assessment.getByRole('heading', { name: 'Make the opening heading more specific' })).toBeVisible();
+  await expect(assessment.getByRole('heading', { name: 'Main improvement to test', exact: true })).toBeVisible();
+  await expect(assessment.getByRole('article').first()).toHaveAttribute('aria-label', 'Make the opening heading more specific');
+  await expect(assessment.getByRole('article').first().getByText('Main opportunity · Heading', { exact: true })).toBeVisible();
+  await expect(assessment.getByRole('article').first().getByText('Helps visitors understand this page', { exact: true })).toBeVisible();
   await expect(assessment.getByText('Useful websites for local businesses', { exact: true })).toBeVisible();
   await expect(assessment.getByText('Keep your current title and description', { exact: true })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toHaveCount(0);
+  await expect(assessment.getByRole('heading', { name: 'Match to customer searches', exact: true })).not.toBeVisible();
+  await assessment.getByText('What we checked', { exact: true }).focus();
+  await assessment.getByText('What we checked', { exact: true }).press('Enter');
+  for (const name of ['Google access and indexing', 'Match to customer searches', 'Useful page content', 'Page headings', 'Search title and description', 'Links within your website']) await expect(assessment.getByRole('heading', { name, exact: true })).toBeVisible();
+  await assessment.getByText('Sources for page headings', { exact: true }).focus();
+  await assessment.getByText('Sources for page headings', { exact: true }).press('Enter');
+  await expect(assessment.getByText('The main heading is Website design.', { exact: true }).filter({ visible: true })).toBeVisible();
+  const checks = assessment.locator('details').filter({ has: page.locator('summary').filter({ hasText: /^What we checked$/ }) });
+  await page.keyboard.press('Tab');
+  await expect(checks.getByRole('link', { name: 'Service page context (opens in a new tab)' })).toBeFocused();
+  await expect(checks.getByRole('link', { name: 'Service page context (opens in a new tab)' })).toHaveAttribute('href', 'https://reference.test/service/');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await checks.screenshot({ path: 'test-results/prioritized-checks-mobile.png', animations: 'disabled', style: 'header, .fixed { visibility: hidden !important; }' });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await assessment.getByText('What we checked', { exact: true }).press('Enter');
   expect(calls.generations[0].goal).toBe('Help local businesses request a website consultation.');
   const inspection = page.getByRole('region', { name: 'Google index check' });
   await expect(inspection.getByText('Submitted and indexed', { exact: true })).toBeVisible();
@@ -560,6 +603,24 @@ test('published content edits save their own summary and reload without fictiona
   await expect(page.getByRole('textbox', { name: 'Confirmed page title (SEO title)' })).toHaveCount(0);
   await expect(page.getByRole('textbox', { name: 'Confirmed page description (meta description)' })).toHaveCount(0);
   expect(calls.generations).toHaveLength(1);
+});
+
+test('a small link opportunity is honestly limited and never promoted to the main improvement', async ({ page }) => {
+  await setup(page, { assessment: body => limitedLinkAssessment(body.pageUrl) });
+  await page.goto(`/low-ctr?page=${encodeURIComponent(pageUrl)}`);
+  await expect(page.getByRole('button', { name: 'Analyze this page' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Analyze this page' }).click();
+  const assessment = page.getByRole('region', { name: 'Page assessment' });
+  await expect(assessment.getByRole('heading', { name: 'Only small improvements found', exact: true })).toBeVisible();
+  await expect(assessment.getByText('Small supporting improvement · Internal link', { exact: true })).toBeVisible();
+  await expect(assessment.getByText('Helps visitors find the next useful page', { exact: true })).toBeVisible();
+  await expect(assessment.getByRole('heading', { name: 'Improve the page content first', exact: true })).toHaveCount(0);
+  await expect(assessment.getByRole('heading', { name: 'Main improvement to test', exact: true })).toHaveCount(0);
+  await expect(assessment.getByText(/Start here|Main opportunity/)).toHaveCount(0);
+  await expect(assessment.getByRole('article')).toHaveCount(1);
+  await expect(assessment.getByRole('article').getByRole('link')).toHaveAttribute('href', otherUrl);
+  await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toHaveCount(0);
+  await assessment.screenshot({ path: 'test-results/prioritized-limited-findings.png', animations: 'disabled', style: 'header, .fixed { visibility: hidden !important; }' });
 });
 
 test('changing the owner goal discards an in-flight analysis and cannot show stale actions', async ({ page }) => {

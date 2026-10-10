@@ -11,7 +11,7 @@ import { propertyContainsUrl } from '../lib/revampState';
 import MainLayout from '../components/MainLayout';
 import SeoRecommendationPanel from '../components/dashboard/SeoRecommendationPanel';
 import PageProgress from '../components/dashboard/PageProgress';
-import PageReviewAssessment, { usablePageAssessment } from '../components/dashboard/PageReviewAssessment';
+import PageReviewAssessment, { recommendedReviewPage, usablePageAssessment } from '../components/dashboard/PageReviewAssessment';
 import PageSearchActivity, { pageOptionLabel, usablePageActivity } from '../components/dashboard/PageSearchActivity';
 import PageContentChangeConfirmation from '../components/dashboard/PageContentChangeConfirmation';
 import { Button } from '@/components/ui/button';
@@ -143,7 +143,7 @@ function LowCtrWorkspace() {
   };
   const reviewRelatedPage = value => {
     if (suggestion?.analysis.action !== 'review_page' || suggestion.analysis.targetPageUrl !== value ||
-      !suggestion.evidence.relatedPages?.some(page => page.pageUrl === value) || !propertyContainsUrl(property, value)) return;
+      recommendedReviewPage(suggestion) !== value || !propertyContainsUrl(property, value)) return;
     setRedirectDestinations(previous => [...new Set([...previous, value])]);
     choosePage(value);
   };

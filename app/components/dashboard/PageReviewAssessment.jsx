@@ -18,6 +18,9 @@ const actions = {
   investigate_visibility: 'Check this page’s search visibility',
 };
 const metadataVerdicts = { keep: 'Keep your current title and description', revise: 'Review a title or description change', uncertain: 'More evidence is needed to judge the wording' };
+const checkAreas = { indexing: 'Google access and indexing', search_intent: 'Match to customer searches', content: 'Useful page content', headings: 'Page headings', metadata: 'Search title and description', internal_links: 'Links within your website' };
+const checkStates = { issue: 'Issue supported by evidence', opportunity: 'Opportunity to test', suitable: 'Looks suitable in this review', unknown: 'Not enough evidence' };
+const findingHeadings = { supported_issue: 'Fix this issue first', opportunity_to_test: 'Main improvement to test', limited_findings: 'Only small improvements found', insufficient_evidence: 'We need more evidence to choose the main improvement' };
 
 function webUrl(value) {
   try { const url = new URL(value); return ['https:', 'http:'].includes(url.protocol) && !url.username && !url.password; }
@@ -52,20 +55,39 @@ function ResearchSummary({ summary, sources }) {
   }}>{summary}</ReactMarkdown></div>;
 }
 
-function targetPage(review) {
+export function recommendedReviewPage(review) {
   const target = review.analysis?.targetPageUrl;
-  return target && propertyContainsUrl(review.evidence?.property, target) &&
-    Array.isArray(review.evidence?.relatedPages) && review.evidence.relatedPages.some(page => page?.pageUrl === target) ? target : null;
+  const relatedPages = [review.evidence?.relatedPages, review.diagnostics?.relatedPages].flatMap(pages => Array.isArray(pages) ? pages : []);
+  if (!target || target === review.evidence?.pageUrl || !propertyContainsUrl(review.evidence?.property, target) || !relatedPages.some(page => page?.pageUrl === target)) return null;
+  try {
+    const url = new URL(target);
+    return webUrl(target) && !url.hash && url.origin === new URL(review.evidence.pageUrl).origin ? target : null;
+  } catch { return null; }
 }
 
 function reviewFacts(review) {
   return [...new Map([...(review.evidence?.facts || []), ...(review.diagnostics?.facts || [])].map(fact => [fact.id, fact])).values()];
 }
 
+function usableStrategy(strategy, knownIds) {
+  const bounded = (value, limit) => typeof value === 'string' && Boolean(value.trim()) && value.length <= limit;
+  return strategy && bounded(strategy.searchGoal, 220) && bounded(strategy.priorityReason, 400) && bounded(strategy.limitation, 320) &&
+    (Object.hasOwn(checkAreas, strategy.focusArea) || strategy.focusArea === 'none') && Object.hasOwn(findingHeadings, strategy.finding) &&
+    Array.isArray(strategy.checks) && strategy.checks.length === 6 && new Set(strategy.checks.map(check => check?.area)).size === 6 &&
+    strategy.checks.every(check => check && Object.hasOwn(checkAreas, check.area) && Object.hasOwn(checkStates, check.status) && bounded(check.finding, 260) &&
+      Array.isArray(check.evidenceIds) && check.evidenceIds.length <= 5 && (check.status === 'unknown' || check.evidenceIds.length > 0) && check.evidenceIds.every(id => typeof id === 'string' && knownIds.has(id)));
+}
+
+function ReviewChecks({ strategy, facts, sources }) {
+  return <details className="rounded-lg border bg-background/50 p-4 text-sm"><summary className="cursor-pointer font-medium">What we checked</summary><p className="mt-3 text-xs leading-relaxed text-muted-foreground">Six areas, using the evidence available for this review. “Not enough evidence” means we could not reach a supported conclusion.</p><ul className="mt-4 grid gap-3 md:grid-cols-2">{strategy.checks.map(check => <li key={check.area} className="min-w-0 space-y-2 rounded-lg border bg-background/60 p-3"><div><h3 className="font-semibold">{checkAreas[check.area]}</h3><p className="mt-1 text-xs text-muted-foreground">{checkStates[check.status]}</p></div><p className="text-xs leading-relaxed">{check.finding}</p>
+    {check.evidenceIds.length > 0 && <details className="text-xs"><summary className="cursor-pointer font-medium">Sources for {checkAreas[check.area].toLowerCase()}</summary><div className="mt-2 space-y-3">{facts.filter(fact => check.evidenceIds.includes(fact.id)).map(fact => <div key={fact.id}><p className="font-medium">{fact.label}</p><p className="mt-1 break-words leading-relaxed text-muted-foreground">{fact.text}</p></div>)}{sources.filter(source => check.evidenceIds.includes(source.id)).map(source => <a key={source.id} href={source.url} target="_blank" rel="noopener noreferrer" className="block break-words underline underline-offset-4">{source.title}<span className="sr-only"> (opens in a new tab)</span></a>)}</div></details>}
+  </li>)}</ul></details>;
+}
+
 // A partial or older API response must never enable a publish confirmation.
 export function usablePageAssessment(review) {
   const analysis = review?.analysis;
-  if (!analysis || !Object.hasOwn(actions, analysis.action) ||
+  if (!analysis || review.provenance?.reviewVersion !== 5 || !Object.hasOwn(actions, analysis.action) ||
     !Object.hasOwn(metadataVerdicts, analysis.metadataVerdict) || typeof analysis.metadataReason !== 'string' || !analysis.metadataReason.trim() ||
     !['summary', 'reason', 'nextStep'].every(key => typeof analysis[key] === 'string' && analysis[key].trim()) ||
     !Array.isArray(analysis.evidenceIds) || !Array.isArray(review.evidence?.facts) ||
@@ -82,11 +104,11 @@ export function usablePageAssessment(review) {
     ...reviewFacts(review).map(fact => fact.id),
     ...(review.research.status === 'available' ? review.research.sources.filter(source => webUrl(source.url)).map(source => source.id) : []),
   ]);
-  if (analysis.evidenceIds.some(id => typeof id !== 'string' || !knownIds.has(id)) || !usableRecommendations(review, knownIds)) return false;
+  if (analysis.evidenceIds.some(id => typeof id !== 'string' || !knownIds.has(id)) || !usableStrategy(analysis.strategy, knownIds) || !usableRecommendations(review, knownIds)) return false;
   if ((analysis.action === 'revise_metadata') !== (analysis.metadataVerdict === 'revise') ||
     (analysis.action === 'keep_current' && analysis.metadataVerdict !== 'keep') ||
     (analysis.action === 'investigate_visibility' && !analysis.evidenceIds.some(id => /^(?:S|Q|H|I)\d+$/.test(id) || id === 'P4'))) return false;
-  if (analysis.action === 'review_page' && !targetPage(review)) return false;
+  if (analysis.action === 'review_page' && !recommendedReviewPage(review)) return false;
   if (analysis.action !== 'revise_metadata') return !review.title && !review.description;
   return analysis.metadataVerdict === 'revise' && usableSuggestion(review.title) && usableSuggestion(review.description) && Boolean(review.provenance) &&
     Array.isArray(analysis.changedFields) && analysis.changedFields.length > 0 &&
@@ -123,10 +145,11 @@ function SearchPeriod({ label, window, period }) {
 
 export default function PageReviewAssessment({ review, onReviewPage }) {
   const { analysis, evidence, research } = review;
+  const { strategy } = analysis;
   const facts = reviewFacts(review);
   const citedFacts = facts.filter(fact => analysis.evidenceIds.includes(fact.id));
   const sources = research.status === 'available' ? research.sources.filter(source => webUrl(source.url)) : [];
-  const nextPage = analysis.action === 'review_page' ? targetPage(review) : null;
+  const nextPage = analysis.action === 'review_page' ? recommendedReviewPage(review) : null;
   const researchedAt = observedAt(research.checkedAt);
   const checkedAt = observedAt(evidence.fetchedAt);
   const researchFailed = ['unavailable', 'no_sources'].includes(research.status);
@@ -134,10 +157,11 @@ export default function PageReviewAssessment({ review, onReviewPage }) {
   return <section aria-label="Page assessment" className="mb-6 overflow-hidden rounded-xl border border-violet-200 bg-violet-50 dark:border-violet-800 dark:bg-violet-950/20">
     <div className="space-y-4 p-5 md:p-6">
       <div className="border-b border-violet-200 pb-4 dark:border-violet-800"><p className="text-xs font-semibold uppercase tracking-wide text-violet-800 dark:text-violet-200">Review for {pageIdentity(evidence.pageUrl)}</p><a href={evidence.pageUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block max-w-full break-all text-sm underline underline-offset-4">{evidence.pageUrl}<span className="sr-only"> (opens in a new tab)</span></a></div>
-      <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Goal for this page</p><p className="mt-1 text-sm leading-relaxed">{analysis.pageGoal}</p></div>
-      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-violet-800 dark:text-violet-200"><ClipboardCheck className="h-4 w-4" aria-hidden="true" />Recommended next step</p>
-      <div className="space-y-2"><h2 className="text-xl font-semibold">{actions[analysis.action]}</h2><p className="font-medium leading-relaxed">{analysis.summary}</p><p className="text-sm leading-relaxed text-muted-foreground">{analysis.reason}</p></div>
-      <PageReviewActions recommendations={analysis.recommendations} facts={facts} sources={sources} />
+      <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Search goal for this page</p><p className="mt-1 text-sm leading-relaxed">{strategy.searchGoal}</p></div>
+      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-violet-800 dark:text-violet-200"><ClipboardCheck className="h-4 w-4" aria-hidden="true" />What matters most</p>
+      <div className="space-y-3"><h2 className="text-xl font-semibold">{strategy.finding === 'limited_findings' && !analysis.recommendations.length ? 'No clear change identified' : findingHeadings[strategy.finding]}</h2><p className="font-medium leading-relaxed">{analysis.summary}</p><div><p className="text-sm font-semibold">{['supported_issue', 'opportunity_to_test'].includes(strategy.finding) ? 'Why this is the priority' : 'Why this is our conclusion'}</p><p className="mt-1 text-sm leading-relaxed">{strategy.priorityReason}</p></div><p className="text-xs leading-relaxed text-muted-foreground">{strategy.limitation}</p></div>
+      <PageReviewActions recommendations={analysis.recommendations} facts={facts} sources={sources} finding={strategy.finding} />
+      <ReviewChecks strategy={strategy} facts={facts} sources={sources} />
       {(!analysis.recommendations.length || nextPage) && <div className="rounded-lg border border-violet-200 bg-background/70 p-4 dark:border-violet-800"><p className="mb-1 text-sm font-semibold">What to do next</p><p className="text-sm leading-relaxed">{analysis.nextStep}</p>
         {nextPage && <div className="mt-3 space-y-3"><p className="break-all text-xs text-muted-foreground">{nextPage}</p><Button variant="outline" onClick={() => onReviewPage?.(nextPage)}>Review recommended page</Button></div>}
       </div>}
@@ -153,6 +177,7 @@ export default function PageReviewAssessment({ review, onReviewPage }) {
       <details className="border-t border-violet-200 pt-4 text-sm dark:border-violet-800">
         <summary className="cursor-pointer rounded font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Why this recommendation?</summary>
         <div className="mt-5 space-y-5">
+          <p className="leading-relaxed">{analysis.reason}</p>
           <div><h3 className="mb-3 font-semibold">Evidence used</h3>{citedFacts.length ? <ul className="space-y-3">{citedFacts.map(fact => <li key={fact.id} className="rounded-lg border bg-background/50 p-4"><p className="text-xs font-medium text-muted-foreground">{fact.kind === 'search' ? 'Google Search Console' : 'Your live website'} · {fact.label}</p><p className="mt-1 leading-relaxed">{fact.text}</p></li>)}</ul> : <p className="text-muted-foreground">See the available sources and limitations below.</p>}</div>
           <div><h3 className="mb-3 flex items-center gap-2 font-semibold"><Search className="h-4 w-4" aria-hidden="true" />Search activity for this page</h3>
             <p className="mb-3 break-all text-xs text-muted-foreground">Google Search Console · {evidence.pageUrl}{checkedAt ? ` · Checked ${checkedAt}` : ''}</p>

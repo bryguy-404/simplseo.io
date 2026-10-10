@@ -256,12 +256,37 @@ async function main() {
     assert(plain(analysis.pageGoal, 200) && Array.isArray(analysis.recommendations) && analysis.recommendations.length <= 3
       && (analysis.recommendations.length > 0 || ['keep_current', 'collect_data'].includes(analysis.action)),
     'The expert review has no valid page goal or executable recommendations.');
+    const strategy = analysis.strategy;
+    const areas = ['indexing', 'search_intent', 'content', 'headings', 'metadata', 'internal_links'];
+    assert(strategy && plain(strategy.searchGoal, 220) && [...areas, 'none'].includes(strategy.focusArea)
+      && ['supported_issue', 'opportunity_to_test', 'limited_findings', 'insufficient_evidence'].includes(strategy.finding)
+      && plain(strategy.priorityReason, 400) && plain(strategy.limitation, 320)
+      && Array.isArray(strategy.checks) && strategy.checks.length === areas.length
+      && strategy.checks.every((check, index) => check.area === areas[index] && ['issue', 'opportunity', 'suitable', 'unknown'].includes(check.status)
+        && plain(check.finding, 260) && Array.isArray(check.evidenceIds) && check.evidenceIds.length <= 5
+        && (check.status === 'unknown' || check.evidenceIds.length > 0)
+        && new Set(check.evidenceIds).size === check.evidenceIds.length && check.evidenceIds.every(id => sourceIds.has(id))),
+    'The review has no valid six-area opportunity comparison or has invented evidence.');
+    const primary = analysis.recommendations.filter(item => item.significance === 'primary');
+    assert(primary.length <= 1 && (!primary.length || analysis.recommendations[0] === primary[0]), 'The main opportunity must appear first and be unique.');
+    if (['supported_issue', 'opportunity_to_test'].includes(strategy.finding)) {
+      const issue = strategy.finding === 'supported_issue';
+      assert(primary.length === 1 && primary[0].basis === (issue ? 'observed_issue' : 'opportunity')
+        && strategy.checks.some(check => check.area === strategy.focusArea && check.status === (issue ? 'issue' : 'opportunity')),
+      'The main action disagrees with the prioritized finding.');
+    } else if (strategy.finding === 'limited_findings') assert(strategy.focusArea === 'none' && !primary.length,
+      'Small supporting improvements are presented as the main problem.');
+    else assert((strategy.focusArea === 'none' || strategy.checks.some(check => check.area === strategy.focusArea && check.status === 'unknown'))
+      && (!primary.length || primary[0].type === 'check' && primary[0].basis === 'needs_check' && primary[0].benefit === 'diagnosis'),
+    'An uncertain diagnosis is presented as a supported fix.');
     const targets = new Set([...draft.currentPage.internalLinks.map(item => item.url),
       ...draft.evidence.relatedPages.map(item => item.pageUrl), ...draft.diagnostics.relatedPages.map(item => item.pageUrl)]);
     const labels = new Set();
     for (const [index, item] of analysis.recommendations.entries()) {
       assert(item && item.id === `action-${index + 1}` && RECOMMENDATION_TYPES.includes(item.type)
         && ['observed_issue', 'opportunity', 'needs_check'].includes(item.basis)
+        && ['primary', 'supporting'].includes(item.significance)
+        && ['page_clarity', 'search_relevance', 'visitor_decision', 'navigation', 'index_access', 'search_snippet', 'diagnosis'].includes(item.benefit)
         && plain(item.label, 90) && plain(item.location, 140) && plain(item.reason, 400) && plain(item.instruction, 600)
         && !labels.has(item.label.toLowerCase()) && textWithin(item.currentQuote, 0, 500)
         && (!item.currentQuote || exactQuote(item.currentQuote) || item.type === 'technical' && exactTechnicalQuote(item.currentQuote))
@@ -435,7 +460,7 @@ async function main() {
       assert(draft.title === null && draft.description === null && analysis.changedFields.length === 0
         && analysis.fieldReasons.title === '' && analysis.fieldReasons.description === '', 'A non-revision decision incorrectly includes editable draft fields.');
       if (analysis.action === 'review_page') {
-        assert(analysis.targetPageUrl !== property && draft.evidence.relatedPages.some(row => row.pageUrl === analysis.targetPageUrl)
+        assert(analysis.targetPageUrl !== property && [...draft.evidence.relatedPages, ...draft.diagnostics.relatedPages].some(row => row.pageUrl === analysis.targetPageUrl)
           && insideProperty(analysis.targetPageUrl), 'The suggested alternative page is not supported by scoped evidence.');
       } else assert(analysis.targetPageUrl === null, 'The assessment includes an unexpected target page.');
     }
@@ -521,7 +546,7 @@ async function main() {
       assert(draftResponse.ok, 'The one requested review did not return a usable response. No retry or confirmation was attempted.');
       const draft = await draftResponse.json();
       verifyCurrentPage(draft.currentPage, draft.provenance, before.setup.revampRunId, true);
-      assert(draft.provenance.reviewVersion === 4 && /^gpt-[\w.-]{1,80}$/.test(draft.provenance.model), 'The assessment is not from the current review implementation.');
+      assert(draft.provenance.reviewVersion === 5 && /^gpt-[\w.-]{1,80}$/.test(draft.provenance.model), 'The assessment is not from the current review implementation.');
       verifyReviewEvidence(draft.evidence, reviewStartedAt);
       verifyResearch(draft.research);
       verifyDiagnostics(draft.diagnostics, draft.currentPage, draft.evidence);
@@ -529,7 +554,7 @@ async function main() {
       assert(draft.ownerGoal === '', 'The review unexpectedly introduced an owner-supplied goal.');
       verifyAssessment(draft);
       draftMetadata = { requested: true, requests: 1, model: draft.provenance.model, action: draft.analysis.action, metadataVerdict: draft.analysis.metadataVerdict,
-        pageGoal: draft.analysis.pageGoal, reviewSummary: draft.analysis.summary, reviewReason: draft.analysis.reason,
+        pageGoal: draft.analysis.pageGoal, strategy: draft.analysis.strategy, reviewSummary: draft.analysis.summary, reviewReason: draft.analysis.reason,
         recommendations: draft.analysis.recommendations,
         indexCoverage: draft.diagnostics.inspection.coverageState,
         ...(draft.analysis.action === 'revise_metadata' ? { titleLength: draft.title.length, descriptionLength: draft.description.length, changedFields: draft.analysis.changedFields } : {}),

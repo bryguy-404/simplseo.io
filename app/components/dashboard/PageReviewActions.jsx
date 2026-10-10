@@ -7,6 +7,7 @@ import { propertyContainsUrl } from '../../lib/revampState';
 
 const types = { heading: 'Heading', content: 'Page content', internal_link: 'Internal link', technical: 'Technical check', metadata: 'Title and description', check: 'Investigation' };
 const bases = { observed_issue: 'Issue found in the evidence', opportunity: 'Opportunity to improve', needs_check: 'Needs your check' };
+const benefits = { page_clarity: 'Helps visitors understand this page', search_relevance: 'Makes the page’s search relevance clearer', visitor_decision: 'Helps visitors decide what to do next', navigation: 'Helps visitors find the next useful page', index_access: 'Helps address Google’s access to this page', search_snippet: 'Makes the search title or description clearer', diagnosis: 'Helps identify what to check next' };
 
 export function knownActionTarget(review, target) {
   if (!target || !propertyContainsUrl(review.evidence?.property, target)) return false;
@@ -18,7 +19,19 @@ export function usableRecommendations(review, knownIds) {
   const recommendations = review.analysis?.recommendations;
   if (typeof review.analysis?.pageGoal !== 'string' || !review.analysis.pageGoal.trim() || !Array.isArray(recommendations) || recommendations.length > 3 ||
     (!recommendations.length && !['keep_current', 'collect_data'].includes(review.analysis.action))) return false;
+  const primary = recommendations.filter(item => item?.significance === 'primary');
+  const strategy = review.analysis.strategy;
+  const focusCheck = strategy?.checks.find(check => check.area === strategy.focusArea);
+  if (primary.length > 1 || (primary.length && recommendations[0] !== primary[0])) return false;
+  if (['supported_issue', 'opportunity_to_test'].includes(strategy?.finding)) {
+    const issue = strategy.finding === 'supported_issue';
+    if (primary.length !== 1 || strategy.focusArea === 'none' || focusCheck?.status !== (issue ? 'issue' : 'opportunity') || primary[0].basis !== (issue ? 'observed_issue' : 'opportunity')) return false;
+  }
+  if (strategy?.finding === 'limited_findings' && (strategy.focusArea !== 'none' || primary.length)) return false;
+  if (strategy?.finding === 'insufficient_evidence' && ((strategy.focusArea !== 'none' && focusCheck?.status !== 'unknown') ||
+    (primary.length && (primary[0].type !== 'check' || primary[0].basis !== 'needs_check' || primary[0].benefit !== 'diagnosis')))) return false;
   return recommendations.every((item, index) => item && item.id === `action-${index + 1}` && Object.hasOwn(types, item.type) && Object.hasOwn(bases, item.basis) &&
+    ['primary', 'supporting'].includes(item.significance) && Object.hasOwn(benefits, item.benefit) &&
     ['label', 'location', 'reason', 'instruction'].every(key => typeof item[key] === 'string' && item[key].trim()) &&
     ['currentQuote', 'supportingQuote'].every(key => typeof item[key] === 'string') &&
     (item.proposedText === null || typeof item.proposedText === 'string') &&
@@ -48,13 +61,15 @@ function ActionBody({ item, facts, sources }) {
   </div>;
 }
 
-export default function PageReviewActions({ recommendations, facts, sources }) {
+export default function PageReviewActions({ recommendations, facts, sources, finding }) {
   if (!recommendations.length) return null;
+  const hasPrimary = recommendations.some(item => item.significance === 'primary');
+  const rankLabel = item => item.significance === 'primary' ? finding === 'insufficient_evidence' ? 'Main check' : 'Main opportunity' : 'Small supporting improvement';
   return <div className="space-y-3" aria-label="Prioritized page actions">
-    <p className="text-xs text-muted-foreground">Start with the first action. All changes below apply to the selected page; publish them in your website editor.</p>
-    {recommendations.map((item, index) => <article key={item.id} className={`overflow-hidden rounded-xl border bg-background/80 ${index === 0 ? 'border-violet-300 dark:border-violet-700' : ''}`} aria-label={item.label}>
-      {index === 0 ? <div className="space-y-4 p-4 md:p-5"><div><p className="text-xs font-semibold uppercase tracking-wide text-violet-800 dark:text-violet-200">Start here · {types[item.type]}</p><h3 className="mt-2 text-lg font-semibold">{item.label}</h3><p className="mt-2 text-xs text-muted-foreground">{bases[item.basis]}</p></div><ActionBody item={item} facts={facts} sources={sources} /></div>
-        : <details className="p-4 md:p-5"><summary className="cursor-pointer font-semibold">{index + 1}. {item.label}<span className="mt-1 block text-xs font-normal text-muted-foreground">{types[item.type]} · {bases[item.basis]}</span></summary><div className="mt-4"><ActionBody item={item} facts={facts} sources={sources} /></div></details>}
+    <p className="text-xs text-muted-foreground">{hasPrimary ? finding === 'insufficient_evidence' ? 'Start with this check to resolve the missing evidence before choosing a main improvement.' : 'Review the main opportunity first. Supporting changes have a smaller role.' : 'These are smaller improvements, not an identified main cause of search performance.'} All actions apply to the selected page.</p>
+    {recommendations.map((item, index) => <article key={item.id} className={`overflow-hidden rounded-xl border bg-background/80 ${item.significance === 'primary' ? 'border-violet-300 dark:border-violet-700' : ''}`} aria-label={item.label}>
+      {item.significance === 'primary' || (!hasPrimary && index === 0) ? <div className="space-y-4 p-4 md:p-5"><div><p className={`text-xs font-semibold uppercase tracking-wide ${item.significance === 'primary' ? 'text-violet-800 dark:text-violet-200' : 'text-muted-foreground'}`}>{rankLabel(item)} · {types[item.type]}</p><h3 className="mt-2 text-lg font-semibold">{item.label}</h3><p className="mt-2 text-sm">{benefits[item.benefit]}</p><p className="mt-2 text-xs text-muted-foreground">{bases[item.basis]}</p></div><ActionBody item={item} facts={facts} sources={sources} /></div>
+        : <details className="p-4 md:p-5"><summary className="cursor-pointer font-semibold"><span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground">{rankLabel(item)}</span>{index + 1}. {item.label}<span className="mt-1 block text-xs font-normal text-muted-foreground">{benefits[item.benefit]}</span></summary><div className="mt-4"><p className="mb-3 text-xs text-muted-foreground">{types[item.type]} · {bases[item.basis]}</p><ActionBody item={item} facts={facts} sources={sources} /></div></details>}
     </article>)}
   </div>;
 }
