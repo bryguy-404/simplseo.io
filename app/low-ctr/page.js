@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { FileText, ExternalLink, Sparkles } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useOnboarding } from '../contexts/OnboardingContext';
 import { authenticatedFetch } from '../lib/authenticatedFetch';
@@ -124,43 +125,63 @@ function LowCtrWorkspace() {
   if (isLoading || !isLoaded || !user) return <MainLayout><p role="status">Loading your website tasks…</p></MainLayout>;
   return <MainLayout>
     <div className="mb-6 space-y-2"><Link href="/dashboard" className="text-sm underline">Back to dashboard</Link><h1 className="text-3xl font-bold">Review a page</h1>
-      <p className="text-muted-foreground">Choose one page, review a useful title and description change, and publish it yourself. Search activity helps you choose where to start; a low click-through rate alone does not prove the title is the problem.</p></div>
-    <Card className="mb-6"><CardHeader><CardTitle>1. Choose a current page</CardTitle><CardDescription>Start with a page that already has search activity. Other tracked pages remain available while Google data develops.</CardDescription></CardHeader>
+      <p className="text-muted-foreground">See your current wording, draft an alternative, then choose what to publish.</p></div>
+    <Card className="mb-6"><CardHeader><CardTitle>1. Choose a page</CardTitle><CardDescription>Start with one page you want customers to find.</CardDescription></CardHeader>
       <CardContent className="space-y-4">
         {loading && <p role="status">Loading current pages and search activity…</p>}
         {dataError && <div role="alert" className="space-y-2"><p>{dataError}</p><Button variant="outline" onClick={() => setReload(value => value + 1)} disabled={loading}>Retry search data</Button> <Link className="underline" href="/revamp">Website setup</Link></div>}
         {selectionError && <p role="alert" className="text-amber-600">{selectionError}</p>}
         {!loading && !pages.length && <p>No current pages are available yet. <Link href="/revamp" className="underline">Add or review your website pages</Link> to get started. You can continue using your dashboard.</p>}
         {pages.length > 0 && <><label className="block space-y-2"><span className="text-sm font-medium">Page to review</span><select className="w-full rounded border bg-background p-3" value={selectedUrl} disabled={generating} onChange={event => choosePage(event.target.value)}>
-          <option value="" disabled>Choose a page</option>{pages.map(page => <option key={page.url} value={page.url}>{page.url}{page.metrics?.impressions > 0 ? ` — ${page.metrics.impressions} impressions` : ''}</option>)}
+          <option value="" disabled>Choose a page</option>{pages.map(page => <option key={page.url} value={page.url}>{new URL(page.url).pathname === '/' && !new URL(page.url).search ? `Homepage — ${page.url}` : page.url}</option>)}
         </select></label>
-          {selected?.metrics && <p className="text-sm text-muted-foreground">{selected.metrics.impressions.toLocaleString()} impressions · {selected.metrics.clicks.toLocaleString()} clicks · {selected.metrics.ctr == null ? 'CTR unavailable' : `${(selected.metrics.ctr * 100).toFixed(1)}% click-through rate`}{overview?.window ? ` · ${overview.window.startDate}–${overview.window.endDate}` : ''} · Google Search Console</p>}
-          {selected && !selected.metrics && <p className="text-sm text-muted-foreground">This page has no page-level observation in the current overview. This does not tell us whether Google has crawled or indexed it.</p>}
-          <p className="text-xs text-muted-foreground">Search Console may return a limited set of pages and queries. Website titles and descriptions are read separately from your live website.</p>
+          <details className="rounded-lg border bg-muted/20 px-4 py-3 text-sm">
+            <summary className="cursor-pointer font-medium">Search activity for this page</summary>
+            <div className="mt-4 space-y-3">
+              {selected?.metrics ? <div className="flex flex-wrap gap-6">
+                <p><strong className="block text-xl text-foreground">{selected.metrics.impressions.toLocaleString()}</strong><span className="text-muted-foreground">Appearances in Google</span></p>
+                <p><strong className="block text-xl text-foreground">{selected.metrics.clicks.toLocaleString()}</strong><span className="text-muted-foreground">Clicks to your page</span></p>
+              </div> : <p>No search activity is available for this page in the current report. You can still review its wording.</p>}
+              {overview?.window && <p className="text-xs text-muted-foreground">Google Search Console · {overview.window.startDate}–{overview.window.endDate}</p>}
+              <p className="text-xs text-muted-foreground">This report may include only some pages and searches. It does not tell us whether a page is indexed, or prove that its wording needs changing.</p>
+            </div>
+          </details>
         </>}
       </CardContent></Card>
     {selected && <>
-      <Card className="mb-6"><CardHeader><CardTitle>2. Review the current page</CardTitle><CardDescription>Check that the content still describes the rebuilt website before drafting a change.</CardDescription></CardHeader>
+      <Card className="mb-6"><CardHeader><CardTitle>2. Read your current wording</CardTitle><CardDescription>Does this clearly describe what you offer on this page?</CardDescription></CardHeader>
         <CardContent className="space-y-4">
-          <a href={selected.url} target="_blank" rel="noopener noreferrer" className="block break-all underline">{selected.url}</a>
+          <a href={selected.url} target="_blank" rel="noopener noreferrer" className="inline-flex max-w-full items-center gap-2 text-sm underline"><span className="break-all">{selected.url}</span><ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" /><span className="sr-only">Open website in new tab</span></a>
           {contentBusy && <p role="status">Reading your website…</p>}
           {contentError && <div role="alert" className="space-y-2"><p>{contentError}</p><Button variant="outline" onClick={() => setContentReload(value => value + 1)}>Retry reading page</Button></div>}
-          {currentPage && <><dl className="space-y-3 text-sm"><div><dt className="font-medium">Current HTML title</dt><dd className="text-muted-foreground">{currentPage.htmlTitle || 'No title tag found.'}</dd></div><div><dt className="font-medium">Current meta description</dt><dd className="text-muted-foreground">{currentPage.seoMetaDescription || 'No meta description tag found.'}</dd></div></dl>
-            <p className="text-xs text-muted-foreground">Read from your website{currentPage.fetchedAt ? ` on ${new Date(currentPage.fetchedAt).toLocaleString()}` : ''}. These are not Google search-result titles.</p>
+          {currentPage && <>
+            <section aria-label="Currently on your website" className="overflow-hidden rounded-xl border border-sky-300 bg-sky-50 dark:border-sky-800 dark:bg-sky-950/30">
+              <div className="flex items-center gap-2 border-b border-sky-200 bg-sky-100/60 px-5 py-3 text-sm font-semibold text-sky-900 dark:border-sky-800 dark:bg-sky-900/30 dark:text-sky-200"><FileText className="h-4 w-4 shrink-0" aria-hidden="true" />Currently on your website</div>
+              <dl className="divide-y divide-sky-200 dark:divide-sky-800/60">
+                <div className="px-5 py-4"><dt className="mb-2 text-xs font-semibold uppercase tracking-wide text-sky-800 dark:text-sky-300">Page title</dt><dd className="text-lg font-medium leading-relaxed break-words text-slate-950 dark:text-sky-50">{currentPage.htmlTitle || 'No title tag found.'}</dd></div>
+                <div className="px-5 py-4"><dt className="mb-2 text-xs font-semibold uppercase tracking-wide text-sky-800 dark:text-sky-300">Page description</dt><dd className="leading-relaxed break-words text-slate-800 dark:text-sky-100">{currentPage.seoMetaDescription || 'No meta description tag found.'}</dd></div>
+              </dl>
+            </section>
+            <details className="text-sm text-muted-foreground"><summary className="cursor-pointer">What are the title and description?</summary><div className="mt-2 space-y-2 leading-relaxed"><p>The title names your page. The description is a short summary. Your website editor may call these the SEO title and meta description.</p><p>We read these from your website{currentPage.fetchedAt ? ` on ${new Date(currentPage.fetchedAt).toLocaleString()}` : ''}. Google may show different wording in search results.</p></div></details>
             {redirected && <div role="status" className="space-y-2 rounded border p-3"><p className="text-sm break-all">This URL redirects to {currentPage.finalUrl}. Review and track the destination so your edit is measured against the page you actually change.</p>
               {propertyContainsUrl(property, currentPage.finalUrl) && <Button variant="outline" onClick={() => { const destination = currentPage.finalUrl; setRedirectDestinations(previous => [...new Set([...previous, destination])]); choosePage(destination); }}>Review destination page</Button>}
             </div>}
           </>}
-          {queryError && <p className="text-sm text-muted-foreground">{queryError}</p>}
-          <label className="block space-y-2"><span className="text-sm font-medium">Optional query to consider</span><select value={keyword} disabled={generating || taskConfirmed} onChange={event => { setKeyword(event.target.value); setSuggestion(null); setGenerationError(''); }} className="w-full rounded border bg-background p-3">
-            <option value="">Use current page content without a keyword</option>
-            {selected.focusKeyword && !selected.queries.some(row => row.keyword === selected.focusKeyword) && <option value={selected.focusKeyword}>{selected.focusKeyword} — saved focus keyword</option>}
-            {selected.queries.map(row => <option key={row.keyword} value={row.keyword}>{row.keyword} — observed search query</option>)}
-          </select></label>
-          <p className="text-xs text-muted-foreground">A reported query shows that this page appeared for that search. Choose it only if it fits your service and your customers. You do not need a saved focus keyword.</p>
+          <details className="rounded-lg border px-4 py-3 text-sm">
+            <summary className="cursor-pointer font-medium">Optional: choose a search phrase{keyword ? <span className="ml-2 font-normal text-muted-foreground">· {keyword}</span> : ''}</summary>
+            <div className="mt-3 space-y-3">
+              {queryError && <p className="text-muted-foreground">{queryError}</p>}
+              <label className="block space-y-2"><span className="font-medium">Search phrase to consider</span><select value={keyword} disabled={generating || taskConfirmed} onChange={event => { setKeyword(event.target.value); setSuggestion(null); setGenerationError(''); }} className="w-full rounded border bg-background p-3">
+                <option value="">Use current page content without a keyword</option>
+                {selected.focusKeyword && !selected.queries.some(row => row.keyword === selected.focusKeyword) && <option value={selected.focusKeyword}>{selected.focusKeyword} — saved focus keyword</option>}
+                {selected.queries.map(row => <option key={row.keyword} value={row.keyword}>{row.keyword} — observed search query</option>)}
+              </select></label>
+              <p className="text-muted-foreground">Choose a phrase only if it fits this page, or use your page content alone. Options marked “observed search query” came from Google; saved focus keywords are your earlier selections.</p>
+            </div>
+          </details>
           {generationError && <p role="alert" className="text-destructive">{generationError}</p>}
-          {!taskConfirmed && <Button onClick={generate} disabled={!currentPage || contentBusy || generating || redirected}>{generating ? 'Drafting your suggestion…' : suggestion ? 'Generate another draft' : generationError ? 'Try generating again' : 'Generate title and description'}</Button>}
-          {!taskConfirmed && <p className="text-xs text-muted-foreground">Suggestions are generated only when you press this button. Review the wording before publishing.</p>}
+          {!taskConfirmed && <Button onClick={generate} disabled={!currentPage || contentBusy || generating || redirected}><Sparkles className="mr-2 h-4 w-4" aria-hidden="true" />{generating ? 'Drafting your suggestion…' : suggestion ? 'Generate another draft' : generationError ? 'Try generating again' : 'Generate title and description'}</Button>}
+          {!taskConfirmed && <p className="text-xs text-muted-foreground">This creates a draft. It won’t change your website.</p>}
         </CardContent></Card>
       <div className="mb-6"><SeoRecommendationPanel key={selected.url} pageUrl={selected.url} title={selected.url}
         suggestedTitle={suggestion?.title || ''} suggestedDescription={suggestion?.description || ''}

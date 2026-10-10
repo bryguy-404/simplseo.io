@@ -3,7 +3,7 @@
 import { useEffect, useId, useState } from 'react';
 import Link from 'next/link';
 import { doc, getDoc } from 'firebase/firestore';
-import { Copy, ExternalLink } from 'lucide-react';
+import { CheckCircle2, Copy, ExternalLink, Globe, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '../../lib/firebaseConfig';
 import { useAuth } from '../../contexts/AuthContext';
@@ -87,41 +87,54 @@ export default function SeoRecommendationPanel({
   };
 
   const fields = [
-    { key: 'title', label: 'SEO title', current: currentPage?.htmlTitle ?? currentPage?.title, value: saved ? saved.title || '' : draftTitle, set: setDraftTitle },
-    { key: 'description', label: 'Meta description', current: currentPage?.seoMetaDescription ?? currentPage?.metaDescription, value: saved ? saved.description || '' : draftDescription, set: setDraftDescription },
+    { key: 'title', label: 'Page title', helper: 'Also called the SEO title.', accessibleLabel: 'page title (SEO title)', current: currentPage?.htmlTitle ?? currentPage?.title, value: saved ? saved.title || '' : draftTitle, set: setDraftTitle },
+    { key: 'description', label: 'Page description', helper: 'Also called the meta description.', accessibleLabel: 'page description (meta description)', current: currentPage?.seoMetaDescription ?? currentPage?.metaDescription, value: saved ? saved.description || '' : draftDescription, set: setDraftDescription },
   ];
 
-  return <section className="rounded-lg border p-5 space-y-5" aria-label="Website edit task">
+  return <section className={`rounded-xl border p-5 space-y-5 ${saved ? 'border-emerald-300 dark:border-emerald-800' : ''}`} aria-label="Website edit task">
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <div><h3 className="text-lg font-semibold">{saved ? 'Your confirmed website change' : 'Review your website edit'}</h3>
-        {title && <p className="text-sm text-muted-foreground break-all">{title.replace(/^(Fix|Focus):\s*/, '')}</p>}
+      <div><h3 className="text-lg font-semibold">{saved ? 'Your confirmed website change' : sourceReady ? 'Compare and edit your suggestion' : 'Your website edit'}</h3>
+        {title && title !== pageUrl && <p className="text-sm text-muted-foreground break-all">{title.replace(/^(Fix|Focus):\s*/, '')}</p>}
       </div>
       <Button variant="outline" asChild><a href={pageUrl} target="_blank" rel="noopener noreferrer">Open website page <ExternalLink className="ml-2 h-4 w-4" /></a></Button>
     </div>
     {loadingSaved && <p role="status">Checking saved changes…</p>}
     {loadError && <p role="alert" className="text-destructive">{loadError}</p>}
     {error && !confirmOpen && <p role="alert" className="text-destructive">{error}</p>}
-    {saved ? <p className="rounded border bg-muted/30 p-3 text-sm">Confirmed {new Date(saved.implementedAt).toLocaleDateString()}. These are the values you saved. <Link href="/dashboard#page-progress" className="underline">View page progress</Link> for dated observations. Leave this change in place while its comparison is collected.</p> : <ol className="list-decimal pl-5 space-y-2 text-sm text-muted-foreground">
-      <li>Review the draft and adjust it so it accurately describes this page.</li>
-      <li>Open your website editor, update this page’s SEO title and meta description, then publish.</li>
-      <li>Check the published page and confirm below. SimplSEO does not make website edits for you.</li>
-    </ol>}
-    {focusKeyword && <p className="text-sm text-muted-foreground">{keywordSource === 'ai-generated' ? 'AI keyword idea' : keywordSource === 'gsc-observed' ? 'Observed Google search query' : 'Selected focus keyword'}: <span className="text-foreground">{focusKeyword}</span>. Use it only if it matches this page.</p>}
-    {(saved || sourceReady) ? <div className="grid gap-5">
-      {fields.map(field => <div className="space-y-2" key={field.key}>
-        <Label htmlFor={`${id}-${field.key}`}>{field.label}</Label>
-        {!saved && currentPage && <div className="rounded border bg-muted/30 p-3 text-sm"><p className="mb-1 text-xs text-muted-foreground">Read from your website</p>{field.current || 'This field was not found in the page HTML.'}</div>}
-        <div className="flex items-start gap-2"><Textarea id={`${id}-${field.key}`} value={field.value} readOnly={Boolean(saved)} onChange={event => { field.set(event.target.value); setConfirmedLive(false); }} className="min-h-24" aria-label={`${saved ? 'Confirmed' : 'Suggested'} ${field.label.toLowerCase()}`} />
-          <Button variant="outline" size="icon" aria-label={`Copy ${field.label.toLowerCase()}`} onClick={() => copy(field.value, field.label)}><Copy className="h-4 w-4" /></Button></div>
+    {saved ? <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100">
+      <p className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden="true" /><span><strong>Change saved.</strong> Confirmed {new Date(saved.implementedAt).toLocaleDateString()}.</span></p>
+      <Link href="/dashboard#page-progress" className="font-medium underline underline-offset-4">View page progress</Link>
+    </div> : sourceReady && <p className="text-sm text-muted-foreground">Adjust the suggestion if needed, then copy it into your website editor.</p>}
+    {focusKeyword && <p className="text-sm text-muted-foreground">{keywordSource === 'ai-generated' ? 'AI keyword idea' : keywordSource === 'gsc-observed' ? 'Observed search phrase' : 'Selected search phrase'}: <span className="font-medium text-foreground">{focusKeyword}</span></p>}
+    {(saved || sourceReady) ? <div className="grid gap-6">
+      {fields.map(field => <div className="space-y-3" key={field.key}>
+        <div><Label htmlFor={`${id}-${field.key}`} className="text-base font-semibold">{field.label}</Label><p id={`${id}-${field.key}-help`} className="mt-1 text-xs text-muted-foreground">{field.helper}</p></div>
+        <div className={`grid gap-3 ${!saved && currentPage ? 'md:grid-cols-2' : ''}`}>
+          {!saved && currentPage && <div className="min-w-0 rounded-lg border border-sky-200 bg-sky-50 p-4 dark:border-sky-800 dark:bg-sky-950/30">
+            <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-sky-900 dark:text-sky-100"><Globe className="h-4 w-4 shrink-0" aria-hidden="true" />Currently on your website</p>
+            <p className="md:min-h-24 whitespace-pre-wrap break-words text-sm text-sky-950 dark:text-sky-100">{field.current || 'Not found on this page.'}</p>
+          </div>}
+          <div className={`min-w-0 rounded-lg border p-4 ${saved ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30' : 'border-violet-200 bg-violet-50 dark:border-violet-800 dark:bg-violet-950/30'}`}>
+            <p className={`mb-3 flex items-center gap-2 text-sm font-semibold ${saved ? 'text-emerald-900 dark:text-emerald-100' : 'text-violet-900 dark:text-violet-100'}`}>
+              {saved ? <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" /> : <Pencil className="h-4 w-4 shrink-0" aria-hidden="true" />}{saved ? 'Confirmed wording' : 'Suggested wording'}
+            </p>
+            <div className="flex items-start gap-2"><Textarea id={`${id}-${field.key}`} value={field.value} readOnly={Boolean(saved)} onChange={event => { field.set(event.target.value); setConfirmedLive(false); }} className={`${field.key === 'description' ? 'min-h-40 md:min-h-28' : 'min-h-24'} bg-background/80 ${saved ? 'border-emerald-300 dark:border-emerald-700' : 'border-violet-300 dark:border-violet-700'}`} aria-label={`${saved ? 'Confirmed' : 'Suggested'} ${field.accessibleLabel}`} aria-describedby={`${id}-${field.key}-help`} />
+              <Button variant="outline" size="icon" className="shrink-0 bg-background/80" aria-label={`Copy ${field.accessibleLabel}`} onClick={() => copy(field.value, field.label)}><Copy className="h-4 w-4" /></Button></div>
+          </div>
+        </div>
       </div>)}
-      {!saved && <p className="text-xs text-muted-foreground">Titles and descriptions above come from your website, not Search Console. Google may display different text in search results. Suggestions are drafts to review; results are not guaranteed.</p>}
-    </div> : <p className="text-sm text-muted-foreground">Generate a draft above before confirming a website change.</p>}
+    </div> : !loadingSaved && <p className="text-sm text-muted-foreground">Your draft will appear here after you generate a suggestion.</p>}
     {!saved && <div className="space-y-3 border-t pt-4">
-      <div className="flex items-start gap-2"><Checkbox id={`${id}-implemented`} checked={confirmedLive} disabled={!ready || busy || loadingSaved || Boolean(loadError)} onCheckedChange={value => setConfirmedLive(value === true)} />
-        <Label htmlFor={`${id}-implemented`} className="leading-5">I published these title and description changes on this page.</Label></div>
+      {sourceReady && <><p className="text-sm font-medium">Publish these changes on your website before confirming here.</p>
+        <div className="flex items-start gap-2"><Checkbox id={`${id}-implemented`} checked={confirmedLive} disabled={!ready || busy || loadingSaved || Boolean(loadError)} onCheckedChange={value => setConfirmedLive(value === true)} />
+          <Label htmlFor={`${id}-implemented`} className="leading-5">I published these title and description changes on this page.</Label></div></>}
       <Button onClick={() => setConfirmOpen(true)} disabled={!ready || !confirmedLive || busy || loadingSaved || Boolean(loadError)}>Confirm change and start tracking</Button>
-      <p className="text-xs text-muted-foreground">Tracking uses 28 days before and after your confirmation date, plus Google’s reporting delay. Low traffic may leave the comparison inconclusive.</p>
     </div>}
+    {(saved || sourceReady) && <details className="text-sm text-muted-foreground"><summary className="cursor-pointer rounded py-1 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">How does tracking work?</summary><div className="space-y-2 pt-3 text-xs leading-relaxed">
+      <p>SimplSEO does not edit your website. Confirm after you publish the changes yourself.</p>
+      <p>Tracking compares 28 days before and after your confirmation date, plus Google’s reporting delay. Leave the change in place while data is collected. Low traffic may leave the comparison inconclusive.</p>
+      <p>Current wording is read from your website. Google may show different text in search results. A change in traffic does not prove that the edit caused it.</p>
+    </div></details>}
     <Dialog open={confirmOpen} onOpenChange={value => { if (!busy) setConfirmOpen(value); }}>
       <DialogContent><DialogHeader><DialogTitle>Start tracking this published change?</DialogTitle><DialogDescription>Confirm only after publishing these edits on your website. Today will be the change date used for your before-and-after comparison.</DialogDescription></DialogHeader>
         <p className="break-all text-sm">{pageUrl}</p>

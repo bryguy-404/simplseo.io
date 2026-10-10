@@ -11,7 +11,7 @@ const overview = {
   schemaVersion: 1, source: 'google_search_console', property,
   window: { startDate: '2026-09-10', endDate: '2026-10-07' }, fetchedAt: '2026-10-10T16:00:00Z',
   totals: { impressions: 700, clicks: 21, ctr: 0.03, position: 8 },
-  pages: [{ pageUrl, impressions: 300, clicks: 7, ctr: 7/300, position: 9 }],
+  pages: [{ pageUrl, impressions: 300, clicks: 7, ctr: 7/300, position: 9 }, { pageUrl: 'https://example.test/', impressions: 142, clicks: 6, ctr: 6/142, position: 8 }],
   daily: [{ date: '2026-09-10', impressions: 12, clicks: 1 }, { date: '2026-09-11', impressions: 14, clicks: 0 }],
   coverage: { pages: { limit: 100, complete: false } },
 };
@@ -57,6 +57,7 @@ test('fresh current-site dashboard offers an exact-page task with no old focus k
   await expect(page.getByText('700', { exact: true })).toBeVisible();
   await expect(page.getByText('21', { exact: true })).toBeVisible();
   expect(requests.some(path => path.includes('seo-assistant') || path.includes('/suggestions'))).toBe(false);
+  await expect(page.getByRole('link', { name: /^Homepage https:/ })).toHaveAttribute('href', 'https://example.test/');
   await page.screenshot({ path: 'test-results/phase3-dashboard.png', fullPage: true });
 });
 

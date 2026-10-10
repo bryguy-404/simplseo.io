@@ -4,6 +4,8 @@ Status on October 10 2026: Bryan accepted Phase 2 after checking all screens and
 
 The first release restores Bryan's existing account without requiring every page to appear in Google. Keep Firebase, Firestore and Vercel. Users continue making website changes themselves. The existing public URL and access remain unchanged. Bryan wants to use the tool on the current website, judge its practical value, fix inconsistencies during use, and later share it with friends and family. Old work stays archived and does not drive current recommendations; no history deletion or artificial data reset is needed. Phases 4–5 remain roadmap items.
 
+Version 1 is for owners who may not know what SEO means. Lead with the current wording, suggested wording and next action; use plain labels, readable visual grouping and optional explanations. Color reinforces written labels rather than replacing them. More detailed controls for experienced users can come later.
+
 ## Phase 0 Preparation and safeguards
 
 1. Preserve existing work on `codex/account-recovery`, including the reconnect fixes. Keep conversation reference files outside the release. The original patch is held locally outside the repository.

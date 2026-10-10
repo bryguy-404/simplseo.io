@@ -17,7 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 const SearchActivityChart = dynamic(() => import('./SearchActivityChart'), { ssr: false, loading: () => <p>Loading chart…</p> });
 const count = value => Number(value).toLocaleString();
 const reviewHref = pageUrl => `/low-ctr?page=${encodeURIComponent(pageUrl)}`;
-const pageLabel = pageUrl => { try { const url = new URL(pageUrl); return url.pathname + url.search; } catch { return pageUrl; } };
+const pageLabel = pageUrl => { try { const url = new URL(pageUrl); return url.pathname === '/' && !url.search ? 'Homepage' : url.pathname + url.search; } catch { return pageUrl; } };
 
 export default function CurrentWebsiteDashboard() {
   const { user } = useAuth();
@@ -97,7 +97,7 @@ export default function CurrentWebsiteDashboard() {
           <div className="border-t border-primary/20 pt-5 flex flex-wrap items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
               {hasChanges ? <><p className="font-medium">{activePages.size} {activePages.size === 1 ? 'page has' : 'pages have'} confirmed changes</p><p className="text-sm text-muted-foreground">Check the dated observations below. A new edit needs time and enough search activity before a comparison is available.</p></>
-                : nextPage ? <><p className="font-medium break-all">Start with {pageLabel(nextPage.pageUrl)}</p><p className="text-sm text-muted-foreground">This page has recent search activity. Review it to decide whether its title or description needs a change.</p></>
+                : nextPage ? <><p className="font-medium break-all">Start with {pageLabel(nextPage.pageUrl)}</p>{pageLabel(nextPage.pageUrl) === 'Homepage' && <a href={nextPage.pageUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-sm underline break-all">{nextPage.pageUrl}<span className="sr-only"> Open homepage in new tab</span></a>}<p className="text-sm text-muted-foreground">This page has recent search activity. Review it to decide whether its title or description needs a change.</p></>
                   : <><p className="font-medium">Choose a page from your current website</p><p className="text-sm text-muted-foreground">{busy ? 'Loading recent search activity…' : 'You can review a tracked page even when Google has no search data for it yet.'}</p></>}
             </div>
             <Button asChild><Link href={hasChanges ? '#page-progress' : nextPage ? reviewHref(nextPage.pageUrl) : '/low-ctr'}>{hasChanges ? 'View progress' : nextPage ? 'Review this page' : 'Choose a page'}<ArrowRight className="h-4 w-4 ml-2" /></Link></Button>
@@ -125,7 +125,7 @@ export default function CurrentWebsiteDashboard() {
               <h2 className="font-semibold">Pages to review</h2>
               {availablePages.length === 0 ? <p className="text-muted-foreground text-sm">No page activity was returned for this period. This does not tell us whether Google has crawled or indexed your pages. You can still <Link href="/low-ctr" className="underline">review a tracked page</Link>.</p> : <ul className="divide-y">
                 {visiblePages.map(page => <li key={page.pageUrl} className="py-3 flex flex-wrap items-center justify-between gap-3">
-                  <div className="min-w-0 flex-1"><a href={page.pageUrl} target="_blank" rel="noopener noreferrer" className="font-medium break-all hover:underline">{pageLabel(page.pageUrl)} <ExternalLink className="inline h-3 w-3" /><span className="sr-only"> Open website in new tab</span></a><p className="text-sm text-muted-foreground mt-1">{count(page.clicks)} clicks <span aria-hidden="true">·</span> {count(page.impressions)} appearances{activePages.has(page.pageUrl) && <span> <span aria-hidden="true">·</span> Change confirmed</span>}</p></div>
+                  <div className="min-w-0 flex-1"><a href={page.pageUrl} target="_blank" rel="noopener noreferrer" className="font-medium break-all hover:underline">{pageLabel(page.pageUrl)} <ExternalLink className="inline h-3 w-3" aria-hidden="true" />{pageLabel(page.pageUrl) === 'Homepage' && <span className="block mt-1 text-sm font-normal text-muted-foreground">{page.pageUrl}</span>}<span className="sr-only"> Open website in new tab</span></a><p className="text-sm text-muted-foreground mt-1">{count(page.clicks)} clicks <span aria-hidden="true">·</span> {count(page.impressions)} appearances{activePages.has(page.pageUrl) && <span> <span aria-hidden="true">·</span> Change confirmed</span>}</p></div>
                   <Button variant="outline" size="sm" asChild><Link href={activePages.has(page.pageUrl) ? '#page-progress' : reviewHref(page.pageUrl)} aria-label={`${activePages.has(page.pageUrl) ? 'View progress for' : 'Review'} ${pageLabel(page.pageUrl)}`}>{activePages.has(page.pageUrl) ? 'View progress' : 'Review page'}</Link></Button>
                 </li>)}
               </ul>}

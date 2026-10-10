@@ -33,6 +33,8 @@ Stop for feedback on this first real task before expanding recommendation/conten
 
 ## Remaining work and rollback
 
+Bryan's first visual checkpoint: the dashboard loads and its overall layout works. His October 10 feedback requested an explicit Homepage link, clearer separation of current content and suggestions, and less visible technical copy for beginners. The follow-up uses blue current content, violet editable drafts, green saved confirmations, plain page-title/description labels and expandable supporting details. The draft-quality and first real published-edit checkpoints remain open; Phase 4 has not begun.
+
 Phase 4 covers recommendation quality, affordable research and useful new content. Phase 5 covers pilot feedback and economics. The next scheduled progress/website-monitoring invocations remain an operational check. The retained Firebase Functions Node 20 runtime maintenance item remains due before the CLI-reported October 30, 2026 decommission date.
 
 This phase requires no Firestore rules/index deployment and no recovery data migration. The Phase 2 application deployment `dpl_24oqSEcKbtZTRfCCw72tSLaA2F1t` remains the rollback target. Retain Phase 2's rules, inactive legacy writer, immutable history and disabled automatic outcomes during rollback. Do not revert an actual user-confirmed website change or overwrite newer account state.
