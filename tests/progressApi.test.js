@@ -85,6 +85,21 @@ it('compares only server-fetched equal windows and leaves old snapshots untouche
   expect(query.mock.calls.map(call => [call[0].startDate, call[0].endDate])).toEqual([['2026-07-04','2026-07-31'],['2026-08-02','2026-08-29']]);
   expect(records.get('implementedSeoTips/tip')).toMatchObject({ preStats: { clicks: 10000 }, postStats: { clicks: 99999 }, progressAssessment: { state: 'ready', baseline: { clicks: 10 }, post: { clicks: 10 }, comparison: { clicksDelta: 0 }, automaticOutcome: null } });
 });
+it('tracks page-content edits using the same dated observations and returns their owner-entered summary', async () => {
+  const pageChangeSummary = 'Added a section describing the design process and a link to contact us.';
+  const document = await tip('content-edit', { changeType: 'page_content', pageChangeSummary,
+    title: 'Observed title, not an edited tag', description: 'Observed description', userId: 'alice' });
+  await tip('other-account', { userId: 'bob', changeType: 'page_content', pageChangeSummary: 'Private other-account edit' });
+  await tip('archived-content', { preRevampArchived: true, changeType: 'page_content', pageChangeSummary: 'Old website edit' });
+  expect(await collectProgressRecord(document, { now })).toBe('ready');
+  const result = await readProgress('alice', now);
+  expect(result.records).toHaveLength(1);
+  expect(result.records[0]).toMatchObject({ id: 'content-edit', pageUrl, implementedAt: '2026-08-01', changeType: 'page_content', pageChangeSummary,
+    assessment: { state: 'ready', comparison: { clicksDelta: 0 }, automaticOutcome: null } });
+  expect(result.records[0]).not.toHaveProperty('title');
+  expect(result.records[0]).not.toHaveProperty('description');
+  expect(query.mock.calls.map(call => [call[0].startDate, call[0].endDate])).toEqual([['2026-07-04','2026-07-31'],['2026-08-02','2026-08-29']]);
+});
 it('retains dated successful observations but clears comparison when provider fetch fails', async () => {
   await collectProgressRecord(await tip(), { now });
   query.mockRejectedValue(new Error('temporarily_unavailable'));

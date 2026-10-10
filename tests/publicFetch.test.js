@@ -51,3 +51,17 @@ it('revalidates redirect destinations before connecting and bounds response size
   transportState.responses.push({statusCode:200,headers:{},body:'x'.repeat(2*1024*1024+1)});
   await expect(publicFetch('https://website.test')).rejects.toMatchObject({status:400});
 });
+
+it('blocks a public off-property redirect before resolving or sending to its destination', async () => {
+  transportState.responses.push({ statusCode: 302, headers: { location: 'https://elsewhere.test/page' }, body: '' });
+  await expect(publicFetch('https://website.test/start', { property: 'https://website.test/' })).rejects.toMatchObject({ status: 403 });
+  expect(http.request).toHaveBeenCalledTimes(1);
+  expect(lookup).toHaveBeenCalledTimes(1);
+});
+it('retains the exact in-property redirect chain and revalidates its DNS addresses', async () => {
+  transportState.responses.push({ statusCode: 301, headers: { location: '/New?Case=Exact' }, body: '' });
+  const result = await publicFetch('https://website.test/old', { property: 'https://website.test/' });
+  expect(result.url).toBe('https://website.test/New?Case=Exact');
+  expect(result.redirectChain).toEqual([{ url: 'https://website.test/old', status: 301, destination: 'https://website.test/New?Case=Exact' }]);
+  expect(lookup).toHaveBeenCalledTimes(2);
+});

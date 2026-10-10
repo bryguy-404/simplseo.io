@@ -106,7 +106,7 @@ export default function SeoRecommendationPanel({
       <Link href="/dashboard#page-progress" className="font-medium underline underline-offset-4">View page progress</Link>
     </div> : sourceReady && <p className="text-sm text-muted-foreground">Adjust the suggestion if needed, then copy it into your website editor.</p>}
     {focusKeyword && <p className="text-sm text-muted-foreground">{keywordSource === 'ai-generated' ? 'AI keyword idea' : keywordSource === 'gsc-observed' ? 'Observed search phrase' : 'Selected search phrase'}: <span className="font-medium text-foreground">{focusKeyword}</span></p>}
-    {(saved || sourceReady) ? <div className="grid gap-6">
+    {saved?.changeType === 'page_content' ? <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm dark:border-emerald-800 dark:bg-emerald-950/30"><p className="mb-2 font-semibold">Published page-content change</p><p className="whitespace-pre-wrap break-words">{saved.pageChangeSummary || 'The published change was recorded for this page.'}</p></div> : (saved || sourceReady) ? <div className="grid gap-6">
       {fields.map(field => <div className="space-y-3" key={field.key}>
         <div><Label htmlFor={`${id}-${field.key}`} className="text-base font-semibold">{field.label}</Label><p id={`${id}-${field.key}-help`} className="mt-1 text-xs text-muted-foreground">{field.helper}</p></div>
         <div className={`grid gap-3 ${!saved && currentPage ? 'md:grid-cols-2' : ''}`}>

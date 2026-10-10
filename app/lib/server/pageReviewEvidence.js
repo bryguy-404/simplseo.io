@@ -3,7 +3,8 @@ import { searchWindow } from '../searchWindow';
 import { getGscConnection } from './gscConnection';
 import { RequestError } from './requestAuth';
 
-const QUERY_LIMIT = 20;
+const QUERY_LIMIT = 1000;
+const MODEL_QUERY_LIMIT = 40;
 const RELATED_PAGE_LIMIT = 5;
 const HISTORY_WINDOW_COUNT = 6;
 const invalid = () => { throw new Error('Invalid Search Console evidence.'); };
@@ -93,7 +94,7 @@ function evidenceFacts(currentPage, evidence) {
       ? `Exact page ${evidence.pageUrl}; ${dates(window)}: ${metricText(period.totals)}.`
       : `Search Console returned no total rows for exact page ${evidence.pageUrl} during ${dates(window)}. This does not establish indexing status.` });
   }
-  evidence.current.queries.forEach((row, index) => facts.push({
+  evidence.current.queries.slice(0, MODEL_QUERY_LIMIT).forEach((row, index) => facts.push({
     id: `Q${index + 1}`, kind: 'search', label: 'Observed search query',
     text: `Query ${JSON.stringify(row.query)} for exact page ${evidence.pageUrl}; ${dates(evidence.window)}: ${metricText(row)}.`,
   }));
@@ -126,7 +127,9 @@ export async function collectPageReviewEvidence(userId, { pageUrl, property, cur
     window: { startDate: shiftDay(window.startDate, -28 * index), endDate: shiftDay(window.endDate, -28 * index) },
     totals: null, totalsStatus: 'unavailable',
   }));
-  const emptyPeriod = () => ({ totals: null, queries: [], totalsStatus: 'unavailable', queriesStatus: 'unavailable' });
+  const emptyPeriod = () => ({ totals: null, queries: [], totalsStatus: 'unavailable', queriesStatus: 'unavailable',
+    queryCoverage: { coverage: 'reported_queries', mayBeIncomplete: true, requestedLimit: QUERY_LIMIT,
+      returnedRows: null, selectedForReview: null, hitRowLimit: null, order: 'impressions_descending' } });
   const evidence = {
     source: 'google_search_console', property, pageUrl, window, previousWindow, fetchedAt: now.toISOString(),
     status: 'unavailable', current: emptyPeriod(), previous: emptyPeriod(), relatedPages: [], history,
@@ -134,6 +137,7 @@ export async function collectPageReviewEvidence(userId, { pageUrl, property, cur
     selectedPhrase: { value: phrase, source: phrase ? 'provided' : 'none' },
     limitations: [
       'Search Console query and page rows are limited samples and may omit searches for privacy. Page totals are requested separately, never summed from query rows.',
+      'Each recent period requests up to 1,000 query rows. Google returns top rows by clicks; the returned rows are then ordered by appearances, and at most 40 current queries become individual review facts. Even a response below the limit is not a complete list of searches.',
       'History covers six adjacent 28-day windows (168 days) of finalized web-search data, newest first. The newest three days are excluded. These are not a before-and-after test of a confirmed edit.',
       'Historical activity belongs to this exact URL and may span earlier website versions. The age of the current title, description and page content is unknown; this history does not measure how long the current wording has been in use.',
       'Search activity does not establish whether a page is indexed, explain a ranking cause, or predict improvement from a proposed change.',
@@ -171,7 +175,12 @@ export async function collectPageReviewEvidence(userId, { pageUrl, property, cur
       if (results[index].status !== 'fulfilled') invalid();
       const value = field === 'totals' ? readTotals(results[index].value)
         : readDimension(results[index].value, { limit: QUERY_LIMIT, field: 'query' });
-      evidence[key][field] = value;
+      evidence[key][field] = field === 'queries'
+        ? value.sort((a, b) => b.impressions - a.impressions || b.clicks - a.clicks || a.query.localeCompare(b.query)) : value;
+      if (field === 'queries') evidence[key].queryCoverage = {
+        ...evidence[key].queryCoverage, returnedRows: value.length,
+        selectedForReview: Math.min(value.length, MODEL_QUERY_LIMIT), hitRowLimit: value.length === QUERY_LIMIT,
+      };
       evidence[key][`${field}Status`] = field === 'totals'
         ? (value && value.impressions > 0 ? 'available' : 'no_data')
         : (value.length ? 'available' : 'no_data');

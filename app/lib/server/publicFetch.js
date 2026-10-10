@@ -3,6 +3,7 @@ import { BlockList, isIP } from 'node:net';
 import http from 'node:http';
 import https from 'node:https';
 import { RequestError } from './requestAuth';
+import { propertyContainsUrl } from '../revampState';
 
 const blockedV4 = new BlockList();
 for (const [network, prefix] of [['0.0.0.0',8],['10.0.0.0',8],['100.64.0.0',10],['127.0.0.0',8],['169.254.0.0',16],['172.16.0.0',12],['192.0.0.0',24],['192.0.2.0',24],['192.88.99.0',24],['192.168.0.0',16],['198.18.0.0',15],['198.51.100.0',24],['203.0.113.0',24],['224.0.0.0',4],['240.0.0.0',4]]) blockedV4.addSubnet(network,prefix,'ipv4');
@@ -30,7 +31,10 @@ export async function resolvePublicUrl(rawUrl) {
 // This prevents a second DNS answer from redirecting the connection internally.
 export async function publicFetch(rawUrl, options = {}) {
   let currentUrl = rawUrl;
+  const redirectChain = [];
   for (let redirects = 0; redirects <= 5; redirects++) {
+    // Check each destination before DNS or HTTP, not only the final response.
+    if (options.property && !propertyContainsUrl(options.property, currentUrl)) throw new RequestError('This page redirects outside your connected Search Console property.', 403);
     const { url, address } = await resolvePublicUrl(currentUrl);
     const response = await new Promise((resolve,reject) => {
       const transport = url.protocol === 'https:' ? https : http;
@@ -60,10 +64,15 @@ export async function publicFetch(rawUrl, options = {}) {
       req.on('close',() => clearTimeout(deadline));
       req.on('error',reject); req.end();
     });
-    if (![301,302,303,307,308].includes(response.status)) return response;
+    if (![301,302,303,307,308].includes(response.status)) {
+      Object.defineProperty(response, 'redirectChain', { value: redirectChain });
+      return response;
+    }
     const location = response.headers.get('location');
     if (!location) return response;
-    currentUrl = new URL(location,url).href;
+    const nextUrl = new URL(location,url).href;
+    redirectChain.push({ url: url.href, status: response.status, destination: nextUrl });
+    currentUrl = nextUrl;
   }
   throw new RequestError('The website redirects too many times.');
 }

@@ -23,6 +23,9 @@ const request = (data = {}, uid = 'alice') => new Request('https://simplseo.test
   method: 'POST', headers: { 'Content-Type': 'application/json', ...(uid ? { Authorization: `Bearer ${uid}` } : {}) },
   body: JSON.stringify({ pageUrl, ...draft, provenance, ...data }),
 });
+const contentSummary = 'Added a section explaining the web design process and linked it to the contact page.';
+const contentRequest = (data = {}, uid = 'alice') => request({ title: undefined, description: undefined,
+  changeType: 'page_content', changeSummary: contentSummary, published: true, ...data }, uid);
 const htmlResponse = (url = pageUrl) => {
   const response = new Response('<html><head><title>Current website title</title><meta name="description" content="Current website description"></head><body><h1>Current website</h1></body></html>', { headers: { 'Content-Type': 'text/html' } });
   Object.defineProperty(response, 'url', { value: url });
@@ -74,6 +77,102 @@ describe('server-confirmed manual page changes', () => {
       gscProperty: provenance.property, confirmationMethod: 'user-confirmed', status: 'implemented' });
     expect(result.record.confirmedPageObservation.finalUrl).toBe(pageUrl);
     expect(records.get(recordPath).implementedAt).not.toBe(v3Provenance.generatedAt);
+  });
+
+  it('records an owner-confirmed content edit with fresh observed tags rather than supplied metadata or AI claims', async () => {
+    const response = await confirm(contentRequest({ title: 'Forged changed title', description: 'Forged changed description',
+      implementedAt: '1900-01-01', pageChangeSummary: 'A forged alternative summary', verifiedPublished: true,
+      recommendation: { kind: 'technical', title: 'AI says done' }, progressAssessment: { state: 'success' },
+      provenance: { ...provenance, reviewVersion: 4, contentFingerprint: 'pre-edit-fingerprint' } }));
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+    const result = await response.json();
+    expect(result).toMatchObject({ alreadyConfirmed: false, record: { id, userId: 'alice', pageUrl,
+      changeType: 'page_content', pageChangeSummary: contentSummary, title: 'Current website title',
+      description: 'Current website description', status: 'implemented', websiteRunId: provenance.websiteRunId,
+      confirmationMethod: 'user-confirmed', confirmedPageObservation: { htmlTitle: 'Current website title', finalUrl: pageUrl } } });
+    expect(Math.abs(Date.now() - Date.parse(result.record.implementedAt))).toBeLessThan(5000);
+    for (const key of ['verifiedPublished', 'recommendation', 'progressAssessment', 'changeSummary', 'published']) expect(records.get(recordPath)).not.toHaveProperty(key);
+  });
+
+  it('allows actual content edits when the page has no metadata, without inventing tags', async () => {
+    publicFetch.mockImplementation(async () => {
+      const response = new Response('<html><body><h1>How we build websites</h1><p>A newly published explanation.</p></body></html>', { headers: { 'Content-Type': 'text/html' } });
+      Object.defineProperty(response, 'url', { value: pageUrl });
+      return response;
+    });
+    const response = await confirm(contentRequest());
+    expect(response.status).toBe(200);
+    expect((await response.json()).record).toMatchObject({ changeType: 'page_content', pageChangeSummary: contentSummary, title: '', description: '' });
+  });
+
+  it('requires an explicit published acknowledgement and bounded owner-entered summary before fetching', async () => {
+    for (const changes of [{ published: false }, { published: undefined }, { published: 'true' }, { published: 1 },
+      { changeSummary: undefined }, { changeSummary: null }, { changeSummary: '   ' }, { changeSummary: 123 },
+      { changeSummary: 'x'.repeat(601) }, { changeSummary: '<script>alert(1)</script>' }, { changeSummary: 'Updated\u0000content' }]) {
+      expect((await confirm(contentRequest(changes))).status).toBe(400);
+    }
+    expect(publicFetch).not.toHaveBeenCalled();
+    expect(records.has(recordPath)).toBe(false);
+    const response = await confirm(contentRequest({ changeSummary: `  ${'a'.repeat(600)}  ` }));
+    expect(response.status).toBe(200);
+    expect(records.get(recordPath).pageChangeSummary).toHaveLength(600);
+  });
+
+  it('does not accept review, check, or unknown action types as a published edit', async () => {
+    for (const changeType of ['check', 'monitor', 'review_page', 'technical', '', null, {}, []]) {
+      expect((await confirm(contentRequest({ changeType }))).status).toBe(400);
+    }
+    expect(publicFetch).not.toHaveBeenCalled();
+    expect(records.has(recordPath)).toBe(false);
+  });
+
+  it('keeps the same content confirmation and clock after retries even if live tags later change', async () => {
+    const first = await (await confirm(contentRequest())).json();
+    publicFetch.mockImplementation(async () => {
+      const response = new Response('<html><head><title>Later observed title</title></head><body><p>Later content</p></body></html>', { headers: { 'Content-Type': 'text/html' } });
+      Object.defineProperty(response, 'url', { value: pageUrl });
+      return response;
+    });
+    const second = await (await confirm(contentRequest({ changeSummary: ` ${contentSummary} ` }))).json();
+    expect(second).toEqual({ ...first, alreadyConfirmed: true });
+    expect(records.get(recordPath).title).toBe('Current website title');
+    expect((await confirm(contentRequest({ changeSummary: 'Published a different edit later.' }))).status).toBe(409);
+    expect((await confirm(request())).status).toBe(409);
+    expect(records.get(recordPath).implementedAt).toBe(first.record.implementedAt);
+    expect(records.get(recordPath).pageChangeSummary).toBe(contentSummary);
+  });
+
+  it('does not overwrite an active metadata cycle with a content edit', async () => {
+    const first = await (await confirm(request())).json();
+    expect((await confirm(contentRequest())).status).toBe(409);
+    expect(records.get(recordPath)).toMatchObject({ ...draft, implementedAt: first.record.implementedAt });
+    expect(records.get(recordPath)).not.toHaveProperty('changeType');
+  });
+
+  it('applies account, exact URL, property, run, redirect and archive guards to content edits', async () => {
+    expect((await confirm(contentRequest({}, null))).status).toBe(401);
+    expect((await confirm(contentRequest({ userId: 'bob' }))).status).toBe(403);
+    expect((await confirm(contentRequest({ provenance: { ...provenance, finalUrl: 'https://example.test/other' } }))).status).toBe(409);
+    const elsewhere = 'https://elsewhere.test/page';
+    expect((await confirm(contentRequest({ pageUrl: elsewhere, provenance: { ...provenance, pageUrl: elsewhere, finalUrl: elsewhere } }))).status).toBe(403);
+    expect((await confirm(contentRequest({ provenance: { ...provenance, websiteRunId: 'old-website' } }))).status).toBe(409);
+    publicFetch.mockImplementation(async () => htmlResponse('https://example.test/destination'));
+    expect((await confirm(contentRequest())).status).toBe(409);
+    publicFetch.mockImplementation(async () => htmlResponse());
+    records.set(recordPath, { userId: 'alice', pageUrl, preRevampArchived: true, status: 'implemented' });
+    expect((await confirm(contentRequest())).status).toBe(409);
+    expect(records.get(recordPath).preRevampArchived).toBe(true);
+  });
+
+  it('rechecks the content confirmation run inside the transaction after reading the published page', async () => {
+    const transaction = db.runTransaction;
+    vi.spyOn(db, 'runTransaction').mockImplementation(async callback => {
+      await db.collection('onboarding').doc('alice').update({ revampRunId: 'changed-after-read' });
+      return transaction(callback);
+    });
+    expect((await confirm(contentRequest())).status).toBe(409);
+    expect(records.has(recordPath)).toBe(false);
   });
 
   it('rejects stale website runs and wrong properties without writing a record', async () => {

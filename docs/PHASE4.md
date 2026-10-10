@@ -1,10 +1,12 @@
 # Phase 4: evidence before recommendations
 
-**Current release:** Bryan's existing-page refinement is deployed and verified on his live account. Implementation and release evidence are recorded below. Earlier optional-research and two-window descriptions document the initial release, not the refined contract.
+**Current status:** the version 3 refinement is the last production release verified in this record. Bryan has now authorized a generalized existing-page review, version 4. Its implementation and isolated checks are in progress; version 4 deployment and the live account checkpoint are pending. See the version 4 section at the end for the current contract.
+
+The initial release and version 3 sections below are historical records. Their model settings, query limits, optional-research behavior and release IDs are not the version 4 contract.
 
 Bryan authorized implementation on October 10, 2026 after reviewing the first live draft. The draft was a weak paraphrase, not a justified improvement. No website edit is required to complete that review checkpoint. Keep the public URL, Firebase/Firestore, Vercel, manual publishing, immutable history and disabled automatic outcome decisions.
 
-## Scope and sequence
+## Historical initial release: scope and sequence
 
 1. Read fresh exact-page HTML and collect server-owned Search Console evidence for the latest finalized 28 days and the preceding 28 days. Keep property, URL and dates explicit; preserve no-data, limited-data and failed-query states. Page totals are separate from partial query rows. Include relevant alternative pages only when Google actually returned their URLs for the selected phrase.
 2. Replace unconditional rewriting with a structured assessment: revise metadata, keep current wording, improve page content, review another observed page, or collect more evidence. Require a specific reason, a next step and references to supplied evidence. A revision must address a supported mismatch; an unchanged or merely cosmetic rewrite must not become a tracking task.
@@ -13,7 +15,7 @@ Bryan authorized implementation on October 10, 2026 after reviewing the first li
 5. Keep the beginner interface: Analyze this page, a short recommendation and explanation, supporting evidence behind a disclosure, and blue current/violet proposed wording. Only a metadata-revision decision enables the existing publishing/confirmation flow. A no-change decision is a valid useful result.
 6. Test in isolated demo services, evaluate model output on real/public and controlled examples, stage a production build, verify access boundaries, then promote to the existing URL. Check Bryan's live evidence without publishing or confirming a fictitious change.
 
-## Acceptance and testing
+## Historical initial release: acceptance and testing
 
 - Exact URL/property, authenticated ownership, redirects and website-run changes remain guarded before spending and after analysis.
 - Evidence tests cover both date windows, totals vs query rows, malformed metrics, missing rows, partial failures, keyword provenance and alternative-page scope.
@@ -22,17 +24,17 @@ Bryan authorized implementation on October 10, 2026 after reviewing the first li
 - Live evaluation assesses factual grounding, specific justification, willingness to retain good wording and cost/latency. Passing software tests is not evidence of ranking improvement.
 - Run the existing unit/API suite and relevant browser/rules scenarios, scoped lint and production build. Record actual evidence below; never claim unchecked gates passed.
 
-## Limits and next checkpoint
+## Historical initial release: limits and checkpoint
 
 This release concerns existing-page decisions and title/description recommendations. Broad new service/location pages, automatic website edits, paid third-party SEO providers and automatic success/pivot decisions are excluded. Web research supplies context, not a rank-tracking database. Source references and output validation reduce errors but cannot prove every interpretation. Measured search changes remain observational.
 
 Bryan will analyze the homepage and one service page, check the recommended action and its explanation, and decide whether any draft deserves publication. Keep-current is acceptable. Only a real published edit should be confirmed and tracked; the live confirmation checkpoint remains open until then.
 
-## Release and rollback
+## Historical initial release: release and rollback
 
-Phase 4's existing-page review is deployed and verified; Bryan's recommendation-review checkpoint is next. The immediate application rollback target is `dpl_GoVGseABraevriGst99NibCh8XJk` (source `6ef2239`). This release includes no Firebase rules/function deployment or recovery-data migration. Rollback must preserve current account data, history, confirmed edits and Phase 2 safeguards. Existing scheduled-collector observation and Firebase runtime maintenance remain separate operational items.
+At the initial release, Phase 4's existing-page review was deployed and verified, with Bryan's recommendation-review checkpoint next. Its application rollback target was `dpl_GoVGseABraevriGst99NibCh8XJk` (source `6ef2239`). This release includes no Firebase rules/function deployment or recovery-data migration. Rollback must preserve current account data, history, confirmed edits and Phase 2 safeguards. Existing scheduled-collector observation and Firebase runtime maintenance remain separate operational items.
 
-## Implementation and evaluation evidence
+## Historical initial release: implementation and evaluation evidence
 
 - Page review now uses `gpt-6.1-sol` with the Responses API, strict structured output, low reasoning effort, a 3,500 output-token cap and no provider retry. Other existing AI features retain their previous configuration.
 - Fresh evidence includes separate exact-page totals and up to 20 query rows for each of two adjacent finalized 28-day windows. The optional related-page lookup returns at most five pages for the first selected phrase. The newest three days are excluded; these review windows are not a test of an edit.
@@ -42,7 +44,7 @@ Phase 4's existing-page review is deployed and verified; Bryan's recommendation-
 - Software checks include 278 passing unit/API tests across 21 files and all 31 browser/API/rules scenarios passing against the isolated production build with demo services. The first broad development-server run lacked the recovery fixtures; a subsequent development run encountered a reload during login. Seeding the demo accounts and using the stable compiled build produced the complete passing suite. Full lint has zero errors and the same 11 pre-existing warnings; changed backend files and explicit `.js`/`.jsx` UI lint pass without warnings. Desktop dark/light, mobile, keep-current, expanded evidence and research-citation screens were visually checked.
 - An independent backend review found no outstanding blocker. Source IDs, exact page quotations and conservative claim checks reduce unsupported output but cannot prove every semantic interpretation. Quota tests exercise boundaries and isolation; concurrent Firestore transaction contention was not simulated by the unit-test double.
 
-## Production verification
+## Historical initial release: production verification
 
 - Application source: `1602616`. **Production READY:** `dpl_ANt5Qjqu51GsfTNe7u9hDYC46uGs`, [deployment](https://simplseo-jcbv0fhmu-bryan-arambulas-projects.vercel.app), serving the unchanged [SimplSEO URL](https://simplseo-io.vercel.app). Project `simplseo-io` and its existing team were verified before staging. The protected staged review route returned the application's HTTP 401, then this same build was promoted. Public-URL inspection confirmed the exact deployment. Vercel reported a 7m 18s build; post-build duration was unavailable. Framework remains Next.js 15.3.6; public access settings were not changed.
 - Authenticated live verification on Bryan's exact account/property passed after promotion: four anonymous and four cross-account route checks were blocked. The current overview returned five pages and 27 daily observations for September 10–October 7, with seven clicks and 169 impressions. These are search observations, not an indexing report.
@@ -52,7 +54,7 @@ Phase 4's existing-page review is deployed and verified; Bryan's recommendation-
 - A deployment-scoped error-level log query covering the 20-minute release/verification window returned zero records. This bounded check does not establish future scheduled-collector health.
 - Temporary local test servers were shut down after testing. Bryan's next checkpoint is the homepage/service-page review above; a real edit and its future observation period remain intentionally open.
 
-## Refinement: a useful next action for every reviewed page
+## Historical version 3 refinement: a useful next action for every reviewed page
 
 Bryan authorized this refinement after testing the live homepage and service page. Both returned keep-current decisions, while the interface hid the page's search numbers. The goal is to make the recommendation understandable and actionable without manufacturing title edits.
 
@@ -85,3 +87,56 @@ Bryan's checkpoint after release: open the same live URL, choose the homepage an
 - Immediate application rollback target is the preceding Phase 4 deployment `dpl_ANt5Qjqu51GsfTNe7u9hDYC46uGs`. No Firebase rules/functions release or data migration was part of this refinement. Temporary demo servers were shut down.
 - A deployment-scoped error-log query over the 20-minute release and account-check window returned zero records. This bounded check does not establish future scheduled-collector health.
 - Bryan's next checkpoint is to inspect **Improve a page** on the live URL, choose the homepage and service page, and assess whether the visible numbers and next action are understandable and useful. Phase 5 remains deferred.
+
+
+## Version 4: generalized expert review of an existing page
+
+Bryan accepted the clearer interface and search numbers, but the live recommendation still delegated too much investigation back to him. A read-only audit of his homepage demonstrated the desired workflow: interpret relevant searches, inspect what Google reports, read the page and useful linked pages, then recommend a concrete improvement supported by those observations. The implementation generalizes that process across homepage, service, product, category, article and other page types. It does not hardcode Bryan's business, geography, a homepage checklist or a requirement to rewrite metadata.
+
+### Evidence and request architecture
+
+- `scrapeContent` fetches current public HTML with the existing public-address/DNS-pinning protections. Every redirect is checked against the connected property before following it. The response retains the existing 6,000-character text field and fingerprint inputs, plus up to 12,000 characters of main content, 16 section excerpts, 30 headings with bounded text segments, and 100 internal links. Coverage and truncation are explicit. Heading flags describe source classes/attributes such as `sr-only`, `aria-hidden` and `hidden`; no browser rendering, computed visibility, speed measurement or screenshot analysis is claimed.
+- Current technical observations include HTTP status, the requested/final URLs and redirect chain, canonical declarations, robots meta directives and `X-Robots-Tag`. A missing canonical tag does not establish Google's canonical choice. An unavailable fetch is not a successful empty page or evidence of zero traffic.
+- Exact-page Search Console history still covers six adjacent finalized 28-day windows, excluding the newest three days. Current and previous periods now request up to **1,000 query rows each**, then sort returned rows by impressions. The browser can inspect the bounded report; model inputs and current query facts use at most **40 rows per period** and **Q1–Q40**, respectively. Coverage preserves returned-row counts, row-limit saturation and null counts on unavailable reads. Google may omit queries for privacy or reporting limits even when fewer than 1,000 rows are returned. Page totals remain independently requested and are never derived by adding query rows.
+- `getGscConnection.inspect` uses the existing authenticated Google connection and read-only Search Console scope. `pageReviewDiagnostics` checks the selected URL and at most **two relevant pages linked in its downloaded HTML**: no model-invented URLs, no unrestricted crawl, at most two additional HTML reads and three URL Inspection requests. Related reads exclude query-driven/action/account URLs and remain within the connected property. Each page preserves HTML and inspection availability separately.
+- Inspection exposes Google's stored index coverage, robots/indexing state, crawl time, canonical observations and an actual validated Google inspection link when returned. It is not a live indexability test or an indexing request. Check time and Google's last crawl time have distinct meanings; omitted fields remain unknown. An indexed result prevents reflexively asking the owner to repeat the same indexing check, while an excluded result does not prove a penalty or explain its cause.
+- Existing evidence uses P1–P3, S/Q/H and optional R facts; diagnostics add P4–P6 for technical/source-heading/link observations, I1 for the selected URL's Google inspection and D1–D2 for related-page observations. Public research retains W source IDs. Related-page excerpts are further shortened in the model request, with explicit limitations. Every recommendation must resolve actual source IDs.
+
+### Analysis and beginner workflow
+
+- Review version **4** uses `gpt-6.1-sol` through the existing OpenAI Responses API, **medium** reasoning and a **6,500 output-token** assessment limit. Requests use strict structured output, `store: false` and no automatic provider retry. Public web research remains automatic, uses only already-public page context, and retains its low-reasoning, two-tool-call and 1,800-token bounds. Private search queries, metrics, account IDs and credentials do not enter web search. Existing review limits remain five attempts per minute and 20 per UTC day, including failed attempts and research. No third-party SEO API or additional paid data provider is added.
+- An optional owner goal is a single line of at most **180 characters**. It guides the review but cannot establish services, locations, offers or other business facts. The analysis identifies the page's purpose and intended visitor; it distinguishes clear brand navigation, relevant discovery searches and ambiguous phrases without treating a first name alone as conclusive brand evidence.
+- The metadata verdict remains separate from the page's next action. Up to **three ranked action cards** can address headings, content, internal links, technical issues, metadata or a specific check. Each gives a location, rationale, concrete instruction, evidence and, when supported, wording ready for the owner to review. Observed issues, opportunities to test and missing-evidence checks are labeled separately. Good metadata can stay unchanged while another useful task is recommended.
+- Proposed business wording requires an exact uninterrupted quote from the selected page's first-party passages, including its link text. Competitor material and a related page do not establish facts about the selected page. Technical cards may quote an observed robots directive or canonical value as their current observation; these technical fields cannot ground proposed business wording. Internal-link targets must already exist in the supplied same-property evidence. Validating shape, quotes and some unsupported claims reduces errors; it does not prove every model interpretation or business claim.
+- The source panel shows actual query positions and appearances, dated history, available Google inspection and related-page read status. Missing observations stay unavailable. Details remain expandable so the main view leads with a small, executable task.
+- Server-owned checkpoints suggest checking Google's next visit after **1–2 weeks**, early search signals around **4 weeks**, and the change around **8–12 weeks**, allowing longer for sparse data. These are review estimates, not access gates or ranking promises. Earlier URL history may span a rebuilt website and cannot establish the age or performance of the current wording.
+
+### Manual publishing and tracking
+
+All website edits remain manual. Metadata revisions retain their guarded confirmation flow. A real heading, content, internal-link or technical edit can now be confirmed as a `page_content` change with an explicit published checkbox and the owner's short change summary (at most 600 characters). A recommendation or diagnostic check alone must not create a tracked implementation. Confirmation re-reads the selected page and records the current observation; it is the user's declaration that the change was published, not an automated proof of the described edit. Current metadata is captured as context for a content change, not treated as a requested metadata replacement. Authentication, exact page/property, website-run, active-change and archived-history guards still apply.
+
+The public [SimplSEO URL](https://simplseo-io.vercel.app), Firebase/Firestore authentication and storage, and Vercel hosting remain unchanged. Automatic success/pivot/audit decisions and notifications remain disabled. Phase 5 economics, broader new-page generation and any Supabase/Railway migration remain deferred.
+
+### Version 4 verification record — release pending
+
+This is the current verification snapshot, not a deployment claim:
+
+- The final combined isolated unit/API run passed **375 tests across 26 files**, including goal privacy/validation and a regression rejecting a false noindex diagnosis despite valid source IDs.
+- The final isolated compiled-build browser/API/rules run passed **39 scenarios** after adding published-content summaries to progress. A fresh production compilation passed. Desktop dark/light and mobile results were visually inspected. Explicit changed-JSX lint passed; full lint retains **11 baseline warnings**.
+- The first bounded six-case model evaluation passed **four cases** and rejected **two**. The rejected outputs quoted a real technical directive and a real internal-link anchor that the quotation validator did not yet admit as the appropriate first-party observation. The validator was refined to accept those source types without permitting technical metadata or competitor text to support proposed business wording. Each of the two focused reruns then passed: eight paid assessment requests total. Human review covered product/article intent, an existing FAQ, indexed low-discovery pages, real noindex, injected third-party claims and a grounded local content/link task. Responses took roughly 10–22 seconds on these synthetic fixtures. This small evaluation does not establish a general accuracy rate or ranking benefit.
+- The release verifier now checks version 4, richer HTML limits, 1,000 sorted query rows/top-40 facts, diagnostic scope and source IDs, safe inspection links, recommendation quotations, the server timeline and unchanged account archives. Its production origin/project remain fixed. It never sends an authorized confirmation. Syntax validation is complete; production execution is pending.
+
+Pending evidence to fill before calling this release complete:
+
+- [x] Final isolated unit/API result and test count after the added guard.
+- [x] Focused model rerun results for both initially rejected cases; document any remaining limitation.
+- [x] Final compiled-artifact/browser check if release source differs from the tested artifact.
+- [ ] Exact source commit, staged/production deployment IDs, protected-route authorization result and promotion verification.
+- [ ] One bounded authenticated review on Bryan's exact current account/property; validate content, diagnostics, action sources and archive/active-change invariants without confirming a fictitious edit.
+- [ ] Application rollback target and bounded deployment-log result.
+
+### Bryan's version 4 checkpoint — pending release
+
+After the deployed version is verified, Bryan should review the homepage and one service page at the existing URL. The page goal, relevant searches, Google status and recommended task should explain why the task is useful. Check that retained metadata is clearly separated from any heading, content, link or technical recommendation; inspect proposed wording for factual accuracy and practicality. The interface should show the supporting evidence without requiring him to repeat checks already completed by the tool.
+
+If he chooses a worthwhile edit, publish it on the real website first, then confirm that specific edit once with an accurate summary. Refresh and verify the same task in Page progress. No edit is required merely to approve the interface or finish an analysis. Future measurements are observations, and meaningful ranking or business benefits remain unproven until actual use provides evidence. Gather this feedback before advancing Phase 5.

@@ -30,6 +30,8 @@ const assessment = {
   fieldReasons: { title: '', description: 'Mention the design process so visitors know what they can learn before contacting the studio.' },
   supportingQuotes: { title: '', description: 'Read about the design process, project planning and ongoing website maintenance.' },
   targetPageUrl: null,
+  pageGoal: 'Help visitors understand the website design service.',
+  recommendations: [{ type: 'metadata', basis: 'opportunity', label: 'Explain the planning process', location: 'Page description', reason: 'Help visitors understand the page before visiting.', instruction: 'Review the suggested description and publish it in your website editor.', currentQuote: '', proposedText: null, supportingQuote: '', targetUrl: null, evidenceIds: ['P2', 'P3'] }],
 };
 const keepAssessment = {
   action: 'keep_current', metadataVerdict: 'keep', metadataReason: 'Both fields accurately describe the service and the business.', summary: 'Your current wording clearly describes this page.',
@@ -37,6 +39,7 @@ const keepAssessment = {
   nextStep: 'Keep this wording and review another page when you have a useful change to consider.',
   evidenceIds: ['P1', 'P2'], title: null, description: null,
   fieldReasons: { title: '', description: '' }, supportingQuotes: { title: '', description: '' }, targetPageUrl: null,
+  pageGoal: 'Help visitors understand the website design service.', recommendations: [],
 };
 const completion = payload => ({ status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify(payload), annotations: [] }] }] });
 const researchCompletion = () => ({ status: 'completed', output: [
@@ -91,7 +94,7 @@ describe('current website page review', () => {
     expect(response.status).toBe(200);
     const result = await response.json();
     expect(result).toMatchObject({ ...draft, currentPage: { htmlTitle: 'Custom Web Design | Example Studio', url: pageUrl } });
-    expect(publicFetch).toHaveBeenCalledWith(pageUrl);
+    expect(publicFetch).toHaveBeenCalledWith(pageUrl, { property: mocks.property });
     expect(mocks.create).toHaveBeenCalledTimes(2);
     const providerInput = mocks.create.mock.calls[1][0];
     expect(providerInput).toMatchObject({ model: PAGE_REVIEW_MODEL, store: false, text: { format: { type: 'json_schema', strict: true } } });
@@ -109,6 +112,24 @@ describe('current website page review', () => {
     expect((await suggestions(request({ pageUrl: 'https://elsewhere.test/page' }))).status).toBe(403);
     expect((await content(request({ pageUrl: 'https://secret:password@example.test/page' }))).status).toBe(400);
     expect((await content(request({ pageUrl: `${pageUrl}#section` }))).status).toBe(400);
+    expect(publicFetch).not.toHaveBeenCalled(); expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it('keeps an optional owner goal in private assessment data, not public web research', async () => {
+    const goal = '  Help visitors request an accessible website consultation.  ';
+    const response = await suggestions(request({ goal }));
+    expect(response.status).toBe(200);
+    expect((await response.json()).ownerGoal).toBe(goal.trim());
+    const researchInput = mocks.create.mock.calls.find(([body]) => body.tools)[0];
+    const assessmentInput = mocks.create.mock.calls.find(([body]) => !body.tools)[0];
+    expect(JSON.stringify(researchInput)).not.toContain(goal.trim());
+    expect(JSON.parse(assessmentInput.input[1].content).ownerGoal).toBe(goal.trim());
+  });
+
+  it('rejects malformed or excessive goals before fetching or spending', async () => {
+    for (const goal of ['x'.repeat(181), 'First line\nSecond line', { service: 'invented' }]) {
+      expect((await suggestions(request({ goal }))).status).toBe(400);
+    }
     expect(publicFetch).not.toHaveBeenCalled(); expect(mocks.create).not.toHaveBeenCalled();
   });
 
@@ -198,7 +219,7 @@ describe('evidence-backed assessment integration', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('private, no-store');
     const result = await response.json();
-    expect(result).toMatchObject({ title: null, description: null, analysis: { action: 'keep_current', changedFields: [], evidenceIds: ['P1', 'P2'] }, provenance: { reviewVersion: 3, model: PAGE_REVIEW_MODEL } });
+    expect(result).toMatchObject({ title: null, description: null, analysis: { action: 'keep_current', changedFields: [], evidenceIds: ['P1', 'P2'] }, provenance: { reviewVersion: 4, model: PAGE_REVIEW_MODEL } });
     expect(result.evidence.current).toMatchObject({ totals: null, totalsStatus: 'no_data', queriesStatus: 'no_data' });
     expect(mocks.create).toHaveBeenCalledTimes(2);
     expect(mocks.query).toHaveBeenCalledTimes(8);
@@ -210,14 +231,14 @@ describe('evidence-backed assessment integration', () => {
       summary: 'Check whether customers can find this service page.',
       reason: 'The title describes the service, but the available search history remains sparse.',
       nextStep: 'Inspect this exact URL in Search Console, then check whether relevant pages link to it.',
-      evidenceIds: ['P1', 'H1', 'H6'] };
+      evidenceIds: ['P1', 'H1', 'H6'], recommendations: [{ ...assessment.recommendations[0], type: 'check', basis: 'needs_check', label: 'Review relevant internal links', location: 'Page content', instruction: 'Check whether the service links describe their destination.' }] };
     mocks.create.mockImplementation(async body => body.tools ? researchCompletion() : completion(visibility));
     const response = await suggestions(request());
     expect(response.status).toBe(200);
     const result = await response.json();
     expect(result).toMatchObject({ title: null, description: null,
       analysis: { action: 'investigate_visibility', metadataVerdict: 'keep', metadataReason: keepAssessment.metadataReason, changedFields: [] },
-      provenance: { reviewVersion: 3 } });
+      provenance: { reviewVersion: 4 } });
     expect([...records.keys()].filter(key => !key.startsWith('requestLimits/'))).toEqual(['onboarding/alice']);
   });
 
@@ -225,11 +246,11 @@ describe('evidence-backed assessment integration', () => {
     expect((await suggestions(request())).status).toBe(200);
     expect(mocks.options).toHaveBeenCalledExactlyOnceWith({ apiKey: 'isolated-test-key', maxRetries: 0, timeout: 45000 });
     const [body, options] = mocks.create.mock.calls[1];
-    expect(body).toMatchObject({ model: PAGE_REVIEW_MODEL, store: false, max_output_tokens: 3500, reasoning: { effort: 'low' },
+    expect(body).toMatchObject({ model: PAGE_REVIEW_MODEL, store: false, max_output_tokens: 6500, reasoning: { effort: 'medium' },
       text: { format: { name: 'page_review', type: 'json_schema', strict: true, schema: { additionalProperties: false } } } });
     expect(body).not.toHaveProperty('tools');
     expect(body.model).not.toBe('gpt-4-turbo');
-    expect(options.timeout).toBe(45000);
+    expect(options.timeout).toBe(65000);
     expect(options.signal.aborted).toBe(false);
   });
 

@@ -30,6 +30,7 @@ const validMetrics = row => row && Number.isFinite(row.clicks) && Number.isFinit
   && (row.impressions === 0 ? row.ctr === null && row.position === null
     : Number.isFinite(row.ctr) && row.ctr >= 0 && row.ctr <= 1 && Number.isFinite(row.position) && row.position >= 1);
 const recentTimestamp = value => typeof value === 'string' && Number.isFinite(Date.parse(value)) && Math.abs(Date.now() - Date.parse(value)) < 5 * 60 * 1000;
+const RECOMMENDATION_TYPES = ['heading', 'content', 'internal_link', 'technical', 'metadata', 'check'];
 const REVIEW_ACTIONS = ['revise_metadata', 'keep_current', 'improve_content', 'review_page', 'collect_data', 'investigate_visibility'];
 const textWithin = (value, min, max) => typeof value === 'string' && value.trim().length >= min && value.length <= max;
 
@@ -86,12 +87,175 @@ async function main() {
     });
   }
 
+  function safeHttpUrl(value) {
+    try {
+      const url = new URL(value);
+      return typeof value === 'string' && value.length <= 2048 && ['http:', 'https:'].includes(url.protocol)
+        && !url.username && !url.password && (!url.port || ['80', '443'].includes(url.port));
+    } catch { return false; }
+  }
+  const sourceFlags = value => value && ['srOnly', 'ariaHidden', 'hidden'].every(key => typeof value[key] === 'boolean');
+  const validHeading = value => value && /^h[1-6]$/.test(value.tag) && textWithin(value.text, 1, 500) && sourceFlags(value)
+    && Array.isArray(value.segments) && value.segments.length <= 12
+    && value.segments.every(segment => textWithin(segment.text, 1, 300) && sourceFlags(segment));
+  const validSection = value => value && textWithin(value.heading, 0, 300) && textWithin(value.text, 1, 1200) && typeof value.truncated === 'boolean';
+  const validInternalLink = value => value && insideProperty(value.url) && textWithin(value.text, 0, 240)
+    && ['main', 'navigation', 'footer', 'body'].includes(value.context) && textWithin(value.rel, 0, 100);
+
+  function verifyTechnical(technical, requestedUrl, finalUrl) {
+    assert(technical && Number.isInteger(technical.httpStatus) && technical.httpStatus >= 200 && technical.httpStatus < 300
+      && /^text\/html|^application\/xhtml\+xml/i.test(technical.contentType) && technical.contentType.length <= 200
+      && technical.requestedUrl === requestedUrl && technical.finalUrl === finalUrl
+      && technical.redirected === (requestedUrl !== finalUrl)
+      && Array.isArray(technical.redirectChain) && technical.redirectChain.length <= 5
+      && technical.redirectChain.every(step => insideProperty(step.url) && insideProperty(step.destination) && [301, 302, 303, 307, 308].includes(step.status))
+      && ['missing', 'declared', 'multiple', 'invalid'].includes(technical.canonicalStatus)
+      && (technical.canonicalUrl === null || safeHttpUrl(technical.canonicalUrl))
+      && [null, true, false].includes(technical.canonicalInProperty)
+      && Array.isArray(technical.canonicalDeclarations) && technical.canonicalDeclarations.length <= 5
+      && technical.canonicalDeclarations.every(item => textWithin(item.href, 0, 2048) && (item.url === null || safeHttpUrl(item.url)))
+      && Array.isArray(technical.robotsMeta) && technical.robotsMeta.length <= 10
+      && technical.robotsMeta.every(item => ['robots', 'googlebot'].includes(item.agent) && textWithin(item.content, 0, 1000))
+      && textWithin(technical.xRobotsTag, 0, 2000) && typeof technical.noindex?.generic === 'boolean' && typeof technical.noindex.googlebot === 'boolean',
+    'Current HTTP, redirect, canonical or robots observations are invalid.');
+  }
+
+  function verifyHtmlStructure(page, expectedUrl, subset = false) {
+    assert(page && page.source === 'website-html' && page.url === expectedUrl && insideProperty(page.finalUrl) && recentTimestamp(page.fetchedAt)
+      && textWithin(page.htmlTitle, 0, 500) && textWithin(page.seoMetaDescription, 0, 1000) && textWithin(page.h1, 0, 500)
+      && textWithin(page.textContent, 0, subset ? 5000 : 6000)
+      && Array.isArray(page.headings) && page.headings.length <= (subset ? 16 : 30) && page.headings.every(validHeading)
+      && Array.isArray(page.contentSections) && page.contentSections.length <= (subset ? 8 : 16) && page.contentSections.every(validSection)
+      && Array.isArray(page.internalLinks) && page.internalLinks.length <= (subset ? 30 : 100) && page.internalLinks.every(validInternalLink),
+    'The richer HTML structure is missing, unsafe or exceeds its evidence limits.');
+    const coverage = page.structureCoverage;
+    assert(coverage && textWithin(coverage.contentSource, 1, 40)
+      && ['textCharacters', 'headingCount', 'sectionCount', 'internalLinkCount'].every(key => Number.isInteger(coverage[key]) && coverage[key] >= 0)
+      && ['mainContentTruncated', 'headingsTruncated', 'sectionsTruncated', 'internalLinksTruncated'].every(key => typeof coverage[key] === 'boolean'),
+    'HTML excerpt coverage is missing or invalid.');
+    if (subset) assert(page.subsetLimits?.textCharacters === 5000 && page.subsetLimits.headings === 16
+      && page.subsetLimits.sections === 8 && page.subsetLimits.internalLinks === 30, 'Linked-page excerpts are not explicitly bounded.');
+    else assert(textWithin(page.mainContent, 0, 12000) && Array.isArray(page.structuralLimitations)
+      && page.structuralLimitations.length > 0 && page.structuralLimitations.every(value => textWithin(value, 1, 1000)),
+    'HTML structure limitations or the richer main content are invalid.');
+    verifyTechnical(page.technical, expectedUrl, page.finalUrl);
+  }
+
+  function verifyInspection(inspection, pageUrl) {
+    assert(inspection && ['available', 'unavailable'].includes(inspection.status) && inspection.source === 'google_url_inspection'
+      && inspection.url === pageUrl && inspection.property === property && inspection.view === 'google_index'
+      && recentTimestamp(inspection.checkedAt) && textWithin(inspection.limitation, 1, 1000), 'Google inspection provenance is invalid.');
+    const names = ['verdict', 'coverageState', 'robotsTxtState', 'indexingState', 'pageFetchState', 'crawledAs'];
+    assert(names.every(name => inspection[name] === null || textWithin(inspection[name], 1, name === 'coverageState' ? 400 : 100))
+      && (inspection.lastCrawlTime === null || typeof inspection.lastCrawlTime === 'string' && Number.isFinite(Date.parse(inspection.lastCrawlTime)))
+      && ['googleCanonical', 'userCanonical'].every(name => inspection[name] === null || safeHttpUrl(inspection[name])),
+    'Google index fields do not preserve valid observations and unknown values.');
+    if (inspection.inspectionUrl !== null) {
+      let link;
+      try { link = new URL(inspection.inspectionUrl); } catch { throw new VerificationFailure('Google inspection link is invalid.'); }
+      assert(safeHttpUrl(inspection.inspectionUrl) && link.protocol === 'https:' && link.hostname === 'search.google.com'
+        && !link.port && !link.hash && link.pathname === '/search-console/inspect', 'Google inspection link is unsafe.');
+    }
+    if (inspection.status === 'unavailable') assert([...names, 'lastCrawlTime', 'googleCanonical', 'userCanonical', 'inspectionUrl'].every(name => inspection[name] === null),
+      'Unavailable Google inspection has invented state or a link.');
+    else assert(names.some(name => inspection[name] !== null), 'Available Google inspection contains no reported state.');
+  }
+
+  function verifyDiagnostics(diagnostics, currentPage) {
+    assert(diagnostics && diagnostics.pageUrl === property && diagnostics.property === property && recentTimestamp(diagnostics.fetchedAt)
+      && diagnostics.limits?.maxRelatedPages === 2 && diagnostics.limits.maxInspections === 3
+      && Array.isArray(diagnostics.relatedPages) && diagnostics.relatedPages.length <= 2
+      && new Set(diagnostics.relatedPages.map(page => page.pageUrl)).size === diagnostics.relatedPages.length
+      && JSON.stringify(diagnostics.technical) === JSON.stringify(currentPage.technical)
+      && Array.isArray(diagnostics.limitations) && diagnostics.limitations.length > 0 && diagnostics.limitations.every(value => textWithin(value, 1, 1000)),
+    'Page diagnostics scope, source observations or request bounds are invalid.');
+    verifyInspection(diagnostics.inspection, property);
+    for (const related of diagnostics.relatedPages) {
+      assert(insideProperty(related.pageUrl) && related.pageUrl !== property && !new URL(related.pageUrl).search
+        && currentPage.internalLinks.some(link => link.url === related.pageUrl) && related.linkedFrom === property
+        && textWithin(related.anchorText, 0, 240) && ['main', 'navigation', 'footer', 'body'].includes(related.context)
+        && ['available', 'unavailable'].includes(related.status)
+        && (related.httpStatus === null || Number.isInteger(related.httpStatus) && related.httpStatus >= 200 && related.httpStatus <= 599),
+      'A related-page diagnostic is not grounded in a safe current-page link.');
+      verifyInspection(related.inspection, related.pageUrl);
+      if (related.status === 'available') {
+        verifyHtmlStructure(related.currentPage, related.pageUrl, true);
+        assert(related.httpStatus === related.currentPage.technical.httpStatus, 'A related HTTP observation disagrees with its fetched content.');
+      } else assert(related.currentPage === null, 'An unavailable related page contains invented HTML.');
+    }
+    assert(Array.isArray(diagnostics.facts) && diagnostics.facts.length >= 3 && diagnostics.facts.length <= 6
+      && diagnostics.facts.every(fact => /^(?:P[4-6]|I1|D[12])$/.test(fact.id)
+        && fact.kind === (fact.id === 'I1' ? 'search' : 'page') && textWithin(fact.label, 1, 200) && textWithin(fact.text, 1, 20000))
+      && new Set(diagnostics.facts.map(fact => fact.id)).size === diagnostics.facts.length
+      && ['P4', 'P5', 'P6'].every(id => diagnostics.facts.some(fact => fact.id === id))
+      && diagnostics.facts.some(fact => fact.id === 'I1') === (diagnostics.inspection.status === 'available'),
+    'Diagnostic source IDs, availability or fact bounds are invalid.');
+    for (let index = 0; index < 2; index += 1) {
+      const page = diagnostics.relatedPages[index];
+      assert(diagnostics.facts.some(fact => fact.id === `D${index + 1}`) === Boolean(page && (page.status === 'available' || page.inspection.status === 'available')),
+        'A related-page fact misrepresents available evidence.');
+    }
+  }
+
+  function verifyTimeline(timeline) {
+    const expected = [
+      { label: 'Check Google’s next visit', when: 'After 1–2 weeks', description: 'After publishing, check whether Google has crawled the page again. A crawl does not guarantee a ranking change.' },
+      { label: 'Look for early signals', when: 'Around 4 weeks', description: 'Compare relevant search phrases, clicks and appearances with the earlier period. Small samples can be noisy.' },
+      { label: 'Review the change', when: 'Around 8–12 weeks', description: 'Assess the same relevant searches and customer inquiries. Allow longer when data is sparse. These are review checkpoints, not promised results.' },
+    ];
+    assert(JSON.stringify(timeline) === JSON.stringify(expected), 'Review checkpoints do not match the server-owned estimates and limitations.');
+  }
+
+  function verifyRecommendations(draft, sourceIds) {
+    const analysis = draft.analysis;
+    const passages = [draft.currentPage.htmlTitle, draft.currentPage.seoMetaDescription, draft.currentPage.h1,
+      draft.currentPage.textContent, draft.currentPage.mainContent, ...draft.currentPage.headings.map(item => item.text),
+      ...draft.currentPage.contentSections.flatMap(item => [item.text, item.heading]),
+      ...draft.currentPage.internalLinks.map(item => item.text)].filter(value => typeof value === 'string');
+    const exactQuote = value => passages.some(passage => passage.includes(value.trim()));
+    const exactTechnicalQuote = value => [draft.currentPage.technical.xRobotsTag, draft.currentPage.technical.canonicalUrl,
+      ...draft.currentPage.technical.robotsMeta.map(item => item.content),
+    ].some(passage => typeof passage === 'string' && passage.includes(value.trim()));
+    const plain = (value, max) => textWithin(value, 1, max) && !/[\r\n]|<[^>]*>|```|https?:\/\//i.test(value);
+    assert(plain(analysis.pageGoal, 200) && Array.isArray(analysis.recommendations) && analysis.recommendations.length <= 3
+      && (analysis.recommendations.length > 0 || ['keep_current', 'collect_data'].includes(analysis.action)),
+    'The expert review has no valid page goal or executable recommendations.');
+    const targets = new Set([...draft.currentPage.internalLinks.map(item => item.url),
+      ...draft.evidence.relatedPages.map(item => item.pageUrl), ...draft.diagnostics.relatedPages.map(item => item.pageUrl)]);
+    const labels = new Set();
+    for (const [index, item] of analysis.recommendations.entries()) {
+      assert(item && item.id === `action-${index + 1}` && RECOMMENDATION_TYPES.includes(item.type)
+        && ['observed_issue', 'opportunity', 'needs_check'].includes(item.basis)
+        && plain(item.label, 90) && plain(item.location, 140) && plain(item.reason, 400) && plain(item.instruction, 600)
+        && !labels.has(item.label.toLowerCase()) && textWithin(item.currentQuote, 0, 500)
+        && (!item.currentQuote || exactQuote(item.currentQuote) || item.type === 'technical' && exactTechnicalQuote(item.currentQuote))
+        && textWithin(item.supportingQuote, 0, 500)
+        && Array.isArray(item.evidenceIds) && item.evidenceIds.length >= 1 && item.evidenceIds.length <= 5
+        && new Set(item.evidenceIds).size === item.evidenceIds.length && item.evidenceIds.every(id => sourceIds.has(id))
+        && item.evidenceIds.some(id => /^(?:P[1-6]|I1)$/.test(id)),
+      'An action card has invalid source references, text, order or a quote absent from the selected page.');
+      labels.add(item.label.toLowerCase());
+      if (item.type === 'internal_link') assert(targets.has(item.targetUrl) && insideProperty(item.targetUrl) && item.targetUrl !== property,
+        'An internal-link recommendation targets an unknown or out-of-property URL.');
+      else assert(item.targetUrl === null, 'An unrelated action card contains a target URL.');
+      if (item.type === 'metadata') assert(analysis.metadataVerdict === 'revise', 'A metadata action conflicts with the metadata verdict.');
+      if (item.type === 'technical' && item.basis === 'observed_issue') assert(item.evidenceIds.some(id => id === 'I1' || id === 'P4'),
+        'An observed technical issue lacks direct technical or Google inspection evidence.');
+      if (item.proposedText === null) assert(item.supportingQuote === '', 'An action with no proposed wording has an unexpected supporting quote.');
+      else assert(['heading', 'content', 'internal_link'].includes(item.type) && item.basis !== 'needs_check'
+        && plain(item.proposedText, 1000) && !/\[[^\]]*\]|\b(?:lorem ipsum|placeholder)\b/i.test(item.proposedText)
+        && textWithin(item.supportingQuote, 8, 500) && exactQuote(item.supportingQuote),
+      'Proposed action wording lacks an exact first-party supporting quote or is not ready to review.');
+    }
+  }
+
   function verifyCurrentPage(page, provenance, runId, generated = false) {
     assert(page?.source === 'website-html' && page.url === property && page.finalUrl === property
       && typeof page.htmlTitle === 'string' && page.htmlTitle.length <= 500
       && typeof page.seoMetaDescription === 'string' && page.seoMetaDescription.length <= 1000
       && typeof page.h1 === 'string' && typeof page.textContent === 'string' && page.textContent.length <= 6000
-      && Array.isArray(page.headings) && page.headings.length <= 10 && recentTimestamp(page.fetchedAt), 'The homepage HTML response or its current source metadata is invalid.');
+      && Array.isArray(page.headings) && page.headings.length <= 30 && recentTimestamp(page.fetchedAt), 'The homepage HTML response or its current source metadata is invalid.');
+    verifyHtmlStructure(page, property);
     assert(provenance?.property === property && provenance.websiteRunId === runId && provenance.pageUrl === property
       && provenance.finalUrl === property && /^[a-f0-9]{64}$/.test(provenance.contentFingerprint)
       && (!generated || recentTimestamp(provenance.generatedAt)), 'The page review provenance does not match the exact current website.');
@@ -118,10 +282,20 @@ async function main() {
       const totalsValid = period.totalsStatus === 'available' ? validMetrics(period.totals) && period.totals.impressions > 0
         : period.totalsStatus === 'no_data' ? period.totals === null || (validMetrics(period.totals) && period.totals.impressions === 0)
           : period.totals === null;
-      assert(totalsValid && Array.isArray(period.queries) && period.queries.length <= 20
+      assert(totalsValid && Array.isArray(period.queries) && period.queries.length <= 1000
         && (period.queriesStatus === 'available' ? period.queries.length > 0 : period.queries.length === 0)
         && period.queries.every(row => textWithin(row.query, 1, 1024) && validMetrics(row))
         && new Set(period.queries.map(row => row.query)).size === period.queries.length, 'Review totals or query observations are invalid.');
+      const coverage = period.queryCoverage;
+      assert(coverage?.coverage === 'reported_queries' && coverage.mayBeIncomplete === true && coverage.requestedLimit === 1000
+        && coverage.order === 'impressions_descending'
+        && (period.queriesStatus === 'unavailable'
+          ? coverage.returnedRows === null && coverage.selectedForReview === null && coverage.hitRowLimit === null
+          : coverage.returnedRows === period.queries.length && coverage.selectedForReview === Math.min(40, period.queries.length)
+            && coverage.hitRowLimit === (period.queries.length === 1000))
+        && period.queries.every((row, index) => !index || period.queries[index - 1].impressions > row.impressions
+          || (period.queries[index - 1].impressions === row.impressions && period.queries[index - 1].clicks >= row.clicks)),
+      'Query coverage, impressions ordering or missing-data semantics are invalid.');
       statuses.push(period.totalsStatus, period.queriesStatus);
     }
     assert(Array.isArray(evidence.history) && evidence.history.length === 6, 'The URL history does not contain six observation windows.');
@@ -145,12 +319,20 @@ async function main() {
       && Array.isArray(evidence.relatedPages) && evidence.relatedPages.length === 0 && evidence.relatedPagesStatus === 'not_requested'
       && Array.isArray(evidence.limitations) && evidence.limitations.length > 0 && evidence.limitations.every(value => textWithin(value, 1, 1000)),
     'Review evidence availability or the no-keyword verification scope is invalid.');
-    assert(Array.isArray(evidence.facts) && evidence.facts.length >= (hasPageContent ? 3 : 0) && evidence.facts.length <= 31
-      && evidence.facts.every(fact => /^(?:P[1-3]|S[12]|H[1-6]|Q(?:[1-9]|1[0-9]|20))$/.test(fact.id)
+    assert(Array.isArray(evidence.facts) && evidence.facts.length >= (hasPageContent ? 3 : 0) && evidence.facts.length <= 51
+      && evidence.facts.every(fact => /^(?:P[1-3]|S[12]|H[1-6]|Q(?:[1-9]|[1-3][0-9]|40))$/.test(fact.id)
         && fact.kind === (fact.id.startsWith('P') ? 'page' : 'search') && textWithin(fact.label, 1, 200) && textWithin(fact.text, 1, 5000))
       && new Set(evidence.facts.map(fact => fact.id)).size === evidence.facts.length
       && (hasPageContent ? ['P1', 'P2', 'P3'].every(id => evidence.facts.some(fact => fact.id === id)) : evidence.facts.every(fact => fact.kind === 'search')),
     'Review source facts are missing or invalid.');
+    const queryFacts = evidence.facts.filter(fact => /^Q\d+$/.test(fact.id));
+    assert(queryFacts.length === Math.min(40, evidence.current.queries.length)
+      && queryFacts.every((fact, index) => fact.id === `Q${index + 1}` && fact.text.includes(JSON.stringify(evidence.current.queries[index].query))),
+    'The model query facts do not match the bounded highest-impression query rows.');
+    for (const [index, key] of ['current', 'previous'].entries()) {
+      assert(evidence.facts.some(fact => fact.id === `S${index + 1}`) === (evidence[key].totalsStatus !== 'unavailable'),
+        'A recent total source fact misrepresents an unavailable observation.');
+    }
     for (const [index, period] of evidence.history.entries()) {
       assert(evidence.facts.some(fact => fact.id === `H${index + 1}`) === (period.totalsStatus !== 'unavailable'),
         'A historical source fact misrepresents an unavailable observation.');
@@ -183,17 +365,20 @@ async function main() {
 
   function verifyAssessment(draft) {
     const analysis = draft.analysis;
-    const sourceIds = new Set([...draft.evidence.facts, ...(draft.research.status === 'available' ? draft.research.sources : [])].map(source => source.id));
+    const sourceIds = new Set([...draft.evidence.facts, ...draft.diagnostics.facts, ...(draft.research.status === 'available' ? draft.research.sources : [])].map(source => source.id));
     assert(analysis && REVIEW_ACTIONS.includes(analysis.action) && textWithin(analysis.summary, 1, 120)
       && textWithin(analysis.reason, 1, 420) && textWithin(analysis.nextStep, 1, 260)
       && ['keep', 'revise', 'uncertain'].includes(analysis.metadataVerdict) && textWithin(analysis.metadataReason, 1, 260)
       && (analysis.action === 'revise_metadata') === (analysis.metadataVerdict === 'revise')
       && (analysis.action !== 'keep_current' || analysis.metadataVerdict === 'keep')
       && Array.isArray(analysis.evidenceIds) && analysis.evidenceIds.length >= 1 && analysis.evidenceIds.length <= 5
-      && analysis.evidenceIds.every(id => sourceIds.has(id)) && analysis.evidenceIds.some(id => /^P[1-3]$/.test(id))
+      && analysis.evidenceIds.every(id => sourceIds.has(id)) && analysis.evidenceIds.some(id => /^P[1-6]$/.test(id))
       && new Set(analysis.evidenceIds).size === analysis.evidenceIds.length && Array.isArray(analysis.changedFields)
       && ['title', 'description'].every(field => typeof analysis.fieldReasons?.[field] === 'string' && analysis.fieldReasons[field].length <= 220),
     'The assessment action, explanation or source references are invalid.');
+    if (analysis.action === 'investigate_visibility') assert(analysis.evidenceIds.some(id => /^(?:S|Q|H|I)\d+$/.test(id) || id === 'P4'),
+      'A visibility investigation lacks direct search, inspection or technical evidence.');
+    verifyRecommendations(draft, sourceIds);
     if (analysis.action === 'revise_metadata') {
       assert(typeof draft.title === 'string' && typeof draft.description === 'string', 'A metadata revision did not include both fields.');
       const changed = [];
@@ -295,19 +480,25 @@ async function main() {
     if (flags.includes('--draft')) {
       stage = 'one explicit current-page review';
       const reviewStartedAt = new Date();
-      const draftResponse = await api('page-review/suggestions', { method: 'POST', headers, timeout: 175000,
+      const draftResponse = await api('page-review/suggestions', { method: 'POST', headers, timeout: 150000,
         body: { pageUrl: property, focusKeywords: [] } });
       assert(draftResponse.ok, 'The one requested review did not return a usable response. No retry or confirmation was attempted.');
       const draft = await draftResponse.json();
       verifyCurrentPage(draft.currentPage, draft.provenance, before.setup.revampRunId, true);
-      assert(draft.provenance.reviewVersion === 3 && /^gpt-[\w.-]{1,80}$/.test(draft.provenance.model), 'The assessment is not from the current review implementation.');
+      assert(draft.provenance.reviewVersion === 4 && /^gpt-[\w.-]{1,80}$/.test(draft.provenance.model), 'The assessment is not from the current review implementation.');
       verifyReviewEvidence(draft.evidence, reviewStartedAt);
       verifyResearch(draft.research);
+      verifyDiagnostics(draft.diagnostics, draft.currentPage);
+      verifyTimeline(draft.timeline);
+      assert(draft.ownerGoal === '', 'The review unexpectedly introduced an owner-supplied goal.');
       verifyAssessment(draft);
       draftMetadata = { requested: true, requests: 1, model: draft.provenance.model, action: draft.analysis.action, metadataVerdict: draft.analysis.metadataVerdict,
         ...(draft.analysis.action === 'revise_metadata' ? { titleLength: draft.title.length, descriptionLength: draft.description.length, changedFields: draft.analysis.changedFields } : {}),
         evidenceStatus: draft.evidence.status, evidenceSourceCount: draft.evidence.facts.length,
-        historyWindows: draft.evidence.history.length, researchAutomatic: true, researchStatus: draft.research.status, researchSourceCount: draft.research.sources.length,
+        queryRowsReturned: draft.evidence.current.queries.length, queryFacts: draft.evidence.facts.filter(fact => /^Q\d+$/.test(fact.id)).length,
+        inspectionStatus: draft.diagnostics.inspection.status, relatedPagesRead: draft.diagnostics.relatedPages.filter(page => page.status === 'available').length,
+        diagnosticsSourceCount: draft.diagnostics.facts.length, recommendationCount: draft.analysis.recommendations.length, timelineCheckpoints: draft.timeline.length,
+        reviewVersion: draft.provenance.reviewVersion, historyWindows: draft.evidence.history.length, researchAutomatic: true, researchStatus: draft.research.status, researchSourceCount: draft.research.sources.length,
         generatedAt: draft.provenance.generatedAt };
     }
 

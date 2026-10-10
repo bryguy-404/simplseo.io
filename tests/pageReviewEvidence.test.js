@@ -42,7 +42,7 @@ describe('exact-page evidence scope and dates', () => {
     for (const [index, body] of requests.slice(0, 4).entries()) {
       expect(body).toMatchObject({ ...(index < 2 ? window : previousWindow), type: 'web', dataState: 'final', aggregationType: 'auto' });
       expect(body.dimensionFilterGroups).toEqual([{ groupType: 'and', filters: [{ dimension: 'page', operator: 'equals', expression: pageUrl }] }]);
-      if (index % 2) expect(body).toMatchObject({ dimensions: ['query'], rowLimit: 20 });
+      if (index % 2) expect(body).toMatchObject({ dimensions: ['query'], rowLimit: 1000 });
       else { expect(body.rowLimit).toBe(1); expect(body).not.toHaveProperty('dimensions'); }
     }
     for (const [index, body] of requests.slice(4).entries()) {
@@ -90,7 +90,7 @@ describe('missing, zero and unavailable evidence remain distinct', () => {
     query.mockResolvedValue({});
     const result = await collect();
     expect(result.status).toBe('available');
-    expect(result.current).toEqual({ totals: null, queries: [], totalsStatus: 'no_data', queriesStatus: 'no_data' });
+    expect(result.current).toMatchObject({ totals: null, queries: [], totalsStatus: 'no_data', queriesStatus: 'no_data' });
     expect(result.previous).toEqual(result.current);
     expect(result.facts.find(fact => fact.id === 'S1').text).toContain('returned no total rows');
     expect(result.facts.find(fact => fact.id === 'S1').text).not.toContain('0 clicks');
@@ -110,7 +110,7 @@ describe('missing, zero and unavailable evidence remain distinct', () => {
     query.mockRejectedValue(new Error('private-token provider diagnostics'));
     const result = await collect();
     expect(result.status).toBe('unavailable');
-    expect(result.current).toEqual({ totals: null, queries: [], totalsStatus: 'unavailable', queriesStatus: 'unavailable' });
+    expect(result.current).toMatchObject({ totals: null, queries: [], totalsStatus: 'unavailable', queriesStatus: 'unavailable' });
     expect(result.facts.map(fact => fact.id)).toEqual(['P1', 'P2', 'P3']);
     expect(result.facts[0].text).toBe(currentPage.htmlTitle);
     expect(result.facts[2].text).toContain('Our design process');
@@ -137,7 +137,7 @@ describe('missing, zero and unavailable evidence remain distinct', () => {
     const result = await collect();
     expect(result.status).toBe('partial');
     expect(result.current).toMatchObject({ totals: metrics, queriesStatus: 'available' });
-    expect(result.previous).toEqual({ totals: metrics, queries: [], totalsStatus: 'available', queriesStatus: 'unavailable' });
+    expect(result.previous).toMatchObject({ totals: metrics, queries: [], totalsStatus: 'available', queriesStatus: 'unavailable' });
     expect(result.facts.map(fact => fact.id)).toEqual(['P1', 'P2', 'P3', 'S1', 'S2', 'Q1', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6']);
   });
 
@@ -236,7 +236,7 @@ describe('malformed data cannot become recommendation evidence', () => {
     [{ ...queryMetrics }], [{ keys: ['query', 'extra'], ...queryMetrics }],
     [{ keys: [''], ...queryMetrics }], [{ keys: ['query'], ...queryMetrics, clicks: -1 }],
     [{ keys: ['duplicate'], ...queryMetrics }, { keys: ['duplicate'], ...queryMetrics }],
-    Array.from({ length: 21 }, (_, index) => ({ keys: [`query ${index}`], ...queryMetrics })),
+    Array.from({ length: 1001 }, (_, index) => ({ keys: [`query ${index}`], ...queryMetrics })),
   ])('discards malformed or oversized query samples without losing separate totals %#', async rows => {
     query.mockImplementation(async body => body.dimensions ? { rows } : { rows: [metrics] });
     const result = await collect();
@@ -316,5 +316,36 @@ describe('selected-phrase provenance and alternative-page scope', () => {
     await expect(collect({ focusKeywords: ['x'.repeat(121)] })).rejects.toMatchObject({ status: 400 });
     await expect(collect({ focusKeywords: 'a phrase' })).rejects.toMatchObject({ status: 400 });
     expect(getGscConnection).not.toHaveBeenCalled();
+  });
+});
+
+describe('query-report coverage and useful low-click observations', () => {
+  it('retains the bounded Google report and selects highest-impression queries for model facts regardless of provider order', async () => {
+    const rows = Array.from({ length: 60 }, (_, index) => ({ keys: [`query ${index}`], clicks: 0, impressions: index + 1, ctr: 0, position: 20 + index }));
+    rows[0] = { keys: ['Brand query'], clicks: 5, impressions: 5, ctr: 1, position: 1 };
+    rows[59] = { keys: ['useful service location'], clicks: 0, impressions: 200, ctr: 0, position: 45 };
+    query.mockImplementation(async body => body.dimensions ? { rows } : { rows: [metrics] });
+    const result = await collect();
+    expect(result.current.queries).toHaveLength(60);
+    expect(result.current.queries[0]).toMatchObject({ query: 'useful service location', clicks: 0, impressions: 200 });
+    expect(result.facts.find(fact => fact.id === 'Q1').text).toContain('useful service location');
+    expect(result.facts.filter(fact => /^Q\d+$/.test(fact.id))).toHaveLength(40);
+    expect(result.current.queryCoverage).toEqual({ coverage: 'reported_queries', mayBeIncomplete: true, requestedLimit: 1000, returnedRows: 60, selectedForReview: 40, hitRowLimit: false, order: 'impressions_descending' });
+    expect(result.limitations.join(' ')).toContain('not a complete list');
+    expect(result.current.totals.impressions).toBe(200);
+  });
+  it('records row-limit saturation while keeping unavailable counts null rather than pretending zero queries', async () => {
+    const rows = Array.from({ length: 1000 }, (_, index) => ({ keys: [`query ${index}`], ...queryMetrics }));
+    query.mockImplementation(async body => {
+      if (body.dimensions && body.startDate === previousWindow.startDate) throw new Error('provider outage');
+      return body.dimensions ? { rows } : {};
+    });
+    const result = await collect();
+    expect(result.current.queries).toHaveLength(1000);
+    expect(result.current.queryCoverage).toMatchObject({ returnedRows: 1000, hitRowLimit: true, selectedForReview: 40 });
+    expect(result.previous.queryCoverage).toMatchObject({ returnedRows: null, hitRowLimit: null, selectedForReview: null });
+    expect(result.previous.queriesStatus).toBe('unavailable');
+    query.mockResolvedValue({ rows: [] });
+    expect((await collect()).current.queryCoverage).toMatchObject({ returnedRows: 0, hitRowLimit: false, selectedForReview: 0 });
   });
 });

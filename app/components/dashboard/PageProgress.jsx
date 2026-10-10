@@ -74,6 +74,7 @@ export default function PageProgress({ onResult }) {
             <span className="text-sm font-medium">{stateLabels[assessment.state] || 'Not checked yet'}</span>
           </div>
           {record.implementedAt && <p className="text-sm text-muted-foreground">Change confirmed {record.implementedAt.length === 10 ? record.implementedAt : new Date(record.implementedAt).toLocaleDateString()}.</p>}
+          {record.changeType === 'page_content' && record.pageChangeSummary && <div className="rounded-lg border bg-background/50 p-3 text-sm"><p className="font-medium">Published page change</p><p className="mt-1 whitespace-pre-wrap break-words text-muted-foreground">{record.pageChangeSummary}</p></div>}
           {reasons[assessment.reason] && <p className="text-sm text-muted-foreground">{reasons[assessment.reason]}</p>}
           {windows && <p className="text-sm text-muted-foreground">Before: {windows.baseline.startDate} – {windows.baseline.endDate}<br />After: {windows.post.startDate} – {windows.post.endDate} · Dates use Pacific time.</p>}
           {baseline && post && <div className="overflow-x-auto"><table className="w-full text-sm">

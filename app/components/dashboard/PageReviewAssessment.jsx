@@ -6,6 +6,8 @@ import { propertyContainsUrl } from '../../lib/revampState';
 import { usableSuggestion } from '../../lib/pageTaskFlow';
 import { Button } from '@/components/ui/button';
 import { pageIdentity } from './PageSearchActivity';
+import PageReviewActions, { usableRecommendations } from './PageReviewActions';
+import PageReviewDiagnostics, { googleInspectionLink } from './PageReviewDiagnostics';
 
 const actions = {
   revise_metadata: 'Review a wording change',
@@ -56,6 +58,10 @@ function targetPage(review) {
     Array.isArray(review.evidence?.relatedPages) && review.evidence.relatedPages.some(page => page?.pageUrl === target) ? target : null;
 }
 
+function reviewFacts(review) {
+  return [...new Map([...(review.evidence?.facts || []), ...(review.diagnostics?.facts || [])].map(fact => [fact.id, fact])).values()];
+}
+
 // A partial or older API response must never enable a publish confirmation.
 export function usablePageAssessment(review) {
   const analysis = review?.analysis;
@@ -68,14 +74,18 @@ export function usablePageAssessment(review) {
     !Array.isArray(review.research?.sources)) return false;
   if (!review.evidence.facts.every(fact => fact && ['id', 'label', 'text'].every(key => typeof fact[key] === 'string') && ['page', 'search'].includes(fact.kind)) ||
     !review.research.sources.every(source => source && typeof source.id === 'string' && typeof source.title === 'string' && webUrl(source.url))) return false;
+  if (!Array.isArray(review.diagnostics?.facts) || !review.diagnostics.facts.every(fact => fact && ['id', 'label', 'text'].every(key => typeof fact[key] === 'string') && ['page', 'search'].includes(fact.kind)) ||
+    !['available', 'unavailable'].includes(review.diagnostics.inspection?.status) || review.diagnostics.inspection.url !== review.evidence.pageUrl ||
+    (review.diagnostics.inspection.inspectionUrl && !googleInspectionLink(review.diagnostics.inspection.inspectionUrl)) ||
+    !Array.isArray(review.timeline) || review.timeline.length !== 3 || !review.timeline.every(item => item && ['label', 'when', 'description'].every(key => typeof item[key] === 'string' && item[key].trim()))) return false;
   const knownIds = new Set([
-    ...review.evidence.facts.filter(fact => fact && typeof fact.text === 'string').map(fact => fact.id),
+    ...reviewFacts(review).map(fact => fact.id),
     ...(review.research.status === 'available' ? review.research.sources.filter(source => webUrl(source.url)).map(source => source.id) : []),
   ]);
-  if (analysis.evidenceIds.some(id => typeof id !== 'string' || !knownIds.has(id))) return false;
+  if (analysis.evidenceIds.some(id => typeof id !== 'string' || !knownIds.has(id)) || !usableRecommendations(review, knownIds)) return false;
   if ((analysis.action === 'revise_metadata') !== (analysis.metadataVerdict === 'revise') ||
     (analysis.action === 'keep_current' && analysis.metadataVerdict !== 'keep') ||
-    (analysis.action === 'investigate_visibility' && !analysis.evidenceIds.some(id => /^(?:S|Q|H)\d+$/.test(id)))) return false;
+    (analysis.action === 'investigate_visibility' && !analysis.evidenceIds.some(id => /^(?:S|Q|H|I)\d+$/.test(id) || id === 'P4'))) return false;
   if (analysis.action === 'review_page' && !targetPage(review)) return false;
   if (analysis.action !== 'revise_metadata') return !review.title && !review.description;
   return analysis.metadataVerdict === 'revise' && usableSuggestion(review.title) && usableSuggestion(review.description) && Boolean(review.provenance) &&
@@ -113,7 +123,8 @@ function SearchPeriod({ label, window, period }) {
 
 export default function PageReviewAssessment({ review, onReviewPage }) {
   const { analysis, evidence, research } = review;
-  const citedFacts = evidence.facts.filter(fact => analysis.evidenceIds.includes(fact.id));
+  const facts = reviewFacts(review);
+  const citedFacts = facts.filter(fact => analysis.evidenceIds.includes(fact.id));
   const sources = research.status === 'available' ? research.sources.filter(source => webUrl(source.url)) : [];
   const nextPage = analysis.action === 'review_page' ? targetPage(review) : null;
   const researchedAt = observedAt(research.checkedAt);
@@ -123,18 +134,22 @@ export default function PageReviewAssessment({ review, onReviewPage }) {
   return <section aria-label="Page assessment" className="mb-6 overflow-hidden rounded-xl border border-violet-200 bg-violet-50 dark:border-violet-800 dark:bg-violet-950/20">
     <div className="space-y-4 p-5 md:p-6">
       <div className="border-b border-violet-200 pb-4 dark:border-violet-800"><p className="text-xs font-semibold uppercase tracking-wide text-violet-800 dark:text-violet-200">Review for {pageIdentity(evidence.pageUrl)}</p><a href={evidence.pageUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block max-w-full break-all text-sm underline underline-offset-4">{evidence.pageUrl}<span className="sr-only"> (opens in a new tab)</span></a></div>
-      <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 dark:border-sky-800 dark:bg-sky-950/30"><p className="text-xs font-semibold uppercase tracking-wide text-sky-800 dark:text-sky-200">Title and description</p><h3 className="mt-2 font-semibold text-sky-950 dark:text-sky-50">{metadataVerdicts[analysis.metadataVerdict]}</h3><p className="mt-2 text-sm leading-relaxed text-sky-900 dark:text-sky-100">{analysis.metadataReason}</p></div>
+      <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Goal for this page</p><p className="mt-1 text-sm leading-relaxed">{analysis.pageGoal}</p></div>
       <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-violet-800 dark:text-violet-200"><ClipboardCheck className="h-4 w-4" aria-hidden="true" />Recommended next step</p>
       <div className="space-y-2"><h2 className="text-xl font-semibold">{actions[analysis.action]}</h2><p className="font-medium leading-relaxed">{analysis.summary}</p><p className="text-sm leading-relaxed text-muted-foreground">{analysis.reason}</p></div>
-      <div className="rounded-lg border border-violet-200 bg-background/70 p-4 dark:border-violet-800"><p className="mb-1 text-sm font-semibold">What to do next</p><p className="text-sm leading-relaxed">{analysis.nextStep}</p>
+      <PageReviewActions recommendations={analysis.recommendations} facts={facts} sources={sources} />
+      {(!analysis.recommendations.length || nextPage) && <div className="rounded-lg border border-violet-200 bg-background/70 p-4 dark:border-violet-800"><p className="mb-1 text-sm font-semibold">What to do next</p><p className="text-sm leading-relaxed">{analysis.nextStep}</p>
         {nextPage && <div className="mt-3 space-y-3"><p className="break-all text-xs text-muted-foreground">{nextPage}</p><Button variant="outline" onClick={() => onReviewPage?.(nextPage)}>Review recommended page</Button></div>}
-      </div>
+      </div>}
+      <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 dark:border-sky-800 dark:bg-sky-950/30"><p className="text-xs font-semibold uppercase tracking-wide text-sky-800 dark:text-sky-200">Title and description</p><h3 className="mt-2 font-semibold text-sky-950 dark:text-sky-50">{metadataVerdicts[analysis.metadataVerdict]}</h3><p className="mt-2 text-sm leading-relaxed text-sky-900 dark:text-sky-100">{analysis.metadataReason}</p></div>
+      <PageReviewDiagnostics diagnostics={review.diagnostics} pageUrl={evidence.pageUrl} currentPage={review.currentPage} />
       {evidence.status !== 'available' && <p className="text-sm text-muted-foreground">{evidence.status === 'unavailable' ? 'Search data was unavailable for this review. The recommendation uses the page content and any available research.' : 'Some search data was unavailable. The evidence below shows what this review could use.'}</p>}
       {researchFailed && <p role="status" className="text-sm text-muted-foreground">Web research {research.status === 'no_sources' ? 'returned no usable sources' : 'was unavailable'}. This review continues without competitor evidence.</p>}
       {research.status === 'available' && <p className="text-xs text-muted-foreground">Web research included · {sources.length} {sources.length === 1 ? 'source' : 'sources'}. Open the evidence below to review them.</p>}
       {analysis.action === 'revise_metadata' && <div className="space-y-2 text-sm">
         {analysis.changedFields.map(field => <p key={field}><strong>{field === 'title' ? 'Why change the title:' : 'Why change the description:'}</strong> {analysis.fieldReasons[field]}</p>)}
       </div>}
+      <details className="rounded-lg border bg-background/50 p-4 text-sm"><summary className="cursor-pointer font-medium">After publishing: when to check progress</summary><ol className="mt-4 space-y-4">{review.timeline.map((item, index) => <li key={item.label} className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs" aria-hidden="true">{index + 1}</span><div><p className="font-medium">{item.when} · {item.label}</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{item.description}</p></div></li>)}</ol><p className="mt-4 text-xs text-muted-foreground">These are review checkpoints, not promised crawl dates or ranking results.</p></details>
       <details className="border-t border-violet-200 pt-4 text-sm dark:border-violet-800">
         <summary className="cursor-pointer rounded font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Why this recommendation?</summary>
         <div className="mt-5 space-y-5">

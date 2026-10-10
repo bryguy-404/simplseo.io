@@ -13,6 +13,7 @@ import SeoRecommendationPanel from '../components/dashboard/SeoRecommendationPan
 import PageProgress from '../components/dashboard/PageProgress';
 import PageReviewAssessment, { usablePageAssessment } from '../components/dashboard/PageReviewAssessment';
 import PageSearchActivity, { pageOptionLabel, usablePageActivity } from '../components/dashboard/PageSearchActivity';
+import PageContentChangeConfirmation from '../components/dashboard/PageContentChangeConfirmation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -40,6 +41,7 @@ function LowCtrWorkspace() {
   const [requestedUrl, setRequestedUrl] = useState(null);
   const [selectionError, setSelectionError] = useState('');
   const [keyword, setKeyword] = useState('');
+  const [goal, setGoal] = useState('');
   const [currentPage, setCurrentPage] = useState(null);
   const [contentBusy, setContentBusy] = useState(false);
   const [contentError, setContentError] = useState('');
@@ -53,9 +55,11 @@ function LowCtrWorkspace() {
   const [generating, setGenerating] = useState(false);
   const [generationError, setGenerationError] = useState('');
   const [taskConfirmed, setTaskConfirmed] = useState(false);
+  const [contentConfirmed, setContentConfirmed] = useState(false);
   const generationController = useRef(null);
   const activityController = useRef(null);
   const markConfirmed = useCallback(() => setTaskConfirmed(true), []);
+  const markContentConfirmed = useCallback(() => { setContentConfirmed(true); setTaskConfirmed(true); }, []);
   useEffect(() => () => generationController.current?.abort(), []);
 
   useEffect(() => { setRequestedUrl(new URL(window.location.href).searchParams.get('page') || ''); }, []);
@@ -133,6 +137,7 @@ function LowCtrWorkspace() {
   const choosePage = value => {
     const page = pages.find(item => item.url === value);
     setSelectedUrl(value); setKeyword(page?.focusKeyword || page?.queries[0]?.keyword || '');
+    setGoal(''); setContentConfirmed(false);
     setActivity(null); setActivityError(''); setActivityBusy(true);
     resetAssessment(); setTaskConfirmed(false); setSelectionError('');
   };
@@ -147,7 +152,7 @@ function LowCtrWorkspace() {
     setGenerating(true); setGenerationError(''); setSuggestion(null);
     const controller = new AbortController(); generationController.current = controller;
     try {
-      const result = await request('/api/page-review/suggestions', { pageUrl: selected.url, focusKeywords: keyword ? [keyword] : [], includeResearch: true }, controller.signal);
+      const result = await request('/api/page-review/suggestions', { pageUrl: selected.url, focusKeywords: keyword ? [keyword] : [], includeResearch: true, ...(goal.trim() ? { goal: goal.trim() } : {}) }, controller.signal);
       if (controller.signal.aborted) return;
       if (result.currentPage?.finalUrl && result.currentPage.finalUrl !== selected.url) {
         setCurrentPage(result.currentPage);
@@ -211,13 +216,15 @@ function LowCtrWorkspace() {
               <p className="text-muted-foreground">Choose a phrase only if it fits this page, or use your page content alone. Options marked “observed search query” came from Google; saved focus keywords are your earlier selections.</p>
             </div>
           </details>
+          <label className="block space-y-2"><span className="text-sm font-medium">What should this page help visitors do? <span className="font-normal text-muted-foreground">(optional)</span></span><input value={goal} maxLength={180} disabled={taskConfirmed} onChange={event => { setGoal(event.target.value); resetAssessment(); }} className="w-full rounded-lg border bg-background p-3 text-sm" placeholder="For example: understand my website design service and request a consultation." /><span className="block text-xs leading-relaxed text-muted-foreground">This is your goal for the review, not a verified fact about your business. The analysis will still check it against your page.</span></label>
           {!taskConfirmed && <p className="rounded-lg border px-4 py-3 text-sm"><span className="block font-medium">Web research is included</span><span className="mt-1 block text-xs leading-relaxed text-muted-foreground">Each analysis checks public websites for context. You’ll see the sources or a notice if research is unavailable.</span></p>}
           {generationError && <p role="alert" className="text-destructive">{generationError}</p>}
           {!taskConfirmed && <Button onClick={generate} disabled={!currentPage || contentBusy || generating || redirected}><Sparkles className="mr-2 h-4 w-4" aria-hidden="true" />{generating ? 'Reviewing your page…' : suggestion || generationError ? 'Analyze again' : 'Analyze this page'}</Button>}
           {!taskConfirmed && <p className="text-xs text-muted-foreground">We’ll recommend a next step. Sometimes the best choice is to keep your wording. Your website won’t change.</p>}
         </CardContent></Card>
       {suggestion && !redirected && <PageReviewAssessment review={suggestion} onReviewPage={reviewRelatedPage} />}
-      <div className="mb-6" hidden={Boolean(suggestion && suggestion.analysis.action !== 'revise_metadata' && !taskConfirmed)}><SeoRecommendationPanel key={selected.url} pageUrl={selected.url} title={selected.url}
+      {suggestion && !redirected && (contentConfirmed || !taskConfirmed) && suggestion.analysis.recommendations.some(item => ['heading', 'content', 'internal_link', 'technical'].includes(item.type)) && <PageContentChangeConfirmation key={`${selected.url}:${suggestion.provenance.generatedAt}`} pageUrl={selected.url} provenance={suggestion.provenance} onConfirmed={markContentConfirmed} onExisting={markConfirmed} hasMetadataEditor={suggestion.analysis.action === 'revise_metadata'} />}
+      <div className="mb-6" hidden={contentConfirmed || Boolean(suggestion && suggestion.analysis.action !== 'revise_metadata' && !taskConfirmed)}><SeoRecommendationPanel key={selected.url} pageUrl={selected.url} title={selected.url}
         suggestedTitle={suggestion?.title || ''} suggestedDescription={suggestion?.description || ''}
         focusKeyword={suggestion?.keyword || ''} keywordSource={selected.queries.some(row => row.keyword === suggestion?.keyword) ? 'gsc-observed' : 'gsc-existing'}
         currentPage={currentPage} provenance={suggestion?.provenance} requireServerConfirmation suggestionState={suggestion?.analysis.action === 'revise_metadata' && !redirected ? 'ready' : generating ? 'loading' : 'idle'} onConfirmed={markConfirmed} /></div>

@@ -46,7 +46,9 @@ export async function readProgress(uid, now = new Date()) {
     policy: PROGRESS_POLICY, notificationsEnabled: false, automaticOutcomesEnabled: false,
     records: snapshot.docs.filter(doc => !doc.data().preRevampArchived && doc.data().status === 'implemented').map(doc => {
       const data = doc.data();
-      return { id: doc.id, pageUrl: data.pageUrl, implementedAt: cycleDate(data.implementedAt), assessment: assessmentForDisplay(data, onboarding, property, now) };
+      return { id: doc.id, pageUrl: data.pageUrl, implementedAt: cycleDate(data.implementedAt),
+        ...(data.changeType === 'page_content' ? { changeType: 'page_content', pageChangeSummary: typeof data.pageChangeSummary === 'string' ? data.pageChangeSummary.slice(0, 600) : '' } : {}),
+        assessment: assessmentForDisplay(data, onboarding, property, now) };
     }),
   };
 }

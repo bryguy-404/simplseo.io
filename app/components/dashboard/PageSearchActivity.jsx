@@ -13,6 +13,10 @@ export function activityCount(value) {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value.toLocaleString() : 'Unavailable';
 }
 
+function averagePosition(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 1 ? value.toLocaleString(undefined, { maximumFractionDigits: 1 }) : 'Unavailable';
+}
+
 export function pageOptionLabel(page) {
   const identity = pageIdentity(page.url) === 'Homepage' ? `Homepage — ${page.url}` : page.url;
   const metrics = page.metrics;
@@ -35,7 +39,7 @@ export function usablePageActivity(result, { property, pageUrl, websiteRunId }) 
     provenance?.property === property && provenance.pageUrl === pageUrl && (provenance.websiteRunId || null) === (websiteRunId || null) &&
     validWindow(evidence.window) && validTotals(evidence.current) &&
     validStatus(evidence.current?.queriesStatus) && Array.isArray(evidence.current.queries) &&
-    evidence.current.queries.every(row => typeof row?.query === 'string' && validMetrics(row)) &&
+    evidence.current.queries.length <= 1000 && evidence.current.queries.every(row => typeof row?.query === 'string' && validMetrics(row) && (row.position == null || (Number.isFinite(row.position) && row.position >= 1))) &&
     Array.isArray(evidence.history) && evidence.history.length === 6 &&
     evidence.history.every((period, index) => period && validWindow(period.window) && validTotals(period) &&
       (index === 0 ? period.window.startDate === evidence.window.startDate && period.window.endDate === evidence.window.endDate
@@ -48,7 +52,7 @@ export default function PageSearchActivity({ pageUrl, evidence, busy, error, onR
   const [showAllQueries, setShowAllQueries] = useState(false);
   const current = evidence?.current;
   const totals = current?.totals;
-  const queries = current?.queries || [];
+  const queries = [...(current?.queries || [])].sort((a, b) => b.impressions - a.impressions || a.query.localeCompare(b.query));
   const visibleQueries = showAllQueries ? queries : queries.slice(0, 5);
 
   return <section aria-label="Selected page and search activity" className="mb-6 rounded-xl border bg-card p-5 md:p-6">
@@ -63,7 +67,8 @@ export default function PageSearchActivity({ pageUrl, evidence, busy, error, onR
           : <p className="rounded-lg border bg-muted/20 p-4 text-sm text-muted-foreground">{current.totalsStatus === 'no_data' ? 'Google returned no page totals for this period. This does not tell us whether the page is indexed.' : 'Page totals are unavailable right now. You can still review the page content.'}</p>}
       </div>
       <div><h3 className="mb-2 font-semibold">What people searched for</h3><p className="mb-3 text-xs leading-relaxed text-muted-foreground">These searches brought up this exact page. Google leaves some searches out, so these rows may not add up to the page totals above.</p>
-        {queries.length > 0 ? <><div className="overflow-x-auto rounded-lg border"><table className="w-full text-sm" aria-label="Search phrases for the selected page"><thead className="bg-muted/30 text-left"><tr><th scope="col" className="p-3 font-medium">Search phrase</th><th scope="col" className="p-3 text-right font-medium">Clicks</th><th scope="col" className="p-3 text-right font-medium">Appearances</th></tr></thead><tbody>{visibleQueries.map(row => <tr className="border-t" key={row.query}><th scope="row" className="min-w-32 break-words p-3 text-left font-normal">{row.query}</th><td className="p-3 text-right">{activityCount(row.clicks)}</td><td className="p-3 text-right">{activityCount(row.impressions)}</td></tr>)}</tbody></table></div>
+        {queries.length > 0 ? <><div className="overflow-x-auto rounded-lg border"><table className="w-full text-sm" aria-label="Search phrases for the selected page"><thead className="bg-muted/30 text-left"><tr><th scope="col" className="p-3 font-medium">Search phrase</th><th scope="col" className="p-3 text-right font-medium">Clicks</th><th scope="col" className="p-3 text-right font-medium">Appearances</th><th scope="col" className="p-3 text-right font-medium" title="Average position across the reported searches. A lower number is closer to the top; it is not a fixed result position.">Average position</th></tr></thead><tbody>{visibleQueries.map(row => <tr className="border-t" key={row.query}><th scope="row" className="min-w-32 break-words p-3 text-left font-normal">{row.query}</th><td className="p-3 text-right">{activityCount(row.clicks)}</td><td className="p-3 text-right">{activityCount(row.impressions)}</td><td className="p-3 text-right">{averagePosition(row.position)}</td></tr>)}</tbody></table></div>
+          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">Ordered by appearances · up to 1,000 reported searches for the dates above. Average position varies by search and visitor; a lower number is closer to the top. A few appearances or clicks can move these averages a lot.</p>
           {queries.length > 5 && <Button className="mt-3" variant="outline" size="sm" onClick={() => setShowAllQueries(value => !value)}>{showAllQueries ? 'Show fewer searches' : `Show all ${queries.length} searches`}</Button>}</>
           : <p className="text-sm text-muted-foreground">{current.queriesStatus === 'unavailable' ? 'Search phrases are unavailable for this period.' : 'Google returned no search phrases for this page during this period.'}</p>}
       </div>
