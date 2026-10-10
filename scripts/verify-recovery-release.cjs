@@ -10,7 +10,8 @@ admin.initializeApp({ credential: admin.credential.cert({ projectId: process.env
   const customToken = await admin.auth().createCustomToken(uid);
   const signIn = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${process.env.NEXT_PUBLIC_FIREBASE_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: customToken, returnSecureToken: true }) });
   const session = await signIn.json();
-  if (!session.idToken || session.localId !== uid) throw new Error('Could not create the temporary verification session.');
+  if (!session.idToken) throw new Error(`Temporary verification session failed: HTTP ${signIn.status}, ${session.error?.message || 'identity mismatch'}`);
+  if ((await admin.auth().verifyIdToken(session.idToken)).uid !== uid) throw new Error('Verification identity mismatch.');
   const headers = { Authorization: `Bearer ${session.idToken}`, 'Content-Type': 'application/json' };
   for (const endpoint of ['revamp/complete', 'revamp/check-gsc', 'account/delete', 'focus-keywords']) {
     const res = await fetch(`${origin}/api/${endpoint}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: uid }) });

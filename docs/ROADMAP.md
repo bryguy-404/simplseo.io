@@ -1,5 +1,7 @@
 # SimpleSEO master roadmap
 
+Status on October 10 2026: Phases 0–1 are deployed and the account recovery was verified through authenticated live APIs. Bryan’s personal checkpoint and the next scheduled cron invocation remain open. See [recovery operations](RECOVERY.md) for evidence.
+
 The first release restores Bryan's existing account without requiring every page to appear in Google. Keep Firebase, Firestore and Vercel through recovery. Users continue making website changes themselves. Later phases remain planning items until Bryan verifies recovery.
 
 ## Phase 0 Preparation and safeguards

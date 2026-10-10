@@ -15,7 +15,7 @@ Exact production deployment revision and account UID/property must be verified b
 
 - `npm test` runs isolated logic and mocked API tests; unexpected HTTP calls fail.
 - `npm run lint` uses ESLint directly. Baseline: zero errors, sixteen warnings.
-- `npm run build` requires access to the existing Google Fonts dependency.
+- `npm run build` now bundles the existing Geist fonts locally; both a fresh restricted-network build and the Vercel build passed. The browser still uses the existing DM Sans stylesheet.
 - Emulator tests use only `demo-simpleseo`, Firestore on `127.0.0.1:8080` and Auth on `127.0.0.1:9099`.
 - Browser tests run against the isolated app configuration, never production credentials. Keep test reports and browser state out of version control.
 
@@ -44,3 +44,18 @@ Original production deployment `dpl_GhXNL1wk9297SckvXxoYfPY7yTcg` was built from
 `inspect-recovery-account.cjs` reads the account/property match without printing credentials. `recover-account.cjs UID PROPERTY` is a dry run; `--apply` requires `RECOVERY_BACKUP_DIR` outside the repository and verifies the backup before writing. `rollback-recovery.cjs BACKUP_PATH` is also a dry run and refuses to overwrite recovery fields changed since migration. Progress processing remains paused during rollback.
 
 `verify-recovery-release.cjs ORIGIN UID PROPERTY` creates a temporary in-memory Firebase session, checks ownership enforcement and history, then performs real Google monitoring and an authenticated call to the cron route. It never prints session credentials. A successful direct cron invocation does not by itself confirm the next scheduled invocation.
+
+
+## Release result on October 10 2026
+
+Production is running application commit `50e00ce` on deployment `dpl_35gDNbvorPtfkYKGKF97yE225uPv`, promoted to `https://simplseo-io.vercel.app`. Two superseded staged builds were cancelled without promotion. Firebase functions and Firestore rules were deployed successfully before recovery.
+
+Validation passed: 36 logic/API tests, six browser/rules scenarios, fresh production build, Vercel production build, and lint with zero errors and the sixteen existing warnings. Failure-path coverage includes interrupted snapshots, bounded/failed scans, credential failures, stale monitoring responses, wrong-user requests, failed completion saves and blocked/declined reconnects.
+
+The account matched `bryandevelops.com` and the exact property `https://bryandevelops.com/`. Recovery preserved 45 source records in an owner-only backup outside Git and created a read-only history snapshot containing 11 already-archived records. It retained all 29 tracked pages and did not reactivate archived keywords or implementations. A rollback dry run passed without changing production.
+
+The authenticated live check at 15:14 UTC returned HTTP 200 with a usable Google connection, 29 pages checked, 4 with search data, 25 without data and zero page errors. Setup is complete, monitoring remains enabled, and automated outcome processing remains paused. The authenticated cron route also returned HTTP 200 and checked this account. This confirms the route works after completion, not that the next scheduled invocation has already occurred.
+
+Open checkpoints: Bryan's live login/navigation/history review, and observation of the next automatic 03:00 UTC cron invocation. Do not begin Phase 2 or unpause automated outcome decisions until Bryan's recovery checkpoint is accepted.
+
+Protected backups are in `/Users/bryanarambula/Backups/simpleseo/recovery/`; the apply-time backup ends in `1791645173838.json`. Do not attach these files to issues, PRs or public artifacts.
