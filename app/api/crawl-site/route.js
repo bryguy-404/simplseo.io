@@ -599,6 +599,9 @@ export async function POST(req) {
       }
     }
 
+    if (processed === 0 && errors.length > 0) {
+      throw new Error('No pages could be scanned. Existing pages and preferences have been preserved.');
+    }
     const targetUrlSet = new Set(targetEntries.map((entry) => entry.url));
     // A bounded scan cannot prove that absent URLs were retired. Preserve existing caches.
 
