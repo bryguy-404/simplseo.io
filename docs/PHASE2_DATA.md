@@ -1,6 +1,6 @@
 # Phase 2: sourced page progress
 
-Implementation policy, October 10, 2026. This document describes the code and release checks; it is not evidence that a deployment, account migration, or scheduled invocation has happened. Record those outcomes separately in [RECOVERY.md](RECOVERY.md). See [PHASE2_RULES.md](PHASE2_RULES.md) for Firestore and deletion boundaries.
+Implementation policy, October 10, 2026. This document describes the code and release checks; production outcomes are recorded separately in [PHASE2.md](PHASE2.md), with earlier account recovery in [RECOVERY.md](RECOVERY.md). See [PHASE2_RULES.md](PHASE2_RULES.md) for Firestore and deletion boundaries.
 
 ## What is measured
 

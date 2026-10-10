@@ -1,6 +1,6 @@
 # SimpleSEO master roadmap
 
-Status on October 10 2026: Bryan accepted the account recovery checkpoint after checking history, refreshing, and signing out and back in. Phase 2 implementation and isolated verification are complete; production release verification is in progress. The next automatic scheduled invocation remains unobserved. See [recovery operations](RECOVERY.md) and [Phase 2 release](PHASE2.md).
+Status on October 10 2026: Bryan accepted the account recovery checkpoint after checking history, refreshing, and signing out and back in. Phase 2 is implemented, deployed and verified with the live account. Sourced observation collection is enabled; automatic outcome decisions and notifications remain disabled. Bryan's Phase 2 checkpoint and observation of the next automatic scheduled invocations remain open. See [recovery operations](RECOVERY.md) and [Phase 2 release](PHASE2.md).
 
 The first release restores Bryan's existing account without requiring every page to appear in Google. Keep Firebase, Firestore and Vercel. Users continue making website changes themselves. Bryan authorized Phase 2 after accepting recovery; Phases 3–5 remain roadmap items.
 
@@ -74,6 +74,8 @@ Audit the remaining authorization surface, Firestore rules and account deletion 
 Implemented scope and release evidence are in [Phase 2](PHASE2.md), with supporting [data policy](PHASE2_DATA.md), [API access inventory](PHASE2_ACCESS.md), and [Firestore/deletion audit](PHASE2_RULES.md). The new collector can show observations and comparisons; automatic success/pivot/audit decisions, outcome emails and playbook promotion remain disabled. A count threshold is not proof that an SEO edit caused a result.
 
 Bryan's next checkpoint: reload Dashboard and Low CTR Fixes, confirm Page progress and preserved history are understandable, and confirm a real website edit only after making it. Do not create fake implementations to populate the chart. Stop for this feedback before the Phase 3 dashboard redesign.
+
+Operational follow-up: upgrade or retire the retained Firebase Functions Node 20 runtime before its CLI-reported October 30, 2026 decommission date, preserving the disabled legacy writer. Observe scheduled collection separately from successful manual route checks.
 
 ## Phase 3 A clearer dashboard and task flow
 

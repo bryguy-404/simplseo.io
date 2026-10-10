@@ -48,7 +48,7 @@ Original production deployment `dpl_GhXNL1wk9297SckvXxoYfPY7yTcg` was built from
 
 ## Release result on October 10 2026
 
-Production is running application commit `50e00ce` on deployment `dpl_35gDNbvorPtfkYKGKF97yE225uPv`, promoted to `https://simplseo-io.vercel.app`. Two superseded staged builds were cancelled without promotion. Firebase functions and Firestore rules were deployed successfully before recovery.
+The recovery release ran application commit `50e00ce` on deployment `dpl_35gDNbvorPtfkYKGKF97yE225uPv`, promoted to `https://simplseo-io.vercel.app`. It has since been superseded by the [Phase 2 release](PHASE2.md). Two superseded recovery staged builds were cancelled without promotion. Firebase functions and Firestore rules were deployed successfully before recovery.
 
 Validation passed: 36 logic/API tests, six browser/rules scenarios, fresh production build, Vercel production build, and lint with zero errors and the sixteen existing warnings. Failure-path coverage includes interrupted snapshots, bounded/failed scans, credential failures, stale monitoring responses, wrong-user requests, failed completion saves and blocked/declined reconnects.
 
@@ -57,6 +57,8 @@ The account matched `bryandevelops.com` and the exact property `https://bryandev
 The authenticated live check at 15:14 UTC returned HTTP 200 with a usable Google connection, 29 pages checked, 4 with search data, 25 without data and zero page errors. Setup is complete, monitoring remains enabled, and automated outcome processing remains paused. The authenticated cron route also returned HTTP 200 and checked this account. This confirms the route works after completion, not that the next scheduled invocation has already occurred.
 
 Bryan accepted the live recovery checkpoint on October 10, 2026: history was visible and Dashboard remained accessible after refresh, logout and login. He authorized Phase 2. Observation of the next automatic 03:00 UTC cron invocation remains open. Phase 2 may enable sourced comparisons after verified deployment, while automated outcome decisions remain disabled; see [Phase 2](PHASE2.md).
+
+Phase 2 subsequently enabled sourced comparisons through a backed-up transaction changing only `progressReviewRequired:false`. Its live verification preserved history and all six archived implementation records, showed zero active changes, and kept automatic outcomes and notifications disabled. Phase 2's user checkpoint is pending; the original recovery checkpoint remains accepted.
 
 Protected backups are in `/Users/bryanarambula/Backups/simpleseo/recovery/`; the apply-time backup ends in `1791645173838.json`. Do not attach these files to issues, PRs or public artifacts.
 

@@ -1,6 +1,6 @@
 # Phase 2 access and request boundaries
 
-Implementation inventory for the account/data reliability phase. This file covers the API and cache work; the master roadmap remains the phase/checkpoint authority. No production operations were performed by this implementation subtask.
+Implementation inventory for the account/data reliability phase. This file covers the API and cache work; the master roadmap remains the phase/checkpoint authority. Final production operations and checks are recorded in [PHASE2.md](PHASE2.md).
 
 ## Authenticated account and AI routes
 
@@ -35,13 +35,13 @@ Browser-only WordPress page loading is still a direct browser request; it does n
 
 Initial onboarding now uses the same state-bound popup flow as recovery. Property selection is saved only after the server accepts the connection. Google tokens are no longer accepted from URL query parameters. `/api/auth/google` returns 410. The old callback URL remains a compatibility redirect carrying only the short-lived authorization code, state, or error to `/gsc-callback`; the authenticated exchange consumes and verifies state before exchanging the code.
 
-`/api/admin/approve` requires a Firebase user with `customClaims.admin === true` or a UID in the server-only comma-separated `ADMIN_UIDS` environment setting. Missing configuration fails closed. A supplied email or old `ADMIN_SECRET` no longer grants authority. The admin page uses account sign-in and removes its old stored admin secret. Admin assignment/configuration must be established before using that page in production.
+`/api/admin/approve` requires a Firebase user with `customClaims.admin === true` or a UID in the server-only comma-separated `ADMIN_UIDS` environment setting. Missing configuration fails closed. A supplied email or old `ADMIN_SECRET` no longer grants authority. The admin page uses account sign-in and removes its old stored admin secret. Release configuration grants this role to Bryan's verified existing account; authenticated GET returned 200 and anonymous GET returned 401. No approval action or invitation email was triggered by verification.
 
 ## Intentionally public signup/contact routes
 
 Access requests, invitation verification, approval-status lookup, and contact remain available before sign-in. They now have bounded input, same-origin checks when a browser Origin header is present, and persisted rate limits keyed by a hash of the route, IP, and time bucket. Invitation verification consumes a valid, unexpired code in a transaction. Code generation uses cryptographic randomness. Public approval lookup returns only approval/status information, never invitation codes or private timestamps. Contact identity fields cannot impersonate a supplied UID; verified identity is used only when a Firebase token accompanies the request. User-supplied email HTML is escaped, and SMTP certificate verification is enabled.
 
-Public request-limit records are IP/time-bucket hashes, not attributed to an account. Their `expiresAt` field is ready for a Firestore TTL policy or equivalent maintenance cleanup. Expiry affects bucket eligibility immediately, but deletion of expired documents requires that operational cleanup to be configured.
+Public request-limit records are IP/time-bucket hashes, not attributed to an account. The Firestore TTL policy for `requestLimits.expiresAt` was deployed and verified ACTIVE on October 10, 2026. Expiry affects bucket eligibility immediately; physical deletion is asynchronous. TTL applies only to these temporary quota counters.
 
 The approval-status lookup remains an intentional email-status lookup for the existing signup experience. When `NEXT_PUBLIC_ENABLE_ACCESS_REQUEST=true` on the server, the shared `requireUser` guard also requires a verified Firebase email in `approvedUsers` (or server-configured admin identity). A supplied request email cannot satisfy approval. Paid entitlements remain a separate pilot/billing concern; quotas do not supply a billing system.
 
@@ -51,4 +51,4 @@ The approval-status lookup remains an intentional email-status lookup for the ex
 - `PLAYWRIGHT_BROWSERS_PATH=/private/tmp/simpleseo-test-runtime/browsers npm run test:e2e -- tests/browser/phase2-access.spec.js`: two passed against only the local `demo-simpleseo` Auth/Firestore emulators and the local app. Real Firebase IDs could not cross account boundaries; a known conversation ID did not grant another account read, update, or delete access.
 - Repository lint completed with zero errors; preexisting warnings remain.
 
-Live provider calls, mail delivery, production admin assignment, and TTL provisioning were not performed by these tests. The root implementation owns the release decision and broader Phase 2 verification.
+These isolated tests did not perform live provider calls, mail delivery, production admin assignment, or TTL provisioning. Separate release checks subsequently verified a real Google observation, configured and checked admin access, and activated TTL; see [release evidence](PHASE2.md). No mail delivery was triggered.
