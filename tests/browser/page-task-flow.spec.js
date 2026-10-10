@@ -458,7 +458,11 @@ test('keeping metadata can still recommend investigating visibility with the exa
 });
 
 test('generalized page review prioritizes a concrete action, preserves metadata and shows inspection evidence', async ({ page }) => {
-  const calls = await setup(page, { assessment: body => contentAssessment(body.pageUrl), activity: body => {
+  const calls = await setup(page, { assessment: body => {
+    const review = contentAssessment(body.pageUrl);
+    review.diagnostics.relatedPages[0].comparison = { phrases: ['local website design', 'website consultation'], window: review.evidence.window, previousWindow: review.evidence.previousWindow, current: { status: 'available', queries: [{ query: 'local website design', clicks: 1, impressions: 8, ctr: 0.125, position: 12.4 }] }, previous: { status: 'unavailable', queries: [] }, limitation: 'Partial reported queries do not establish that these pages compete or explain a ranking change.' };
+    return review;
+  }, activity: body => {
     const result = activityFor(body.pageUrl, true);
     result.evidence.current.queries = [{ query: 'less seen search', clicks: 0, impressions: 2, position: null }, { query: 'local website design', clicks: 1, impressions: 20, position: 9.25 }];
     return result;
@@ -480,9 +484,21 @@ test('generalized page review prioritizes a concrete action, preserves metadata 
   await expect(inspection.getByText(`Exact URL: ${pageUrl}`, { exact: true })).toBeVisible();
   await expect(inspection.getByRole('link', { name: 'Open Google’s inspection', exact: false })).toHaveAttribute('href', /https:\/\/search.google.com\/search-console\/inspect\?/);
   await expect(inspection.getByText(/Last crawl reported by Google/)).toBeVisible();
-  await inspection.getByText('Index and page-read details', { exact: true }).click();
+  await inspection.getByText('Index and page-read details', { exact: true }).focus();
+  await inspection.getByText('Index and page-read details', { exact: true }).press('Enter');
   await expect(inspection.getByText(/not a browser-rendered page/)).toBeVisible();
   await expect(inspection.getByText('Page content could not be read.', { exact: true })).toBeVisible();
+  const comparison = inspection.getByRole('region', { name: `Search comparison for ${otherUrl}`, exact: true });
+  await expect(comparison.getByText('2026-09-10–2026-10-07', { exact: true })).toBeVisible();
+  await expect(comparison.getByText('2026-08-13–2026-09-09', { exact: true })).toBeVisible();
+  await expect(comparison.locator('dd')).toHaveText(['1', '8', '12.4']);
+  await expect(comparison.getByText('Not reported for this page and period.', { exact: true })).toBeVisible();
+  await expect(comparison.getByText('Search comparison unavailable for this period.', { exact: true })).toBeVisible();
+  await comparison.screenshot({ path: 'test-results/generalized-related-comparison.png', animations: 'disabled', style: 'header, .fixed { visibility: hidden !important; }' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await comparison.screenshot({ path: 'test-results/generalized-related-comparison-mobile.png', animations: 'disabled', style: 'header, .fixed { visibility: hidden !important; }' });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.setViewportSize({ width: 1280, height: 720 });
   await inspection.getByText('Index and page-read details', { exact: true }).click();
   const secondary = assessment.getByRole('article', { name: 'Check a helpful link to the related service' });
   await expect(secondary.getByRole('link')).not.toBeVisible();

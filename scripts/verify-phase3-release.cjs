@@ -161,9 +161,43 @@ async function main() {
     else assert(names.some(name => inspection[name] !== null), 'Available Google inspection contains no reported state.');
   }
 
-  function verifyDiagnostics(diagnostics, currentPage) {
+  function comparisonPhrases(evidence) {
+    const phrases = [];
+    const escaped = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
+    for (const value of [evidence.selectedPhrase.value, ...evidence.current.queries.map(row => row.query)]) {
+      if (!textWithin(value, 1, 1024) || phrases.includes(value)) continue;
+      if (`(?-i)^(?:${[...phrases, value].map(escaped).join('|')})$`.length > 4096) continue;
+      phrases.push(value);
+      if (phrases.length === 3) break;
+    }
+    return phrases;
+  }
+
+  function verifyComparison(comparison, pageUrl, evidence, phrases) {
+    if (!phrases.length) {
+      assert(comparison === null || comparison === undefined, 'A linked-page search comparison has no supplied phrases.');
+      return;
+    }
+    assert(comparison && comparison.source === 'google_search_console' && comparison.pageUrl === pageUrl
+      && comparison.property === property && recentTimestamp(comparison.checkedAt)
+      && JSON.stringify(comparison.phrases) === JSON.stringify(phrases)
+      && JSON.stringify(comparison.window) === JSON.stringify(evidence.window)
+      && JSON.stringify(comparison.previousWindow) === JSON.stringify(evidence.previousWindow)
+      && textWithin(comparison.limitation, 1, 1000), 'Linked-page comparison has invalid phrases, dates or exact-page provenance.');
+    for (const period of [comparison.current, comparison.previous]) {
+      assert(period && ['available', 'no_data', 'unavailable'].includes(period.status)
+        && Array.isArray(period.queries) && period.queries.length <= phrases.length
+        && (period.status === 'available' ? period.queries.length > 0 : period.queries.length === 0)
+        && period.queries.every(row => phrases.includes(row.query) && validMetrics(row))
+        && new Set(period.queries.map(row => row.query)).size === period.queries.length,
+      'Linked-page comparison misrepresents missing data or includes invalid or unrequested query rows.');
+    }
+  }
+
+  function verifyDiagnostics(diagnostics, currentPage, evidence) {
+    const phrases = comparisonPhrases(evidence);
     assert(diagnostics && diagnostics.pageUrl === property && diagnostics.property === property && recentTimestamp(diagnostics.fetchedAt)
-      && diagnostics.limits?.maxRelatedPages === 2 && diagnostics.limits.maxInspections === 3
+      && diagnostics.limits?.maxRelatedPages === 2 && diagnostics.limits.maxInspections === 3 && diagnostics.limits.maxSearchRequests === 4
       && Array.isArray(diagnostics.relatedPages) && diagnostics.relatedPages.length <= 2
       && new Set(diagnostics.relatedPages.map(page => page.pageUrl)).size === diagnostics.relatedPages.length
       && JSON.stringify(diagnostics.technical) === JSON.stringify(currentPage.technical)
@@ -178,6 +212,7 @@ async function main() {
         && (related.httpStatus === null || Number.isInteger(related.httpStatus) && related.httpStatus >= 200 && related.httpStatus <= 599),
       'A related-page diagnostic is not grounded in a safe current-page link.');
       verifyInspection(related.inspection, related.pageUrl);
+      verifyComparison(related.comparison, related.pageUrl, evidence, phrases);
       if (related.status === 'available') {
         verifyHtmlStructure(related.currentPage, related.pageUrl, true);
         assert(related.httpStatus === related.currentPage.technical.httpStatus, 'A related HTTP observation disagrees with its fetched content.');
@@ -192,7 +227,8 @@ async function main() {
     'Diagnostic source IDs, availability or fact bounds are invalid.');
     for (let index = 0; index < 2; index += 1) {
       const page = diagnostics.relatedPages[index];
-      assert(diagnostics.facts.some(fact => fact.id === `D${index + 1}`) === Boolean(page && (page.status === 'available' || page.inspection.status === 'available')),
+      assert(diagnostics.facts.some(fact => fact.id === `D${index + 1}`) === Boolean(page && (page.status === 'available' || page.inspection.status === 'available'
+        || page.comparison && [page.comparison.current, page.comparison.previous].some(period => period.status !== 'unavailable'))),
         'A related-page fact misrepresents available evidence.');
     }
   }
@@ -488,15 +524,19 @@ async function main() {
       assert(draft.provenance.reviewVersion === 4 && /^gpt-[\w.-]{1,80}$/.test(draft.provenance.model), 'The assessment is not from the current review implementation.');
       verifyReviewEvidence(draft.evidence, reviewStartedAt);
       verifyResearch(draft.research);
-      verifyDiagnostics(draft.diagnostics, draft.currentPage);
+      verifyDiagnostics(draft.diagnostics, draft.currentPage, draft.evidence);
       verifyTimeline(draft.timeline);
       assert(draft.ownerGoal === '', 'The review unexpectedly introduced an owner-supplied goal.');
       verifyAssessment(draft);
       draftMetadata = { requested: true, requests: 1, model: draft.provenance.model, action: draft.analysis.action, metadataVerdict: draft.analysis.metadataVerdict,
+        pageGoal: draft.analysis.pageGoal, reviewSummary: draft.analysis.summary, reviewReason: draft.analysis.reason,
+        recommendations: draft.analysis.recommendations,
+        indexCoverage: draft.diagnostics.inspection.coverageState,
         ...(draft.analysis.action === 'revise_metadata' ? { titleLength: draft.title.length, descriptionLength: draft.description.length, changedFields: draft.analysis.changedFields } : {}),
         evidenceStatus: draft.evidence.status, evidenceSourceCount: draft.evidence.facts.length,
         queryRowsReturned: draft.evidence.current.queries.length, queryFacts: draft.evidence.facts.filter(fact => /^Q\d+$/.test(fact.id)).length,
         inspectionStatus: draft.diagnostics.inspection.status, relatedPagesRead: draft.diagnostics.relatedPages.filter(page => page.status === 'available').length,
+        linkedComparisonPeriodsAvailable: draft.diagnostics.relatedPages.flatMap(page => page.comparison ? [page.comparison.current, page.comparison.previous] : []).filter(period => period.status !== 'unavailable').length,
         diagnosticsSourceCount: draft.diagnostics.facts.length, recommendationCount: draft.analysis.recommendations.length, timelineCheckpoints: draft.timeline.length,
         reviewVersion: draft.provenance.reviewVersion, historyWindows: draft.evidence.history.length, researchAutomatic: true, researchStatus: draft.research.status, researchSourceCount: draft.research.sources.length,
         generatedAt: draft.provenance.generatedAt };

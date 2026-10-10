@@ -91,10 +91,11 @@ export async function generatePageReviewSuggestions(userId, pageUrl, keywordInpu
   if (!process.env.OPENAI_API_KEY) throw new RequestError('Suggestions are temporarily unavailable. You can still review the current page content.', 503);
   await consumePageReviewQuota(userId);
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 0, timeout: 45000 });
+  const evidencePromise = collectPageReviewEvidence(userId, { pageUrl, property: review.provenance.property, currentPage, focusKeywords });
   const [evidence, research, diagnostics] = await Promise.all([
-    collectPageReviewEvidence(userId, { pageUrl, property: review.provenance.property, currentPage, focusKeywords }),
+    evidencePromise,
     researchPage(openai, currentPage, signal),
-    collectPageReviewDiagnostics(userId, { pageUrl, property: review.provenance.property, currentPage }),
+    evidencePromise.then(evidence => collectPageReviewDiagnostics(userId, { pageUrl, property: review.provenance.property, currentPage, evidence })),
   ]);
   await assertReviewStillCurrent(userId, review.provenance);
   if (signal?.aborted) throw new RequestError('The page review was cancelled.', 409);

@@ -46,7 +46,7 @@ describe('bounded first-party diagnostics', () => {
       currentPage: { url: `${property}services/design`, fetchedAt: currentPage.fetchedAt }, inspection: { url: `${property}services/design` } });
     expect(result.facts.map(item => item.id)).toEqual(['I1', 'P4', 'P5', 'P6', 'D1', 'D2']);
     expect(result.facts.find(item => item.id === 'I1').text).toContain('not a live indexing test');
-    expect(result.limits).toEqual({ maxRelatedPages: 2, maxInspections: 3 });
+    expect(result.limits).toEqual({ maxRelatedPages: 2, maxInspections: 3, maxSearchRequests: 4 });
     expect(JSON.parse(JSON.stringify(result))).toEqual(result);
   });
 
@@ -149,5 +149,143 @@ describe('Google inspection semantics, errors and safe links', () => {
     expect(result.relatedPages.every(item => item.status === 'available' && item.inspection.status === 'unavailable')).toBe(true);
     expect(inspect).not.toHaveBeenCalled();
     expect(JSON.stringify(result)).not.toContain('private refresh');
+  });
+});
+
+describe('bounded linked-page exact-phrase search comparison', () => {
+  const window = { startDate: '2026-09-10', endDate: '2026-10-07' };
+  const previousWindow = { startDate: '2026-08-13', endDate: '2026-09-09' };
+  const metrics = { clicks: 2, impressions: 20, ctr: 0.1, position: 12.5 };
+  const chosen = 'Custom C++ [Design] (Local)?';
+  const evidence = {
+    source: 'google_search_console', property, pageUrl, window, previousWindow,
+    selectedPhrase: { value: chosen, source: 'provided' },
+    current: { queries: [
+      { query: 'smaller query', ...metrics, impressions: 5 },
+      { query: 'High|Intent.*$', ...metrics, impressions: 100 },
+      { query: chosen, ...metrics, impressions: 80 },
+      { query: 'Other service', ...metrics, impressions: 50 },
+    ] },
+  };
+  let query, connection;
+  beforeEach(() => {
+    query = vi.fn(async () => ({ rows: [{ keys: [chosen], ...metrics }] }));
+    connection = { siteUrl: property, inspect, query };
+    getGscConnection.mockResolvedValue(connection);
+  });
+
+  it('uses max four finalized exact-page requests, safe case-sensitive literal regex, and the selected plus largest queries', async () => {
+    const result = await collect({ evidence });
+    expect(query).toHaveBeenCalledTimes(4);
+    for (const [body] of query.mock.calls) {
+      expect(body).toMatchObject({ type: 'web', dataState: 'final', aggregationType: 'auto', dimensions: ['query'], rowLimit: 3 });
+      expect([window.startDate, previousWindow.startDate]).toContain(body.startDate);
+      const group = body.dimensionFilterGroups[0];
+      expect(group.groupType).toBe('and');
+      expect(group.filters[0]).toMatchObject({ dimension: 'page', operator: 'equals' });
+      expect([`${property}services/design`, `${property}services/software`]).toContain(group.filters[0].expression);
+      expect(group.filters[1]).toEqual({ dimension: 'query', operator: 'includingRegex', expression: '(?-i)^(?:Custom C\\+\\+ \\[Design\\] \\(Local\\)\\?|High\\|Intent\\.\\*\\$|Other service)$' });
+    }
+    for (const page of result.relatedPages) {
+      expect(page.comparison).toMatchObject({ source: 'google_search_console', pageUrl: page.pageUrl, property, checkedAt: expect.any(String),
+        phrases: [chosen, 'High|Intent.*$', 'Other service'], window, previousWindow,
+        current: { status: 'available', queries: [{ query: chosen, ...metrics }] }, previous: { status: 'available' } });
+      expect(page.comparison.current.queries).toHaveLength(1);
+      expect(page.comparison.limitation).toContain('not zero traffic');
+    }
+    expect(result.facts.find(fact => fact.id === 'D1').text).toContain('Exact-phrase comparison');
+    expect(result.facts.find(fact => fact.id === 'D1').text).toContain('not reported, not zero');
+  });
+
+  it('retains explicit zero rows, successful empty periods and unavailable periods as distinct observations', async () => {
+    query.mockImplementation(async body => {
+      const url = body.dimensionFilterGroups[0].filters[0].expression;
+      if (body.startDate === previousWindow.startDate) return {};
+      if (url.endsWith('/software')) throw new Error('private Google diagnostics');
+      return { rows: [{ keys: [chosen], clicks: 0, impressions: 0, ctr: 0, position: 0 }] };
+    });
+    const result = await collect({ evidence });
+    expect(result.relatedPages[0].comparison.current).toEqual({ status: 'available', queries: [{ query: chosen, clicks: 0, impressions: 0, ctr: null, position: null }] });
+    expect(result.relatedPages[0].comparison.previous).toEqual({ status: 'no_data', queries: [] });
+    expect(result.relatedPages[1].comparison.current).toEqual({ status: 'unavailable', queries: [] });
+    expect(result.relatedPages[1].comparison.previous).toEqual({ status: 'no_data', queries: [] });
+    expect(JSON.stringify(result)).not.toContain('private Google');
+  });
+
+  it.each([
+    { rows: null }, { error: { message: 'private-provider-detail' } },
+    { rows: [{ keys: [chosen.toLowerCase()], ...metrics }] },
+    { rows: [{ keys: ['unrequested phrase'], ...metrics }] },
+    { rows: [{ keys: [chosen, 'extra dimension'], ...metrics }] },
+    { rows: [{ keys: [chosen], ...metrics, clicks: '2' }] },
+    { rows: [{ keys: [chosen], ...metrics, position: 0 }] },
+    { rows: [{ keys: [chosen], ...metrics, impressions: 1 }] },
+    { rows: [{ keys: [chosen], ...metrics }, { keys: [chosen], ...metrics }] },
+    { rows: Array.from({ length: 4 }, () => ({ keys: [chosen], ...metrics })) },
+  ])('rejects malformed, duplicate and unexpected query rows without contaminating the other period %#', async payload => {
+    query.mockImplementation(async body => body.startDate === window.startDate ? payload : { rows: [{ keys: [chosen], ...metrics }] });
+    const result = await collect({ evidence });
+    expect(result.relatedPages.every(page => page.comparison.current.status === 'unavailable' && page.comparison.current.queries.length === 0
+      && page.comparison.previous.status === 'available')).toBe(true);
+    expect(JSON.stringify(result)).not.toContain('private-provider-detail');
+  });
+
+  it('skips comparison calls when no phrase is available, retaining existing HTML and index diagnostics', async () => {
+    const result = await collect({ evidence: { ...evidence, selectedPhrase: { value: '' }, current: { queries: [] } } });
+    expect(query).not.toHaveBeenCalled();
+    expect(result.relatedPages.every(page => page.comparison === null)).toBe(true);
+    expect(fetchCurrentPageContent).toHaveBeenCalledTimes(2);
+    expect(inspect).toHaveBeenCalledTimes(3);
+  });
+
+  it('stays within the Google regex-expression limit without truncating a phrase into a different query', async () => {
+    const one = '+'.repeat(1024), two = '?'.repeat(1024), three = 'Literal third query';
+    query.mockResolvedValue({});
+    const result = await collect({ evidence: { ...evidence, selectedPhrase: { value: '' }, current: { queries: [
+      { query: one, impressions: 100 }, { query: two, impressions: 90 }, { query: three, impressions: 80 },
+    ] } } });
+    expect(result.relatedPages[0].comparison.phrases).toEqual([one, three]);
+    expect(query.mock.calls.every(([body]) => body.dimensionFilterGroups[0].filters[1].expression.length <= 4096)).toBe(true);
+  });
+
+  it.each([
+    { property: 'https://other.test/' }, { pageUrl: `${property}old-page` },
+    { source: 'invented_source' }, { window: { startDate: '2026-09-10', endDate: '2026-10-08' } },
+    { previousWindow: { startDate: '2026-08-12', endDate: '2026-09-08' } },
+  ])('rejects stale evidence scope or inconsistent date windows before any calls %#', async override => {
+    await expect(collect({ evidence: { ...evidence, ...override } })).rejects.toMatchObject({ status: 409 });
+    expect(query).not.toHaveBeenCalled();
+    expect(inspect).not.toHaveBeenCalled();
+    expect(fetchCurrentPageContent).not.toHaveBeenCalled();
+  });
+
+  it('discards comparisons if the connection property changes during the requests', async () => {
+    query.mockImplementation(async () => {
+      await Promise.resolve();
+      connection.siteUrl = 'https://changed.test/';
+      return { rows: [{ keys: [chosen], ...metrics }] };
+    });
+    await expect(collect({ evidence })).rejects.toMatchObject({ status: 409 });
+    expect(query.mock.calls.length).toBeLessThanOrEqual(4);
+  });
+
+  it('discards the full diagnostic when the property changes after comparisons settle but before linked HTML returns', async () => {
+    fetchCurrentPageContent.mockImplementation(async url => {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      connection.siteUrl = 'https://changed-after-query.test/';
+      return { ...currentPage, url, finalUrl: url };
+    });
+    await expect(collect({ evidence })).rejects.toMatchObject({ status: 409 });
+    expect(query).toHaveBeenCalledTimes(4);
+  });
+
+  it('preserves comparison evidence independently when both linked HTML and inspection fail', async () => {
+    fetchCurrentPageContent.mockRejectedValue(new Error('HTML unavailable'));
+    inspect.mockRejectedValue(new Error('Inspection unavailable'));
+    const result = await collect({ evidence });
+    expect(result.relatedPages.every(page => page.status === 'unavailable' && page.inspection.status === 'unavailable'
+      && page.comparison.current.status === 'available')).toBe(true);
+    expect(result.facts.some(fact => fact.id === 'D1')).toBe(true);
+    expect(result.facts.find(fact => fact.id === 'D1').text).toContain('Current HTML could not be read');
   });
 });

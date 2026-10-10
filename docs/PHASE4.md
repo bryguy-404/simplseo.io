@@ -1,6 +1,6 @@
 # Phase 4: evidence before recommendations
 
-**Current status:** the version 3 refinement is the last production release verified in this record. Bryan has now authorized a generalized existing-page review, version 4. Its implementation and isolated checks are in progress; version 4 deployment and the live account checkpoint are pending. See the version 4 section at the end for the current contract.
+**Current status:** version 4 is deployed and its first live account verification passed. That review exposed one remaining delegation gap: it asked the owner to compare related-page searches in Google. A bounded automatic comparison is now implemented and undergoing final release checks. See the version 4 section at the end for the current contract and release evidence. Bryan's usefulness checkpoint remains open.
 
 The initial release and version 3 sections below are historical records. Their model settings, query limits, optional-research behavior and release IDs are not the version 4 contract.
 
@@ -99,6 +99,7 @@ Bryan accepted the clearer interface and search numbers, but the live recommenda
 - Current technical observations include HTTP status, the requested/final URLs and redirect chain, canonical declarations, robots meta directives and `X-Robots-Tag`. A missing canonical tag does not establish Google's canonical choice. An unavailable fetch is not a successful empty page or evidence of zero traffic.
 - Exact-page Search Console history still covers six adjacent finalized 28-day windows, excluding the newest three days. Current and previous periods now request up to **1,000 query rows each**, then sort returned rows by impressions. The browser can inspect the bounded report; model inputs and current query facts use at most **40 rows per period** and **Q1–Q40**, respectively. Coverage preserves returned-row counts, row-limit saturation and null counts on unavailable reads. Google may omit queries for privacy or reporting limits even when fewer than 1,000 rows are returned. Page totals remain independently requested and are never derived by adding query rows.
 - `getGscConnection.inspect` uses the existing authenticated Google connection and read-only Search Console scope. `pageReviewDiagnostics` checks the selected URL and at most **two relevant pages linked in its downloaded HTML**: no model-invented URLs, no unrestricted crawl, at most two additional HTML reads and three URL Inspection requests. Related reads exclude query-driven/action/account URLs and remain within the connected property. Each page preserves HTML and inspection availability separately.
+- Related-page search comparisons use the selected phrase, if provided, followed by the highest-impression reported phrases, deduplicated to at most **three phrases**. At most **four additional Search Analytics requests** compare the two linked URLs over the same current/previous 28-day periods. Each request combines exact page equality with escaped, anchored, case-sensitive RE2 alternatives; returned query keys must match the allowlist exactly. Missing rows are not reported, not zero activity. Each period retains available/no-data/unavailable state. Comparison observations precede long content excerpts in D facts and appear in collapsed UI details. The model must use these observations instead of sending the owner to repeat the same comparison; a supported edit takes priority over optional investigation.
 - Inspection exposes Google's stored index coverage, robots/indexing state, crawl time, canonical observations and an actual validated Google inspection link when returned. It is not a live indexability test or an indexing request. Check time and Google's last crawl time have distinct meanings; omitted fields remain unknown. An indexed result prevents reflexively asking the owner to repeat the same indexing check, while an excluded result does not prove a penalty or explain its cause.
 - Existing evidence uses P1–P3, S/Q/H and optional R facts; diagnostics add P4–P6 for technical/source-heading/link observations, I1 for the selected URL's Google inspection and D1–D2 for related-page observations. Public research retains W source IDs. Related-page excerpts are further shortened in the model request, with explicit limitations. Every recommendation must resolve actual source IDs.
 
@@ -117,16 +118,23 @@ All website edits remain manual. Metadata revisions retain their guarded confirm
 
 The public [SimplSEO URL](https://simplseo-io.vercel.app), Firebase/Firestore authentication and storage, and Vercel hosting remain unchanged. Automatic success/pivot/audit decisions and notifications remain disabled. Phase 5 economics, broader new-page generation and any Supabase/Railway migration remain deferred.
 
-### Version 4 verification record — release pending
+### Version 4 verification record
 
-This is the current verification snapshot, not a deployment claim:
+Initial implementation checks:
 
 - The final combined isolated unit/API run passed **375 tests across 26 files**, including goal privacy/validation and a regression rejecting a false noindex diagnosis despite valid source IDs.
 - The final isolated compiled-build browser/API/rules run passed **39 scenarios** after adding published-content summaries to progress. A fresh production compilation passed. Desktop dark/light and mobile results were visually inspected. Explicit changed-JSX lint passed; full lint retains **11 baseline warnings**.
 - The first bounded six-case model evaluation passed **four cases** and rejected **two**. The rejected outputs quoted a real technical directive and a real internal-link anchor that the quotation validator did not yet admit as the appropriate first-party observation. The validator was refined to accept those source types without permitting technical metadata or competitor text to support proposed business wording. Each of the two focused reruns then passed: eight paid assessment requests total. Human review covered product/article intent, an existing FAQ, indexed low-discovery pages, real noindex, injected third-party claims and a grounded local content/link task. Responses took roughly 10–22 seconds on these synthetic fixtures. This small evaluation does not establish a general accuracy rate or ranking benefit.
-- The release verifier now checks version 4, richer HTML limits, 1,000 sorted query rows/top-40 facts, diagnostic scope and source IDs, safe inspection links, recommendation quotations, the server timeline and unchanged account archives. Its production origin/project remain fixed. It never sends an authorized confirmation. Syntax validation is complete; production execution is pending.
+- The release verifier checks version 4, richer HTML limits, 1,000 sorted query rows/top-40 facts, diagnostic scope and source IDs, safe inspection links, recommendation quotations, the server timeline and unchanged account archives. Its production origin/project remain fixed. It never sends an authorized confirmation.
 
-Pending evidence to fill before calling this release complete:
+First version 4 production release:
+
+- Source `0018464`, branch `codex/phase3-current-website`, production deployment `dpl_AqWKfrD1PGEyrMfJc4vSJiQuNrje`, [exact deployment](https://simplseo-nm2gvm32i-bryan-arambulas-projects.vercel.app), promoted to the unchanged public URL. The protected staged review route returned the application's HTTP 401; public alias inspection confirmed the exact deployment. Build took 4m 59s, post-build 29s. No push or merge to `main` occurred.
+- Live anonymous/cross-account checks passed on five routes each. The overview retained five pages, seven clicks and 169 appearances. One researched homepage review returned 22 current queries and query facts, an indexed Google result, two read related pages and four public sources. It retained accurate metadata, suggested a contextual web-design-service link, and also asked for a related-page search comparison. That last task motivated the bounded comparison refinement above.
+- Active changes remained zero and all 18 archived records were unchanged. No website edit or confirmation was performed. Outcomes and notifications remain disabled. The immediately preceding version 3 deployment remains available as historical rollback; the first version 4 deployment is the immediate rollback for the comparison refinement.
+- The stable comparison refinement passes **398 unit/API tests across 26 files**. Scoped collector review found no blocking issue. A fresh production compilation and scoped JSX/backend lint passed. One additional synthetic comparison evaluation passed in 16.3 seconds (nine assessment evaluation requests total across version 4): the model used both periods, preserved the broad homepage metadata, and led with a contextual link to the known service page rather than asking the owner to repeat supplied checks. It requested only future monitoring. Final browser and roll-forward production evidence are pending below.
+
+Pending evidence for the comparison refinement:
 
 - [x] Final isolated unit/API result and test count after the added guard.
 - [x] Focused model rerun results for both initially rejected cases; document any remaining limitation.
@@ -135,7 +143,7 @@ Pending evidence to fill before calling this release complete:
 - [ ] One bounded authenticated review on Bryan's exact current account/property; validate content, diagnostics, action sources and archive/active-change invariants without confirming a fictitious edit.
 - [ ] Application rollback target and bounded deployment-log result.
 
-### Bryan's version 4 checkpoint — pending release
+### Bryan's version 4 checkpoint
 
 After the deployed version is verified, Bryan should review the homepage and one service page at the existing URL. The page goal, relevant searches, Google status and recommended task should explain why the task is useful. Check that retained metadata is clearly separated from any heading, content, link or technical recommendation; inspect proposed wording for factual accuracy and practicality. The interface should show the supporting evidence without requiring him to repeat checks already completed by the tool.
 

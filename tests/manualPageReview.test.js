@@ -126,6 +126,31 @@ describe('current website page review', () => {
     expect(JSON.parse(assessmentInput.input[1].content).ownerGoal).toBe(goal.trim());
   });
 
+  it('collects related-page query comparisons before assessing, without exposing private searches to web research', async () => {
+    const relatedUrl = 'https://example.test/services/website-planning';
+    const phrase = 'private planning search';
+    publicFetch.mockImplementation(async url => htmlResponse(pageHtml.replace('</main>', `<a href="${relatedUrl}">Website planning service</a></main>`), { url }));
+    mocks.query.mockImplementation(async body => ({ rows: body.dimensions?.[0] === 'query'
+      ? [{ keys: [phrase], clicks: 2, impressions: 20, ctr: 0.1, position: 12 }]
+      : [] }));
+    const response = await suggestions(request());
+    expect(response.status).toBe(200);
+    const result = await response.json();
+    const comparison = result.diagnostics.relatedPages[0].comparison;
+    expect(comparison).toMatchObject({ pageUrl: relatedUrl, phrases: [phrase],
+      current: { status: 'available', queries: [{ query: phrase, clicks: 2 }] },
+      previous: { status: 'available', queries: [{ query: phrase, impressions: 20 }] } });
+    expect(comparison.window).toEqual(result.evidence.window);
+    expect(comparison.previousWindow).toEqual(result.evidence.previousWindow);
+    const researchInput = mocks.create.mock.calls.find(([body]) => body.tools)[0];
+    const assessmentInput = mocks.create.mock.calls.find(([body]) => !body.tools)[0];
+    expect(JSON.stringify(researchInput)).not.toContain(phrase);
+    expect(JSON.parse(assessmentInput.input[1].content).diagnostics.relatedPages[0].comparison).toEqual(comparison);
+    const comparisons = mocks.query.mock.calls.filter(([body]) => body.dimensionFilterGroups?.[0]?.filters.some(filter => filter.operator === 'includingRegex'));
+    expect(comparisons).toHaveLength(2);
+    expect(comparisons.every(([body]) => body.dimensionFilterGroups[0].filters[0].expression === relatedUrl)).toBe(true);
+  });
+
   it('rejects malformed or excessive goals before fetching or spending', async () => {
     for (const goal of ['x'.repeat(181), 'First line\nSecond line', { service: 'invented' }]) {
       expect((await suggestions(request({ goal }))).status).toBe(400);
