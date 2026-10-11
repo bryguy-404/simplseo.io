@@ -115,7 +115,7 @@ function evidenceFacts(currentPage, evidence) {
 }
 
 /** Read-only, bounded evidence for one authenticated account's exact current page. */
-export async function collectPageReviewEvidence(userId, { pageUrl, property, currentPage, focusKeywords = [], now = new Date(), deadline, signal, comparisonWindows }) {
+export async function collectPageReviewEvidence(userId, { pageUrl, property, currentPage, focusKeywords = [], now = new Date(), deadline, signal, comparisonWindows, includeHistory = true }) {
   if (typeof property !== 'string' || !property || !isScopedPage(property, pageUrl)) {
     throw new RequestError('Page must belong to your connected Search Console property.', 403);
   }
@@ -134,7 +134,7 @@ export async function collectPageReviewEvidence(userId, { pageUrl, property, cur
   const window = comparisonWindows ? { ...comparisonWindows.post } : recent;
   const previousWindow = comparisonWindows ? { ...comparisonWindows.baseline }
     : { startDate: shiftDay(window.startDate, -28), endDate: shiftDay(window.startDate, -1) };
-  const history = Array.from({ length: comparisonWindows ? 2 : HISTORY_WINDOW_COUNT }, (_, index) => ({
+  const history = Array.from({ length: comparisonWindows || !includeHistory ? 2 : HISTORY_WINDOW_COUNT }, (_, index) => ({
     window: { startDate: shiftDay(window.startDate, -28 * index), endDate: shiftDay(window.endDate, -28 * index) },
     totals: null, totalsStatus: 'unavailable',
   }));
@@ -152,6 +152,7 @@ export async function collectPageReviewEvidence(userId, { pageUrl, property, cur
       'Search Console query and page rows are limited samples and may omit searches for privacy. Page totals are requested separately, never summed from query rows.',
       'Each recent period requests up to 1,000 query rows. Google returns top rows by clicks; the returned rows are then ordered by appearances, and at most 40 current queries become individual review facts. Even a response below the limit is not a complete list of searches.',
       comparisonWindows ? 'These two exact 28-day periods belong to a saved confirmed-change checkpoint. They are dated observations, not a controlled test or proof of causation.'
+        : !includeHistory ? 'This activity covers two adjacent 28-day windows of finalized web-search data. The newest three days are excluded. Older history was not requested.'
         : 'History covers six adjacent 28-day windows (168 days) of finalized web-search data, newest first. The newest three days are excluded. These are not a before-and-after test of a confirmed edit.',
       'Historical activity belongs to this exact URL and may span earlier website versions. The age of the current title, description and page content is unknown; this history does not measure how long the current wording has been in use.',
       'Search activity does not establish whether a page is indexed, explain a ranking cause, or predict improvement from a proposed change.',

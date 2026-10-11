@@ -173,6 +173,7 @@ function LowCtrWorkspace() {
         if (!usablePageActivity(result, { pageUrl: selectedUrl, property, websiteRunId: data.revampRunId })) throw new Error('Search activity for this exact page could not be verified. Please retry.');
         setActivity(result.evidence);
         setActivityByPage(previous => ({ ...previous, [selectedUrl]: result.evidence }));
+        if (result.observation?.lastError) setActivityError('The latest check could not finish. Previously saved search activity is shown with its original dates.');
       })
       .catch(error => { if (active && !controller.signal.aborted) { setActivityError(error.message || 'Search activity is unavailable. You can still review the page content.'); setActivityByPage(previous => ({ ...previous, [selectedUrl]: { current: { totals: null, totalsStatus: 'unavailable' } } })); } })
       .finally(() => { if (active && !controller.signal.aborted) setActivityBusy(false); });

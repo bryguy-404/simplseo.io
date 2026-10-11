@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../app/lib/firebaseAdmin', () => ({
+vi.mock('../app/lib/firebaseAdmin', async () => ({
+  ...(await import('./fakeFirestore')).fakeFirestore(),
   auth: { verifyIdToken: vi.fn(async token => { if (token !== 'alice') throw new Error('invalid'); return { uid: 'alice' }; }) },
 }));
 vi.mock('../app/lib/server/gscConnection', () => ({ getGscConnection: vi.fn() }));
 
 import { getGscConnection } from '../app/lib/server/gscConnection';
+import { records, reset } from '../app/lib/firebaseAdmin';
 import { RequestError } from '../app/lib/server/requestAuth';
 import { buildDashboardOverview, dashboardQueryPlans } from '../app/lib/dashboardOverview';
 import { GET } from '../app/api/dashboard/overview/route';
@@ -26,6 +28,9 @@ const request = (query = '', token = 'alice') => new Request(`https://app.test/a
 });
 let query;
 beforeEach(() => {
+  reset();
+  records.set('users/alice', { gscSiteUrl: property });
+  records.set('onboarding/alice', { gscProperty: property, websiteUrl: property });
   vi.useFakeTimers();
   vi.setSystemTime(new Date(fetchedAt));
   const values = input();
@@ -46,7 +51,7 @@ describe('dashboard overview access and provenance', () => {
   it('uses the verified account property and rejects a different supplied property before Google work', async () => {
     expect((await GET(request('?property=https://other.test/'))).status).toBe(403);
     expect((await GET(request('?siteUrl=https://other.test/'))).status).toBe(403);
-    expect(getGscConnection).toHaveBeenCalledWith('alice');
+    expect(getGscConnection).not.toHaveBeenCalled();
     expect(query).not.toHaveBeenCalled();
   });
 
@@ -88,7 +93,7 @@ describe('dashboard overview access and provenance', () => {
     });
     const response = await GET(request());
     expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({ error: 'temporarily_unavailable' });
+    expect((await response.json()).error).toContain('could not be checked');
   });
 
   it('does not turn invalid provider totals into a success response', async () => {

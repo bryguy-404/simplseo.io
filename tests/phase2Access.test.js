@@ -51,6 +51,7 @@ describe('account and paid API authorization', () => {
 });
 describe('private conversation and cache ownership', () => {
   it('protects conversation reads, updates and deletion even when the record ID is known', async () => {
+    for (const uid of ['alice', 'bob']) await db.collection('users').doc(uid).set({});
     await db.collection('conversations').doc('private-bob').set({ userId: 'bob', title: 'Private', messages: [] });
     const params = { params: Promise.resolve({ id: 'private-bob' }) };
     for (const [method, handler] of [['GET',conversation],['PUT',updateConversation],['DELETE',deleteConversation]]) {

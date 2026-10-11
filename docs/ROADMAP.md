@@ -1,5 +1,7 @@
 # SimpleSEO master roadmap
 
+Latest implementation status, October 11: Phase 9 unifies the Mentor and widget. Automated and browser checks passed; the public release is held for a bounded citation-quality recheck after the initial evaluation. See [Phase 9](PHASE9.md). This does not confirm any website edit or SEO result on Bryan's behalf.
+
 Status on October 10 2026: Bryan accepted the recovery, Phase 2 and Phase 4 usability checkpoints, including version 8's loading and stable update checks, and authorized moving to Phase 5. Phase 5 pilot preparation is now active. The existing-page workflow is deployed and verified; measurement of real published website edits and resulting business value remains open. Automatic outcome decisions and notifications remain disabled, and actual scheduled collector invocations still need verification. See [recovery operations](RECOVERY.md), [Phase 2 release](PHASE2.md), [Phase 3 release](PHASE3.md) and [Phase 4 scope and release](PHASE4.md).
 
 The first release restores Bryan's existing account without requiring every page to appear in Google. Keep Firebase, Firestore and Vercel. Users continue making website changes themselves. The existing public URL and access remain unchanged. Bryan wants to use the tool on the current website, judge its practical value, fix inconsistencies during use, and later share it with friends and family. Old work stays archived and does not drive current recommendations; no history deletion or artificial data reset is needed. Broader new-content recommendations remain later roadmap work.
@@ -145,3 +147,9 @@ The existing-page homepage pilot and New page ideas continue independently. See 
 The approved new setup saves each step on the server, stages Google authorization safely, and collects one shared owner-confirmed business profile. Website review reuses the protected inventory; missing crawl/indexing/search data does not block setup after the required profile and matching durable Google connection are ready. Completed accounts retain their workspace and receive only an optional profile-review prompt. The mandatory page/keyword selection is removed from the new flow.
 
 See [Phase 8](PHASE8.md) for architecture, pilot switches, rollback and live checkpoints, and [extraction evaluation](PHASE8_EVALUATION.md) for quality evidence and its limits. Firecrawl remains disabled until its separate real-website evaluation passes. The fresh-account Google pilot, owner confirmation and actual scheduled refresh are live checkpoints; automated fixtures do not substitute for them. This phase does not publish or confirm edits to Bryan's website.
+
+## Phase 9 Personalized SEO Mentor
+
+The full Mentor and widget share authoritative saved account evidence, retrieved official Google guidance, protected conversations and explicit one-page observation checks. General SEO help works without Google access; personalized statements must remain tied to available evidence and dates. Chat cannot change the business profile, tasks, publication confirmations or tracking cycles.
+
+The implementation, controls, initial evaluation results and remaining release checkpoints are in [Phase 9](PHASE9.md). The model is GPT-6.1 Sol with a $25 monthly pilot budget, including at most $10 for evaluation. No automatic model fallback, fine-tuning, Firecrawl dependency or background generation is added. The live pilot must pass citation-quality repair checks before deployment and before broader enrollment.

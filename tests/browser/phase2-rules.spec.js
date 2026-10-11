@@ -168,3 +168,17 @@ test('new-page evidence, saved drafts, publication observations and jobs are ser
   expect((await patch(request, retirement, { httpStatus: 200, active: false })).status()).toBe(403);
   expect((await request.delete(`${base}/${retirement}`, { headers: { Authorization: `Bearer ${token}` } })).status()).toBe(403);
 });
+
+
+test('mentor conversations, observations, budgets and operations are private server-owned records', async ({ request }) => {
+  const paths = [
+    ...['mentorWorkspaces', 'mentorOperations', 'mentorActivitySnapshots', 'mentorCheckOperations', 'mentorBudgetMonths', 'mentorBudgetReservations', 'mentorRequestLimits', 'mentorDocumentationCache'].map(name => `${name}/${uid}`),
+    `conversations/${uid}/messages/authoritative`, `conversations/${uid}/turns/authoritative`,
+  ];
+  for (const path of paths) {
+    await app.firestore().doc(path).set({ userId: uid, status: 'saved' });
+    expect((await read(request, path)).status(), path).toBe(403);
+    expect((await patch(request, path, { status: 'completed' })).status(), path).toBe(403);
+    expect((await request.delete(`${base}/${path}`, { headers: { Authorization: `Bearer ${token}` } })).status(), path).toBe(403);
+  }
+});

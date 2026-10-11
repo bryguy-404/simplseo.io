@@ -395,6 +395,7 @@ const MainLayout = ({
                 <div className="fixed bottom-6 right-6" onClick={handleManualChatOpen}>
                 <Button
                   className="rounded-full w-14 h-14 shadow-lg flex items-center justify-center z-50 bg-[#00BF63] hover:bg-[#00BF63]/90"
+                  aria-label={isChatOpen ? 'Close SEO Mentor' : 'Open SEO Mentor'}
                   size="icon"
                   style={{
                     animation: isAnimating ? 'bounce-squash 1s ease-in-out' : 'none'

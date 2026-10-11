@@ -103,6 +103,8 @@ export async function readMentorContext(uid) {
   const profile = cleanBusinessProfile(latest.profile);
   return { scope, profile, profileStatus: latest.status, profileRevision: latest.revision,
     confirmedAt: latest.confirmedAt || null, pages, source,
+    inventoryIdentity: inventory ? { id: inventory.id, revision: inventory.revision,
+      collection: source === 'onboarding_inventory' ? 'onboardingInventories' : 'newPageInventories' } : null,
     limitations: [
       ...(latest.limitations || []),
       'Website observations are dated, partial excerpts from saved reviews, not a complete or live crawl. Unreviewed pages and missing excerpt text are unknown.',

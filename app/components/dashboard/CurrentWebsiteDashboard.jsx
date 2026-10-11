@@ -32,12 +32,12 @@ export default function CurrentWebsiteDashboard() {
   const sequence = useRef(0);
   const invalidateRequests = useCallback(() => { sequence.current++; }, []);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (refresh = false) => {
     if (!user?.id) return;
     const attempt = ++sequence.current;
     setBusy(true); setError('');
     try {
-      const response = await authenticatedFetch('/api/dashboard/overview');
+      const response = await authenticatedFetch(`/api/dashboard/overview${refresh ? '?refresh=true' : ''}`);
       const body = await response.json();
       if (attempt !== sequence.current) return;
       if (!response.ok) {
@@ -46,6 +46,7 @@ export default function CurrentWebsiteDashboard() {
       }
       if (body.source !== 'google_search_console' || !Array.isArray(body.pages) || !body.window || !body.totals) throw new Error('Search activity is unavailable. Please try again.');
       setOverview(body); setConnectionNeeded(false);
+      if (body.observation?.lastError) setError('The latest check could not finish. Your previously saved search activity is shown below with its original dates.');
     } catch (failure) { if (attempt === sequence.current) setError(failure.message); }
     finally { if (attempt === sequence.current) setBusy(false); }
   }, [user?.id]);
@@ -111,7 +112,7 @@ export default function CurrentWebsiteDashboard() {
 
       <Card>
         <CardHeader>
-          <div className="flex flex-wrap justify-between gap-3 items-center"><CardTitle role="heading" aria-level={2} className="text-xl">Current search activity</CardTitle><Button variant="outline" size="sm" onClick={load} disabled={busy}><RefreshCw className={`h-4 w-4 mr-2 ${busy ? 'animate-spin' : ''}`} />{busy ? 'Refreshing…' : 'Refresh search data'}</Button></div>
+          <div className="flex flex-wrap justify-between gap-3 items-center"><CardTitle role="heading" aria-level={2} className="text-xl">Current search activity</CardTitle><Button variant="outline" size="sm" onClick={() => load(true)} disabled={busy}><RefreshCw className={`h-4 w-4 mr-2 ${busy ? 'animate-spin' : ''}`} />{busy ? 'Refreshing…' : 'Refresh search data'}</Button></div>
           <CardDescription>{overview ? <>Google Search Console <span aria-hidden="true">·</span> {overview.window.startDate} – {overview.window.endDate} <span aria-hidden="true">·</span> 28 complete days, Pacific time</> : 'Recent Google Search Console activity for your connected website.'}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">

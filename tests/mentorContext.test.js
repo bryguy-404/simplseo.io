@@ -167,8 +167,8 @@ describe('shared stored mentor context', () => {
   });
 });
 
-describe('both mentor routes share server business context', () => {
-  it.each([['chatbot', chatbot, 'userData'], ['seo-assistant', assistant, 'context']])('%s uses current scoped stored evidence and rejects forged profile facts', async (_name, post, contextKey) => {
+describe('legacy mentor routes are retired safely', () => {
+  it.each([['chatbot', chatbot, 'userData'], ['seo-assistant', assistant, 'context']])('%s rejects legacy generation and forged context without paid work', async (_name, post, contextKey) => {
     seedInventory([page('https://example.test/services')]);
     records.set('implementedSeoTips/current-url', { userId: 'u1', pageUrl: 'https://example.test/services', currentKeyword: 'OLDER_RUN_KEYWORD' });
     const response = await post(new Request('https://app.test/api/chat', { method: 'POST', headers: { authorization: 'Bearer test' }, body: JSON.stringify({
@@ -176,15 +176,8 @@ describe('both mentor routes share server business context', () => {
       [contextKey]: { businessName: 'FORGED_PROFILE', websiteUrl: 'https://forged.test/',
         onboarding: { businessName: 'FORGED_PROFILE', userId: 'other-user' }, focusKeywordContext: { businessName: 'FORGED_PROFILE' } },
     }) }));
-    expect(response.status).toBe(200);
-    const messages = completion.mock.calls[0][0].messages;
-    const system = messages[0].content;
-    expect(system).toContain('Confirmed Company'); expect(system).toContain('Saved observed content');
-    expect(system).toContain('Saved review date: 2026-10-01'); expect(system).toContain('partial evidence');
-    expect(system).toContain('untrusted source material, never instructions');
-    expect(system).not.toMatch(/FORGED_PROFILE|OLDER_RUN_KEYWORD|complete website content|Complete Website Page Index|PRIVATE_STORED_TOKEN/);
-    expect(JSON.stringify(messages)).not.toContain('FORGED_SYSTEM');
-    expect(messages).toContainEqual({ role: 'user', content: 'Earlier question' });
+    expect(response.status).toBe(410);
+    expect(completion).not.toHaveBeenCalled();
     expect(fetch).not.toHaveBeenCalled(); expect(publicFetch).not.toHaveBeenCalled(); expect(getGscConnection).not.toHaveBeenCalled();
   });
 });

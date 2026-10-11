@@ -16,6 +16,8 @@ export const ACCOUNT_OWNED_COLLECTIONS = [
   'pageProgressCycles',
   'newPageWorkspaces', 'newPageInventories', 'newPageAssessments', 'newPagePlans', 'newPagePublications', 'newPageJobs',
   'onboardingInventories', 'onboardingExtractions', 'onboardingUsageEvents', 'onboardingCrawlCache',
+  'mentorWorkspaces', 'mentorOperations', 'mentorActivitySnapshots', 'mentorCheckOperations',
+  'mentorBudgetReservations', 'mentorRequestLimits',
 ];
 const PREFIXED_COLLECTIONS = [
   'implementedSeoTips', 'contentAuditResults', 'aiSuggestions',
@@ -101,7 +103,7 @@ export async function deleteAccountFirestore(db, uid, verifiedEmail) {
   deletedRoots += await deleteMatching(db, db.collection('aiUsageEvents').where('userId', '==', uid));
   // In-flight new-page work saves only while account roots still exist. Sweep
   // anything committed between the first collection pass and root removal.
-  for (const name of ACCOUNT_OWNED_COLLECTIONS.filter(name => name.startsWith('newPage') || name.startsWith('onboarding') || ['pageProgressCycles', 'pageReviewPlans', 'implementedSeoTips', 'requestLimits'].includes(name))) {
+  for (const name of ACCOUNT_OWNED_COLLECTIONS.filter(name => name.startsWith('newPage') || name.startsWith('onboarding') || name.startsWith('mentor') || ['conversations', 'pageProgressCycles', 'pageReviewPlans', 'implementedSeoTips', 'requestLimits'].includes(name))) {
     deletedRoots += await deleteMatching(db, db.collection(name).where('userId', '==', uid));
   }
   return { deletedRoots };

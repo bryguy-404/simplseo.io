@@ -88,6 +88,15 @@ describe('account data deletion', () => {
       'genericKeywordsCache/one': { userId: 'alice' },
       'conversations/one/messages/nested': {},
       'conversations/one': { userId: 'alice' },
+      'conversations/one/turns/one': { userId: 'alice' },
+      'mentorWorkspaces/one': { userId: 'alice' },
+      'mentorOperations/one': { userId: 'alice' },
+      'mentorActivitySnapshots/one': { userId: 'alice' },
+      'mentorCheckOperations/one': { userId: 'alice' },
+      'mentorBudgetReservations/one': { userId: 'alice' },
+      'mentorRequestLimits/one': { userId: 'alice' },
+      'mentorBudgetMonths/global': { keep: true },
+      'mentorWorkspaces/other': { userId: 'bob', keep: true },
       'contactMessages/one': { userId: 'alice' },
       'gscOAuthStates/one': { uid: 'alice' },
       'gscOAuthStates/two': { uid: 'bob', keep: true },
@@ -135,6 +144,9 @@ describe('account data deletion', () => {
         store.records.set('newPageInventories/in-flight/pages/example', { text: 'owned page' });
         store.records.set('pageProgressCycles/in-flight', { userId: 'alice' });
         store.records.set('pageProgressCycles/in-flight/decisions/one', { userId: 'alice' });
+        store.records.set('mentorBudgetReservations/in-flight', { userId: 'alice' });
+        store.records.set('conversations/in-flight', { userId: 'alice' });
+        store.records.set('conversations/in-flight/turns/one', { userId: 'alice' });
       }
       await remove(target);
     });

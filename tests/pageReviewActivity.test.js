@@ -27,7 +27,8 @@ beforeEach(async () => {
   reset(); mocks.siteUrl = property; mocks.query.mockReset().mockResolvedValue({ rows: [] }); mocks.scrape.mockReset(); mocks.paid.mockReset();
   getGscConnection.mockReset().mockImplementation(async () => ({ siteUrl: mocks.siteUrl, query: mocks.query }));
   delete process.env.NEXT_PUBLIC_ENABLE_ACCESS_REQUEST;
-  await db.collection('onboarding').doc('alice').set({ isComplete: true, gscProperty: property, revampRunId: 'current-site' });
+  await db.collection('users').doc('alice').set({ gscSiteUrl: property });
+  await db.collection('onboarding').doc('alice').set({ isComplete: true, gscProperty: property, websiteUrl: property, revampRunId: 'current-site' });
 });
 
 describe('read-only page activity', () => {
@@ -39,7 +40,7 @@ describe('read-only page activity', () => {
     expect(mocks.query).not.toHaveBeenCalled();
   });
 
-  it('returns six dated windows for the exact signed-in page without scraping, spending or database writes', async () => {
+  it('returns and caches six dated windows without scraping, AI spending or changing business records', async () => {
     const before = [...records.entries()];
     const response = await POST(request({ currentPage: { htmlTitle: 'Forged metadata' }, property: 'https://untrusted.test/', websiteRunId: 'forged-run', includeResearch: true }));
     expect(response.status).toBe(200);
@@ -54,7 +55,7 @@ describe('read-only page activity', () => {
     expect(getGscConnection.mock.calls.every(([uid]) => uid === 'alice')).toBe(true);
     expect(mocks.scrape).not.toHaveBeenCalled();
     expect(mocks.paid).not.toHaveBeenCalled();
-    expect([...records.entries()]).toEqual(before);
+    expect([...records.entries()].filter(([key]) => !key.startsWith('mentorActivitySnapshots/'))).toEqual(before);
     expect(JSON.stringify(result)).not.toContain('Forged metadata');
   });
 
@@ -85,7 +86,7 @@ describe('read-only page activity', () => {
     });
     const response = await POST(request());
     expect(response.status).toBe(409);
-    expect((await response.json()).error).toContain('setup changed');
+    expect((await response.json()).error).toContain('details changed');
   });
 
   it('rejects a property change during collection', async () => {
@@ -96,7 +97,7 @@ describe('read-only page activity', () => {
     });
     const response = await POST(request());
     expect(response.status).toBe(409);
-    expect((await response.json()).error).toContain('setup changed');
+    expect((await response.json()).error).toContain('details changed');
   });
 
   it('keeps failed Google reads distinct from empty data while preserving the read-only route', async () => {
@@ -107,6 +108,6 @@ describe('read-only page activity', () => {
     expect(result.evidence.history.every(period => period.totalsStatus === 'unavailable' && period.totals === null)).toBe(true);
     expect(result.evidence.facts).toEqual([]);
     expect(JSON.stringify(result)).not.toContain('private-provider-failure');
-    expect([...records.keys()]).toEqual(['onboarding/alice']);
+    expect([...records.keys()].filter(key => !key.startsWith('mentorActivitySnapshots/'))).toEqual(['users/alice', 'onboarding/alice']);
   });
 });

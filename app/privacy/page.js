@@ -132,7 +132,7 @@ export default function PrivacyPolicyPage() {
             <h3 className="text-xl font-medium text-foreground mt-6">4.1 Primary Service Purposes</h3>
             <ul className="list-disc pl-6 space-y-2 text-foreground/90">
               <li><strong>SEO Analysis and Recommendations:</strong> Processing your GSC data to identify optimization opportunities, track keyword rankings, and generate actionable SEO recommendations.</li>
-              <li><strong>AI-Powered Assistance:</strong> Training and operating our AI assistant to provide personalized SEO advice based on your specific website data and business context.</li>
+              <li><strong>AI-Powered Assistance:</strong> Using relevant website observations, saved account evidence, business details, and conversation context to generate personalized SEO guidance.</li>
               <li><strong>Performance Tracking:</strong> Monitoring changes in your search performance over time and alerting you to significant changes.</li>
               <li><strong>Content Optimization:</strong> Generating and suggesting improvements to meta titles, descriptions, and content based on search intent analysis.</li>
               <li><strong>Progress Notifications:</strong> Sending email notifications when your content starts ranking in Google Search results.</li>
@@ -182,7 +182,7 @@ export default function PrivacyPolicyPage() {
               <li><strong>Active Account Data:</strong> Retained for the duration of your account&apos;s existence.</li>
               <li><strong>GSC Performance Data:</strong> Cached data is refreshed regularly; historical snapshots may be retained for trend analysis.</li>
               <li><strong>Training Data:</strong> Anonymized training data may be retained indefinitely to improve our AI models.</li>
-              <li><strong>Conversation Summaries:</strong> Summaries (not full conversations) may be retained for AI training purposes.</li>
+              <li><strong>Mentor Conversations:</strong> Your messages and saved replies are stored so you can return to a conversation in the chat widget or SEO Mentor. Saving a conversation does not automatically train a model.</li>
               <li><strong>Deleted Account Data:</strong> Upon account deletion, we will delete your Personal Information within 30 days, except where retention is required by law or for legitimate business purposes (e.g., anonymized training data).</li>
             </ul>
           </section>
@@ -226,21 +226,22 @@ export default function PrivacyPolicyPage() {
             <h3 className="text-xl font-medium text-foreground mt-6">7.1 How We Use AI</h3>
             <p className="text-foreground/90 leading-relaxed">Our Service uses artificial intelligence and machine learning in the following ways:</p>
             <ul className="list-disc pl-6 space-y-2 text-foreground/90">
-              <li><strong>Personalized AI Assistant:</strong> Our chatbot is trained on your website&apos;s data to provide relevant, business-specific SEO advice.</li>
+              <li><strong>Personalized AI Assistant:</strong> The mentor uses relevant saved business information, website content, search observations, and conversation history as context when answering your questions. It does not create or automatically train a separate model for your business.</li>
               <li><strong>Content Analysis:</strong> AI analyzes your page content to detect intent mismatches with search queries.</li>
               <li><strong>Meta Content Generation:</strong> AI generates suggested meta titles and descriptions optimized for your target keywords.</li>
               <li><strong>Keyword Classification:</strong> AI identifies generic vs. branded keywords and categorizes opportunities.</li>
             </ul>
 
-            <h3 className="text-xl font-medium text-foreground mt-6">7.2 Training Data Collection</h3>
-            <p className="text-foreground/90 leading-relaxed">To improve our AI models, we collect anonymized training data including:</p>
+            <h3 className="text-xl font-medium text-foreground mt-6">7.2 Mentor Conversations, Evidence, and Usage</h3>
+            <p className="text-foreground/90 leading-relaxed">The personalized mentor processes and stores the following information to answer questions and preserve your work:</p>
             <ul className="list-disc pl-6 space-y-2 text-foreground/90">
-              <li><strong>Meta Title/Description Events:</strong> Records of AI-generated content with hashed user IDs and anonymized page paths.</li>
-              <li><strong>Conversation Summaries:</strong> Statistical summaries of chat interactions (question counts, topics discussed) without full message content.</li>
-              <li><strong>Success Metrics:</strong> Anonymized records of which strategies led to ranking improvements.</li>
+              <li><strong>Saved Conversations:</strong> Your submitted messages, replies, and supporting references are stored with your account. New mentor conversations are not copied into separate training-event logs.</li>
+              <li><strong>Account Evidence:</strong> Relevant confirmed business details, website excerpts, dated search observations, and saved recommendations may be included in requests to OpenAI to answer your question.</li>
+              <li><strong>Operational Usage:</strong> Separate accounting records track model usage, estimated costs, timing, and request outcomes. These records exclude conversation message text.</li>
+              <li><strong>Public Documentation Research:</strong> When needed, the mentor searches official Google documentation using generic SEO topic terms. These public searches do not include your raw conversation, private Search Console queries or metrics, credentials, or unconfirmed business details.</li>
             </ul>
             <p className="text-foreground/90 leading-relaxed">
-              <strong>Important:</strong> Training data is anonymized using SHA-256 hashing for user IDs and does not include full URLs, business names, or complete conversation transcripts.
+              Personalization and saved history do not automatically train a model or change your confirmed business profile. This mentor update does not itself remove records retained by earlier features; existing records remain subject to the retention and deletion provisions in this Policy.
             </p>
 
             <h3 className="text-xl font-medium text-foreground mt-6">7.3 Third-Party AI Processing</h3>
@@ -301,7 +302,7 @@ export default function PrivacyPolicyPage() {
             </p>
             <ul className="list-disc pl-6 space-y-2 text-foreground/90">
               <li>The collection and processing of all data described in this Policy.</li>
-              <li>The use of your data for AI training and improvement as described in Section 7.</li>
+              <li>The use of your data for AI processing, saved conversations, and usage accounting as described in Section 7.</li>
               <li>The sharing of your data with third-party service providers as described in Section 6.</li>
               <li>The storage of your data using the infrastructure described in Section 5.</li>
               <li>Receiving service-related communications at the email address associated with your account.</li>

@@ -161,6 +161,14 @@ service cloud.firestore {
     match /siteCrawls/{path=**} { allow read, write: if false; }
     match /contentKeywordEdits/{path=**} { allow read, write: if false; }
     match /conversations/{path=**} { allow read, write: if false; }
+    match /mentorWorkspaces/{path=**} { allow read, write: if false; }
+    match /mentorOperations/{path=**} { allow read, write: if false; }
+    match /mentorActivitySnapshots/{path=**} { allow read, write: if false; }
+    match /mentorCheckOperations/{path=**} { allow read, write: if false; }
+    match /mentorBudgetMonths/{path=**} { allow read, write: if false; }
+    match /mentorBudgetReservations/{path=**} { allow read, write: if false; }
+    match /mentorRequestLimits/{path=**} { allow read, write: if false; }
+    match /mentorDocumentationCache/{path=**} { allow read, write: if false; }
     match /gscOAuthStates/{path=**} { allow read, write: if false; }
     match /progressJobs/{path=**} { allow read, write: if false; }
     match /pageProgressCycles/{path=**} { allow read, write: if false; }
