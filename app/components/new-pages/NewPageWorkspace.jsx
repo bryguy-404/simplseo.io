@@ -369,7 +369,13 @@ export default function NewPageWorkspace() {
           return <article key={idea.id} aria-label={idea.topic} className="space-y-4 rounded-xl border bg-card p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-medium uppercase tracking-wide text-primary">{idea.outcome === 'new_page' ? `Page idea ${index + 1}` : idea.outcome === 'improve_existing' ? 'Already covered' : 'More information needed'}</p><h3 className="mt-1 text-lg font-semibold">{idea.topic}</h3></div>{saved?.status === 'dismissed' && <span className="text-sm text-muted-foreground">Saved for later</span>}</div>
             {idea.outcome === 'improve_existing' && <p className="text-sm text-muted-foreground">You already have a page about this topic. Review it for improvements instead of creating a similar page.</p>}
             <p className="text-sm">{idea.purpose || idea.reason}</p>
-            {idea.searchFocus?.phrase && <p className="text-sm"><span className="text-muted-foreground">{idea.searchFocus.source === 'observed' ? 'Observed search: ' : 'Suggested search topic: '}</span>{idea.searchFocus.phrase}</p>}
+            {idea.searchFocus?.phrase && <div className="space-y-2 text-sm">
+              <p className="text-muted-foreground">{idea.searchFocus.source === 'observed' ? 'Found in your Google search data' : 'Suggested phrase to target'}</p>
+              <p className="inline-flex max-w-full items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 font-medium text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/25 dark:text-emerald-200">
+                <Search aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+                <span className="min-w-0 break-words">{idea.searchFocus.phrase}</span>
+              </p>
+            </div>}
             <Evidence idea={idea} research={assessment.research} />
             {idea.outcome === 'new_page' && <Button disabled={disabled} variant={saved ? 'outline' : 'default'} onClick={() => saved ? (saved.status === 'dismissed' ? act('Restoring your plan…', '/plan', { planId: saved.id, revision: saved.revision, status: 'draft' }, result => { updatePlan(result); setSelectedPlan(result.plan.id); }, 'PATCH') : openSavedPlan(saved.id)) : act('Saving your page idea…', '/select', { assessmentId: assessment.id, ideaId: idea.id }, result => { updatePlan(result); setSelectedPlan(result.plan.id); })}>{saved ? 'Open saved plan' : 'Plan this page'}<ArrowRight className="size-4" /></Button>}
             {idea.outcome === 'improve_existing' && safeLink(idea.existingPageUrl) && <Button asChild variant="outline"><Link href={`/low-ctr?page=${encodeURIComponent(idea.existingPageUrl)}`}>Improve this existing page</Link></Button>}
