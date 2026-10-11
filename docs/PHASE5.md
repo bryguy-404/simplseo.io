@@ -26,7 +26,7 @@ Current published standard rates for `gpt-6.1-sol` at up to 272K input tokens ar
 
 Vercel's existing team is on the free Hobby plan. Its charge API returned “Costs not found,” which is not an itemized invoice. Hobby is limited to noncommercial personal use; select an appropriate commercial plan before expanding this business pilot to customers. No subscription was changed. [Vercel Hobby terms and limits](https://vercel.com/docs/plans/hobby).
 
-Bryan completed the requested Google sign-in, but Firebase's console still reported no project/app access and the linked Cloud billing UI returned to account verification. Existing CLI deployment access works; browser billing access remains unresolved. Firebase's actual spending is therefore unverified, not zero. Pricing at $20–25 or $50 remains a hypothesis until real usage, hosting/database charges and support time are measured.
+Bryan completed the requested Google sign-in, but Firebase's console still reported no project/app access and the linked Cloud billing UI returned to account verification. Existing CLI deployment access works; browser billing access remains unresolved. A same-project BigQuery metadata check found one accessible dataset/table and no billing-export tables; no exports or services were enabled. Firebase's actual spending is therefore unverified, not zero. Pricing at $20–25 or $50 remains a hypothesis until real usage, hosting/database charges and support time are measured.
 
 ## Homepage pilot checklist
 
@@ -41,6 +41,18 @@ The app's first comparison uses **28 complete days before and 28 complete days a
 ## Verification and release
 
 Verification before release: 545 unit/API tests, three real-SDK retired-function tests and 22 isolated browser/API scenarios pass (eight rules tests plus fourteen saved-plan/loading/publication/progress/access scenarios). The isolated production build passes. Full lint has zero errors and the same 11 existing warnings. Final review added a transaction guard preventing a finishing monitoring job from restoring a deleted account's pagination cursor; its regression passes. The earlier staged build was cancelled before promotion so only the corrected source can be released. The Firebase runtime maintenance and private telemetry rules are deployed. `aiUsageEvents.expiresAt` and the existing `requestLimits.expiresAt` both report `TTL(ACTIVE)`. The isolated app and emulators were stopped after verification.
+
+Source **`2e2c1c2`** was built and promoted to production as **`dpl_974BuvecyRuoj7btfrvhLoY3KZ17`**, at [the exact deployment](https://simplseo-ao2cvwltc-bryan-arambulas-projects.vercel.app). The public address remains [simplseo-io.vercel.app](https://simplseo-io.vercel.app). The project API confirms both enabled cron definitions now target this deployment. This was a direct release from `codex/phase3-current-website`; it was not pushed or merged to `main`.
+
+Post-release checks completed October 10 at approximately 20:14–20:17 Indiana time (October 11 00:14–00:17 UTC):
+
+- Both intentional manual collector requests returned HTTP 200 with durable `completed` records on the live deployment. Progress examined six archived records and skipped all six. Website monitoring examined one account and checked 29 pages. Neither sent notifications or enabled automatic outcomes. These records are labeled `authenticated_request`, not scheduled execution.
+- Eight anonymous and eight cross-account route checks were blocked. The authorized current HTML, search overview, page activity and saved plan loaded successfully.
+- The live browser restored all three homepage tasks with their existing selected search focus. One saved plan and 18 archived documents were unchanged; there were zero active published changes. No publication confirmation or new AI review was performed.
+- The new AI usage ledger had no events, as expected without a new paid review. Its lifecycle and privacy rules were tested in isolation; the first real review still needs reconciliation with provider usage.
+- The deployment-scoped error-log query returned no error entries in the queried 15-minute window. This is a bounded observation, not proof that every route or future background run is error-free.
+
+Technical preparation is released. Actual overnight invocation evidence, Firebase accrued spending and measurement of a real published homepage change remain open. The account can proceed to the homepage walkthrough while those explicitly identified checks are followed up.
 
 Bryan authorized a single follow-up for **October 11 at 09:00 America/Indiana/Indianapolis**. Automation `verify-simplseo-overnight-tracking` is active for this thread with one occurrence. It will inspect overnight evidence without invoking the collectors manually, report failures or evidence gaps, and leave website publication and billing unchanged. Hobby's short log retention may prevent independent correlation of the entire overnight window; the report must identify its source of evidence rather than imply a manual check was scheduled.
 
