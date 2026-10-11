@@ -1,0 +1,201 @@
+{
+  "title": "Phase 9 production pilot acceptance",
+  "deployment": {
+    "id": "dpl_9miGBiGASRQuMqG39Hhh84QQD1RK",
+    "commit": "a7e40cc",
+    "target": "production",
+    "state": "READY",
+    "publicUrl": "https://simplseo-io.vercel.app",
+    "buildDurationSeconds": 188,
+    "pilotEnrollment": "Owner account only"
+  },
+  "automated": {
+    "fullRegressionTests": 1127,
+    "fullRegressionFiles": 63,
+    "finalMentorTests": 142,
+    "finalMentorFiles": 8,
+    "mentorBrowserScenarios": 12,
+    "adjacentFeatureBrowserRegressions": 98,
+    "productionBuild": "passed",
+    "lintErrors": 0,
+    "preexistingLintWarnings": 7,
+    "independentFinalCodeReview": "passed"
+  },
+  "stagedReadVerification": {
+    "verifiedAt": "2026-10-11T16:51:56.044Z",
+    "origin": "https://simplseo-pt80b3q5t-bryan-arambulas-projects.vercel.app",
+    "pilotEnabledForOwner": true,
+    "generationEnabled": true,
+    "anonymousChecks": 8,
+    "crossAccountChecks": 2,
+    "requests": 28,
+    "historiesRead": 3,
+    "savedTurnsRead": 1,
+    "preservedDocuments": 233,
+    "savedReadDatabaseMutationsObserved": 0,
+    "savedReadUsageLedgerChangesObserved": 0,
+    "homepagePlanPresent": true,
+    "activeHomepageCycles": 0,
+    "legacyWriteResponses": [
+      410,
+      410,
+      410,
+      410
+    ],
+    "publicationsConfirmed": 0,
+    "generatedAnswers": 0,
+    "investigation": null,
+    "providerCallVerification": "Stored-read provider-free behavior is covered by isolated tests; live account and usage records remained unchanged."
+  },
+  "liveEvidenceVerification": {
+    "verifiedAt": "2026-10-11T16:54:42.763Z",
+    "mode": "verify",
+    "baselineAt": "2026-10-11T15:42:20.763Z",
+    "scopeAndProfilePreserved": true,
+    "protectedDocuments": 12,
+    "changedProtectedDocuments": 0,
+    "pilotAnswers": [
+      {
+        "answerNumber": 1,
+        "model": "gpt-6.1-sol",
+        "policyVersion": "mentor-9.2",
+        "generatedAt": "2026-10-11T16:17:35.913Z",
+        "completedAt": "2026-10-11T16:17:36.481Z",
+        "metricCardsChecked": 2,
+        "actionsChecked": 1,
+        "accountSourcesChecked": 3,
+        "documentationSourcesChecked": 0,
+        "envelopeAgreement": true,
+        "answerTextIncluded": false
+      },
+      {
+        "answerNumber": 2,
+        "model": "gpt-6.1-sol",
+        "policyVersion": "mentor-9.2",
+        "generatedAt": "2026-10-11T16:53:47.243Z",
+        "completedAt": "2026-10-11T16:53:47.722Z",
+        "metricCardsChecked": 0,
+        "actionsChecked": 0,
+        "accountSourcesChecked": 1,
+        "documentationSourcesChecked": 2,
+        "envelopeAgreement": true,
+        "answerTextIncluded": false
+      }
+    ],
+    "investigation": {
+      "state": "available",
+      "lastAttemptAt": "2026-10-11T15:44:13.203Z",
+      "lastSuccessAt": "2026-10-11T15:44:13.203Z",
+      "newPersistedCheckAfterBaseline": true,
+      "cacheReuseNeedsUiConfirmation": false,
+      "savedObservationDate": "2026-10-11T15:44:13.203Z",
+      "reportingWindow": {
+        "startDate": "2026-09-11",
+        "endDate": "2026-10-08"
+      }
+    },
+    "costs": {
+      "month": "2026-10",
+      "spentUsd": 2.370364,
+      "reservedUsd": 0.78,
+      "evaluationSpentUsd": 0.288345,
+      "evaluationReservedUsd": 0.78,
+      "pricingVersion": "openai-standard-2026-10-11"
+    },
+    "cloudMutations": 0,
+    "generatedAnswers": 0,
+    "observationRefreshes": 0,
+    "limitation": "This verifies saved metric cards, source identities and permitted actions. It does not automatically grade conversational prose or source-to-claim relevance; review the two answers in the app."
+  },
+  "indexingAnswerIndependentReview": {
+    "assessedAt": "2026-10-11T16:55:51.314298+00:00",
+    "outcome": "pass",
+    "method": "Read-only completed-turn, saved account evidence, cached Google documentation and private usage-ledger review.",
+    "answerCreatedAt": "2026-10-11T16:53:21.971Z",
+    "answerCompletedAt": "2026-10-11T16:53:47.722Z",
+    "checks": {
+      "unsupportedPenaltyClaim": false,
+      "fabricatedAccountFindings": false,
+      "sameDayPublicationPresentedAsProof": false,
+      "generalGuidanceSeparatedFromAccountFindings": true,
+      "manualActionVersusAutomatedDetectionDistinguished": true,
+      "unavailableIndexingGuidanceDisclosed": true,
+      "sourceIdentityAndRetrievalDatesMatchSavedCache": true,
+      "noInventedMetricCards": true,
+      "noClaimWebsiteChangesWerePerformed": true,
+      "currentQuestionAnsweredWithUsefulNextSteps": true
+    },
+    "sourceAssessment": [
+      {
+        "url": "https://developers.google.com/search/docs/essentials/spam-policies",
+        "relevance": "Supports automated and human policy enforcement and evaluating low-value similar location pages. The answer treats page usefulness as an investigation rather than an account-specific violation finding.",
+        "observedAt": "2026-10-11T16:53:27.659Z"
+      },
+      {
+        "url": "https://support.google.com/webmasters/answer/9044175?hl=en",
+        "relevance": "Supports the human-review definition, Search Console notices and the distinction between no reported manual action and absence of all search issues.",
+        "observedAt": "2026-10-11T16:53:37.439Z"
+      },
+      {
+        "type": "saved_exact_page_search_activity",
+        "relevance": "Supports the limited homepage-only account evidence used; no service-page indexing or Manual Actions result was invented."
+      }
+    ],
+    "usage": {
+      "inputTokens": 18383,
+      "outputTokens": 817,
+      "reasoningTokens": 58,
+      "cachedInputTokens": 5374,
+      "cacheWriteInputTokens": 4724,
+      "webSearchCalls": 1,
+      "durationMs": 19264,
+      "providerCalls": 3,
+      "allProviderOutcomesReportedCompleted": true,
+      "inputBelow24000": true,
+      "wallTimeMs": 25751,
+      "provenance": {
+        "model": "gpt-6.1-sol",
+        "policyVersion": "mentor-9.2",
+        "providerAttempts": 3,
+        "documentationResearch": true,
+        "inputTokenChecks": 1,
+        "inputTokenCheckMs": 163,
+        "generatedAt": "2026-10-11T16:53:47.243Z"
+      },
+      "accounting": {
+        "status": "settled",
+        "estimatedCostUsd": 0.68709,
+        "reservedUsd": 0.78,
+        "pricingVersion": "openai-standard-2026-10-11"
+      },
+      "costNote": "The private ledger includes a conservative hosted-search content allowance; it is an estimated spend control, not a provider invoice."
+    },
+    "limitations": [
+      "This confirms answer quality and saved-source relevance for one real indexing question, not whether any service page is indexed or under a manual action."
+    ],
+    "cloudWrites": 0,
+    "providerCallsByReviewer": 0,
+    "refreshesByReviewer": 0
+  },
+  "liveBrowser": {
+    "widgetToFullMentorSameConversation": true,
+    "fullRefreshRestoresAnswers": true,
+    "pageSwitchRestoresAnswers": true,
+    "realAccountLogoutLogin": "Owner checkpoint remains; isolated test passed",
+    "screenshot": "Live answer captured in private task output"
+  },
+  "observability": {
+    "finalDeploymentErrorScan": "No error log entries returned",
+    "scanScope": "Current deployment within retained hour; does not erase earlier handled turn failures",
+    "drains": "Not inspected or changed"
+  },
+  "remaining": [
+    "Bryan reviews pilot usefulness and isolated preview",
+    "Bryan verifies logout/sign-in continuity before wider enrollment",
+    "No service-page indexing or Manual Actions finding established by the educational answer",
+    "Phase 7 first scheduled cycle invocation remains October 12 at 02:00 UTC; zero active cycles is not a real page collection test"
+  ],
+  "priorFailedLiveTurnsPreserved": 3,
+  "noWebsiteEditsOrPublicationConfirmations": true,
+  "rollout": "Pilot only; no broad enrollment"
+}
