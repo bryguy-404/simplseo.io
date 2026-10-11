@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import OpenAI from 'openai';
 import { db } from '../firebaseAdmin';
 import { propertyContainsUrl } from '../revampState';
@@ -8,6 +8,7 @@ import { RequestError } from './requestAuth';
 import { collectPageReviewEvidence } from './pageReviewEvidence';
 import { collectPageReviewDiagnostics } from './pageReviewDiagnostics';
 import { consumePageReviewQuota } from './requestQuota';
+import { recordPageReviewResponse } from './aiUsage';
 import { readPageReviewPlanForUpdate, savePageReviewPlan } from './pageReviewPlans';
 import { PAGE_REVIEW_VERSION, comparePageReviewUpdate, pageReviewUpdateBaseline, pageReviewUpdateLimitation } from './pageReviewUpdates';
 import { PAGE_REVIEW_MODEL, PAGE_REVIEW_TIMELINE, buildReviewRequest, buildResearchRequest, responseText, validatePageAssessment, parseWebResearch } from '../pageReviewPolicy';
@@ -72,9 +73,10 @@ export function validateReviewSuggestions(payload, currentPage) {
   return { title, description };
 }
 
-async function researchPage(openai, currentPage, signal, timeout = 45000) {
+async function researchPage(openai, currentPage, signal, providerTimeout, usageContext) {
   try {
-    const response = await openai.responses.create(buildResearchRequest(currentPage), { timeout, ...(signal ? { signal } : {}) });
+    const response = await recordPageReviewResponse({ ...usageContext, stage: 'research' },
+      () => openai.responses.create(buildResearchRequest(currentPage), { timeout: providerTimeout(45000), ...(signal ? { signal } : {}) }));
     return parseWebResearch(response);
   } catch {
     return { status: 'unavailable', summary: '', sources: [], checkedAt: new Date().toISOString(),
@@ -120,17 +122,22 @@ export async function generatePageReviewSuggestions(userId, pageUrl, keywordInpu
     if (remaining < 5000) throw new RequestError('The update check took too long. Your saved plan is unchanged. Please try again later.', 503);
     return Math.min(maximum, remaining);
   };
-  const researchTimeout = providerTimeout(45000);
+  providerTimeout(45000); // Refuse work before quota/accounting if already out of time.
   await consumePageReviewQuota(userId);
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 0, timeout: 45000 });
-  const research = await researchPage(openai, currentPage, signal, researchTimeout);
+  const usageContext = { userId, reviewRunId: randomUUID(), requestedModel: PAGE_REVIEW_MODEL };
+  const research = await researchPage(openai, currentPage, signal, providerTimeout, usageContext);
   await assertReviewStillCurrent(userId, review.provenance);
   if (signal?.aborted) throw new RequestError('The page review was cancelled.', 409);
   previousPlan = await readPageReviewPlanForUpdate(userId, review.provenance, { expectedReview: previousPlan?.review || null });
   let response;
   try {
-    response = await openai.responses.create(buildReviewRequest({ currentPage, evidence, research, diagnostics, ownerGoal, focusKeywords, priorTasks: previousPlan?.tasks || [] }),
-      { timeout: providerTimeout(65000), ...(signal ? { signal } : {}) });
+    // Resolve the route budget before starting the accounting event: no call
+    // was attempted if the earlier evidence checks exhausted that budget.
+    providerTimeout(65000);
+    response = await recordPageReviewResponse({ ...usageContext, stage: 'assessment' },
+      () => openai.responses.create(buildReviewRequest({ currentPage, evidence, research, diagnostics, ownerGoal, focusKeywords, priorTasks: previousPlan?.tasks || [] }),
+        { timeout: providerTimeout(65000), ...(signal ? { signal } : {}) }));
   } catch {
     throw new RequestError('The page review service is temporarily unavailable. Your website has not been changed. Please try again later.', 503);
   }

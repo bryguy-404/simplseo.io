@@ -151,6 +151,8 @@ service cloud.firestore {
     match /gscOAuthStates/{path=**} { allow read, write: if false; }
     match /progressJobs/{path=**} { allow read, write: if false; }
     match /requestLimits/{path=**} { allow read, write: if false; }
+    match /aiUsageEvents/{path=**} { allow read, write: if false; }
+    match /cronRuns/{path=**} { allow read, write: if false; }
     match /genericKeywordsCache/{path=**} { allow read, write: if false; }
     match /skippedKeywords/{path=**} { allow read, write: if false; }
     match /createdContentOpportunities/{path=**} { allow read, write: if false; }

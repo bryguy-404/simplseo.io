@@ -21,7 +21,10 @@ function deletionStore(initial) {
       return { docs, empty: docs.length === 0 };
     },
   });
-  const db = { collection, recursiveDelete: vi.fn(async target => {
+  const db = { collection, runTransaction: async callback => callback({
+    get: async target => ({ data: () => records.get(target.path) }),
+    update: (target, data) => records.set(target.path, { ...records.get(target.path), ...data }),
+  }), recursiveDelete: vi.fn(async target => {
     deleted.push(target.path);
     for (const key of records.keys()) if (key === target.path || key.startsWith(`${target.path}/`)) records.delete(key);
   }) };
@@ -47,11 +50,14 @@ describe('account data deletion', () => {
       'progressJobs/alice': {},
       'progressJobs/user-alice': {},
       'progressJobs/daily-progress': { keep: true },
+      'progressJobs/daily-website-monitoring': { cursor: 'alice', leaseToken: 'global-lease', keep: true },
       'requestLimits/hashed-user-limit': { userId: 'alice' },
       'requestLimits/hashed-ip-limit': { keep: true },
       'pageReviewPlans/current-alice': { userId: 'alice' },
       'pageReviewPlans/old-run-alice': { userId: 'alice' },
       'pageReviewPlans/current-bob': { userId: 'bob', keep: true },
+      'aiUsageEvents/alice-research': { userId: 'alice', inputTokens: 100 },
+      'aiUsageEvents/bob-assessment': { userId: 'bob', keep: true },
       [`trainingEvents/${hash}/events/one`]: {},
       [`playbookStrategies/${hash}/strategies/one`]: {},
       [`conversationSummaries/${hash}/summaries/one`]: {},
@@ -83,6 +89,7 @@ describe('account data deletion', () => {
     expect([...store.records.values()]).toEqual(expect.arrayContaining([{ keep: true }]));
     expect([...store.records.values()].every(value => value.keep === true)).toBe(true);
     expect(store.deleted.at(-1)).toBe('onboarding/alice');
+    expect(store.records.get('progressJobs/daily-website-monitoring')).toEqual({ cursor: null, leaseToken: 'global-lease', keep: true });
     // Missing parents are still recursively deleted; retrying has no effect on other users.
     const remaining = [...store.records.keys()];
     await deleteAccountFirestore(store.db, 'alice', 'alice@example.test');
@@ -91,6 +98,23 @@ describe('account data deletion', () => {
 
   it('deletes more than one Firestore query batch', async () => {
     const store = deletionStore(Object.fromEntries(Array.from({ length: 501 }, (_, i) => [`conversations/${i}`, { userId: 'alice' }])));
+    await deleteAccountFirestore(store.db, 'alice');
+    expect(store.records.size).toBe(0);
+  });
+
+  it('preserves a different account\'s current sweep cursor and the scheduler lease', async () => {
+    const store = deletionStore({ 'progressJobs/daily-website-monitoring': { cursor: 'bob', leaseToken: 'global-lease' } });
+    await deleteAccountFirestore(store.db, 'alice');
+    expect(store.records.get('progressJobs/daily-website-monitoring')).toEqual({ cursor: 'bob', leaseToken: 'global-lease' });
+  });
+
+  it('sweeps accounting from a review that started during account deletion', async () => {
+    const store = deletionStore({ 'users/alice': {}, 'onboarding/alice': {} });
+    const remove = store.db.recursiveDelete.getMockImplementation();
+    store.db.recursiveDelete.mockImplementation(async target => {
+      if (target.path === 'users/alice') store.records.set('aiUsageEvents/in-flight', { userId: 'alice' });
+      await remove(target);
+    });
     await deleteAccountFirestore(store.db, 'alice');
     expect(store.records.size).toBe(0);
   });

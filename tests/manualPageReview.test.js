@@ -127,7 +127,7 @@ describe('current website page review', () => {
     expect(result.analysis).toMatchObject({ action: 'revise_metadata', changedFields: ['description'] });
     expect(result.evidence.facts.map(item => item.id)).toEqual(expect.arrayContaining(['P1', 'P2', 'P3', 'S1', 'S2', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6']));
     expect(result.research.status).toBe('available');
-    expect([...records.keys()].filter(key => !['requestLimits/', 'users/', 'pageReviewPlans/'].some(prefix => key.startsWith(prefix)))).toEqual(['onboarding/alice']);
+    expect([...records.keys()].filter(key => !['requestLimits/', 'users/', 'pageReviewPlans/', 'aiUsageEvents/'].some(prefix => key.startsWith(prefix)))).toEqual(['onboarding/alice']);
   });
 
   it('rejects another property, URL credentials and fragments before fetching', async () => {
@@ -246,6 +246,28 @@ describe('current website page review', () => {
     expect(response.status).toBe(503);
     expect((await response.json()).error).toMatch(/temporarily unavailable/);
     expect(mocks.create).toHaveBeenCalledTimes(2);
+    const usage = [...records].filter(([key]) => key.startsWith('aiUsageEvents/')).map(([, value]) => value);
+    expect(usage).toHaveLength(2);
+    expect(usage.every(event => event.providerOutcome === 'request_failed' && event.usageStatus === 'unknown' && event.inputTokens === null)).toBe(true);
+    expect(JSON.stringify(usage)).not.toContain('provider-secret');
+  });
+
+  it('accounts for both paid stages privately even when generated advice fails validation', async () => {
+    const usage = { input_tokens: 1234, output_tokens: 567, input_tokens_details: { cached_tokens: 100, cache_write_tokens: 200 },
+      output_tokens_details: { reasoning_tokens: 300 }, total_tokens: 1801 };
+    mocks.create.mockImplementation(async body => ({ ...(body.tools ? researchCompletion() : completion({ ...assessment, evidenceIds: ['W99'] })),
+      id: body.tools ? 'resp_research' : 'resp_assessment', model: PAGE_REVIEW_MODEL, service_tier: 'default', usage }));
+    const response = await suggestions(request());
+    expect(response.status).toBe(502);
+    expect(await response.json()).not.toHaveProperty('usage');
+    const events = [...records].filter(([key]) => key.startsWith('aiUsageEvents/')).map(([, value]) => value);
+    expect(events).toHaveLength(2);
+    expect(new Set(events.map(event => event.reviewRunId)).size).toBe(1);
+    expect(events.map(event => event.stage)).toEqual(['research', 'assessment']);
+    expect(events.map(event => event.webSearchCalls)).toEqual([1, 0]);
+    expect(events.every(event => event.inputTokens === 1234 && event.outputTokens === 567 && event.usageStatus === 'reported')).toBe(true);
+    expect([...records.keys()].filter(key => key.startsWith('pageReviewPlans/'))).toHaveLength(0);
+    expect(JSON.stringify(events)).not.toContain(pageUrl);
   });
 
   it('bounds scraped content and refuses oversized keyword input', async () => {
@@ -320,7 +342,7 @@ describe('evidence-backed assessment integration', () => {
       expect(response.status).toBe(502);
       expect((await response.json()).error).toMatch(/clearly supported review/);
     }
-    expect([...records.keys()].filter(key => !['requestLimits/', 'users/', 'pageReviewPlans/'].some(prefix => key.startsWith(prefix)))).toEqual(['onboarding/alice']);
+    expect([...records.keys()].filter(key => !['requestLimits/', 'users/', 'pageReviewPlans/', 'aiUsageEvents/'].some(prefix => key.startsWith(prefix)))).toEqual(['onboarding/alice']);
   });
 
   it('returns a useful keep-current decision without inventing a draft or an edit', async () => {
@@ -333,7 +355,7 @@ describe('evidence-backed assessment integration', () => {
     expect(result.evidence.current).toMatchObject({ totals: null, totalsStatus: 'no_data', queriesStatus: 'no_data' });
     expect(mocks.create).toHaveBeenCalledTimes(2);
     expect(mocks.query).toHaveBeenCalledTimes(8);
-    expect([...records.keys()].filter(key => !['requestLimits/', 'users/', 'pageReviewPlans/'].some(prefix => key.startsWith(prefix)))).toEqual(['onboarding/alice']);
+    expect([...records.keys()].filter(key => !['requestLimits/', 'users/', 'pageReviewPlans/', 'aiUsageEvents/'].some(prefix => key.startsWith(prefix)))).toEqual(['onboarding/alice']);
   });
 
   it('keeps accurate metadata while offering a visibility investigation as the useful next action', async () => {
@@ -350,7 +372,7 @@ describe('evidence-backed assessment integration', () => {
     expect(result).toMatchObject({ title: null, description: null,
       analysis: { action: 'investigate_visibility', metadataVerdict: 'keep', metadataReason: keepAssessment.metadataReason, changedFields: [] },
       provenance: { reviewVersion: 6 } });
-    expect([...records.keys()].filter(key => !['requestLimits/', 'users/', 'pageReviewPlans/'].some(prefix => key.startsWith(prefix)))).toEqual(['onboarding/alice']);
+    expect([...records.keys()].filter(key => !['requestLimits/', 'users/', 'pageReviewPlans/', 'aiUsageEvents/'].some(prefix => key.startsWith(prefix)))).toEqual(['onboarding/alice']);
   });
 
   it('uses strict bounded Responses output, private storage settings and no automatic retries', async () => {
@@ -504,6 +526,7 @@ describe('checking saved reviews for updates', () => {
     vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-10T16:00:00Z'));
     const first = await (await suggestions(request())).json();
     const preserved = { ...first.plan, revision: 2, tasks: first.plan.tasks.map(task => ({ ...task, status: 'dismissed' })) };
+    const usageBefore = [...records].filter(([key]) => key.startsWith('aiUsageEvents/'));
     await recordFor(first.plan).update({ revision: 2, tasks: preserved.tasks });
     // Exhaust the remaining paid-review allowance, which must not block reuse.
     for (let index = 0; index < 19; index += 1) { vi.advanceTimersByTime(60000); await consumePageReviewQuota('alice'); }
@@ -519,6 +542,7 @@ describe('checking saved reviews for updates', () => {
     expect(result.checkContext.evidence.fetchedAt).not.toBe(first.evidence.fetchedAt);
     expect((await recordFor(first.plan).get()).data().revision).toBe(2);
     expect(mocks.create).toHaveBeenCalledTimes(2);
+    expect([...records].filter(([key]) => key.startsWith('aiUsageEvents/'))).toEqual(usageBefore);
   });
 
   it('reuses legacy version-six snapshots despite new timestamps and saved query sample flags', async () => {

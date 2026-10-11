@@ -8,7 +8,7 @@ function load(db) {
   vm.runInNewContext(fs.readFileSync('functions/index.js', 'utf8'), {
     exports: exported, console: { log() {}, error() {} },
     require: name => {
-      if (name === 'firebase-functions') return { https: { onRequest: fn => fn } };
+      if (name === 'firebase-functions/v1') return { https: { onRequest: fn => fn } };
       if (name.includes('pubsub')) return schedule;
       if (name === 'firebase-admin') return { initializeApp() {}, firestore: () => db };
       if (name === 'node-fetch') return () => { throw Error('Unexpected network request'); };

@@ -119,7 +119,15 @@ test('token mutation and every server-managed collection are denied to clients',
     expect((await patch(request, path, { gscRefreshToken: 'forged' })).status()).toBe(403);
     expect((await request.delete(`${base}/${path}`, { headers: { Authorization: `Bearer ${token}` } })).status()).toBe(403);
   }
-  for (const collection of ['focusKeywords', 'siteCrawls', 'contentKeywordEdits', 'conversations', 'gscOAuthStates', 'progressJobs', 'requestLimits', 'pageReviewPlans', 'genericKeywordsCache', 'skippedKeywords', 'createdContentOpportunities', 'trainingEvents', 'playbookStrategies', 'conversationSummaries', 'appConfig', 'accessRequests', 'approvedUsers', 'invitationCodes', 'contactMessages', 'deletedUsers']) {
+  for (const collection of ['focusKeywords', 'siteCrawls', 'contentKeywordEdits', 'conversations', 'gscOAuthStates', 'progressJobs', 'cronRuns', 'requestLimits', 'aiUsageEvents', 'pageReviewPlans', 'genericKeywordsCache', 'skippedKeywords', 'createdContentOpportunities', 'trainingEvents', 'playbookStrategies', 'conversationSummaries', 'appConfig', 'accessRequests', 'approvedUsers', 'invitationCodes', 'contactMessages', 'deletedUsers']) {
     expect((await patch(request, `${collection}/${uid}`, { userId: uid }, false)).status(), collection).toBe(403);
   }
+});
+
+test('AI accounting is private even from its account owner and cannot be altered by clients', async ({ request }) => {
+  const path = `aiUsageEvents/${uid}-research`;
+  await app.firestore().doc(path).set({ userId: uid, stage: 'research', inputTokens: 2000 });
+  expect((await read(request, path)).status()).toBe(403);
+  expect((await patch(request, path, { inputTokens: 0 })).status()).toBe(403);
+  expect((await request.delete(`${base}/${path}`, { headers: { Authorization: `Bearer ${token}` } })).status()).toBe(403);
 });

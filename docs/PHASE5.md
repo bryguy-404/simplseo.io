@@ -1,0 +1,53 @@
+# Phase 5 pilot readiness
+
+Bryan accepted the Phase 4 workflow and authorized the pilot-readiness check on October 10, 2026. The first pilot is his existing Bryan Develops account, using the current homepage and saved plan. No website edits or task publication confirmations are made on his behalf. The public URL and Firebase/Firestore/Vercel stack remain unchanged.
+
+## Maintenance and tracking
+
+The five retained Firebase functions now use Node 22 with explicit first-generation triggers. All four public maintenance URLs were verified to return HTTP 410 after deployment; the old scheduled writer remains inert. The deployed inventory confirms all five are active on `nodejs22`. This resolves the Node 20 retirement item without restoring unsupported SEO decisions. See [Google runtime support](https://docs.cloud.google.com/functions/docs/runtime-support).
+
+The two Vercel collectors now keep private, bounded run evidence and distinguish manual checks from requests carrying the scheduler header. Website monitoring has a lease, bounded account/page batches, resumable cursors and a time budget; errors retain previous observations. Completed work is preserved even if a duplicate request is deferred. See [tracking operations](PHASE5_TRACKING.md) for exact bounds and interpretation.
+
+Vercel's project API confirms both daily cron definitions are enabled. Progress is scheduled for 02:00 UTC and website monitoring for 03:00 UTC. The current team uses Hobby: execution can occur during the respective hour, rather than at the exact minute. Runtime logs retain only one hour on this plan, so an empty historical log query does not prove a missed invocation. Actual scheduled execution must be correlated with the new durable run evidence and provider logs; a successful manual check is separate evidence. Sources: [cron scheduling](https://vercel.com/docs/cron-jobs/usage-and-pricing), [runtime logs](https://vercel.com/docs/logs/runtime).
+
+Automatic success/pivot/audit decisions, progress notifications and playbook promotion remain disabled. No confirmed edits means no active before/after comparison; this is a legitimate empty state.
+
+## Usage and costs
+
+The OpenAI usage dashboard, filtered to the **SimplSEO** project and October 1–10, 2026, showed **$1.73**, **68 API requests**, and **555,713 tokens** when inspected on October 10. The line-item view included the current model and web-search tools. This is provider-reported accrued spending, includes development/testing, can update with reporting delays, and is not a final invoice or a cost per customer. The separate organization spend figure must not be attributed to this project.
+
+New Improve a page calls now save private provider accounting: research/assessment stage, reported tokens and cache counts, observed web-search calls, model/tier, duration and outcome. Saved-plan checks that find no meaningful change do not invoke paid AI or create paid-call records. Missing usage, timeouts and interrupted requests remain unknown, never assumed free. Historical saved plans cannot reconstruct old token usage.
+
+Accounting excludes prompts, page URLs, search phrases, generated content, credentials and raw error messages. Clients cannot read or alter it. Writes are bounded so a storage delay does not consume the review's entire deadline. Account deletion also covers in-flight accounting. The `aiUsageEvents.expiresAt` configuration requests deletion after 90 days; Firestore TTL cleanup is asynchronous. The deployment's activation state is recorded below.
+
+This ledger covers **Improve a page**, not every older chat/opportunity endpoint. Reconcile the provider dashboard with the ledger before estimating an active account's total AI cost. The existing 20-reviews/day allowance is an abuse/usage limit, not a monthly price entitlement or a hard dollar budget.
+
+Current published standard rates for `gpt-6.1-sol` at up to 272K input tokens are $2/million ordinary input tokens, $0.10/million cache-hit tokens, $2.50/million cache-write tokens and $10/million output tokens. Web search is $10/1,000 calls plus model-rate search-content tokens. Actual service tier, context size and provider billing determine the invoice; no estimated dollar amount is written as a measured charge. Sources: [OpenAI pricing](https://developers.openai.com/api/docs/pricing), [cache accounting](https://developers.openai.com/api/docs/guides/prompt-caching).
+
+Vercel's existing team is on the free Hobby plan. Its charge API returned “Costs not found,” which is not an itemized invoice. Hobby is limited to noncommercial personal use; select an appropriate commercial plan before expanding this business pilot to customers. No subscription was changed. [Vercel Hobby terms and limits](https://vercel.com/docs/plans/hobby).
+
+Firebase billing requires a fresh Google sign-in in the browser. Its actual spending remains unverified until that report is accessible; it is not recorded as zero. Pricing at $20–25 or $50 remains a hypothesis until real usage, hosting/database charges and support time are measured.
+
+## Homepage pilot checklist
+
+1. Open the saved homepage plan and inspect each proposed location on the live website. Conditional suggestions apply only if that improvement is actually missing. Keep already-accurate wording and working links.
+2. Agree on the useful edits and publish them in the website's own editor. The current saved plan includes a service-focused hero heading check, an estimate/ongoing-cost FAQ check, and a contextual Web Design service link check. Reconfirm the actual saved wording before editing; these are tasks to inspect, not mandatory changes.
+3. Verify the published page on desktop and mobile. Check the heading, truthful copy and destination link. Then select **only the tasks actually published** in SimplSEO and accept its confirmation once.
+4. Check the exact page, website run, confirmation date, completed-task state and collecting-data state. Refresh and verify they persist. Other pages remain available.
+5. Inspect Google's recrawl/index view after roughly 1–2 weeks, look for early search signals around 4 weeks, and review usefulness again around 8–12 weeks. These are review checkpoints, not promises of ranking improvement.
+
+The app's first comparison uses **28 complete days before and 28 complete days after confirmation**, excludes the confirmation day and allows the existing three-day reporting buffer. Its count thresholds are 100 impressions in each period and 10 clicks combined; they are display heuristics, not statistical significance. If the fixed windows have too little traffic, waiting alone does not enlarge them. A later longer-period assessment would be a separate explicit measurement decision. Track relevant nonbrand queries, clicks and impressions separately from actual inquiries/bookings; neither elapsed time nor a traffic change proves the edits caused a benefit.
+
+## Verification and release
+
+Verification before release: 544 unit/API tests, three real-SDK retired-function tests and 22 isolated browser/API scenarios pass (eight rules tests plus fourteen saved-plan/loading/publication/progress/access scenarios). The isolated production build passes. Full lint has zero errors and the same 11 existing warnings. The Firebase runtime maintenance and private telemetry rules are deployed. The new TTL policy was accepted and initially reported `CREATING`; final activation and application release checks follow below.
+
+Operational check:
+
+```sh
+node scripts/verify-pilot-readiness.cjs <uid> <exact-property>
+```
+
+Add `--run-collectors` only for an intentional authenticated manual test of both normal collectors. It never sends the scheduler user-agent, generates an AI review, publishes an edit or marks a task complete. The script checks that saved plans and historical records remain unchanged, reports active change count and reads recent aggregate execution evidence. Only the existing production project and URL are accepted; credentials stay in memory and are not printed.
+
+The release record must distinguish automated schedule observation, manual route checks, local tests and real published website work. The current rollback target is Phase 4 version 8 (`dpl_EFPhcv6ELWPbbCYcwbakdXoLwaQZ`, source `9fadf5b`). Rolling back the app should not downgrade Firebase's retired functions or restore legacy writers.

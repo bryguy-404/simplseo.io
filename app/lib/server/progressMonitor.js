@@ -227,6 +227,7 @@ export async function runProgressCollection(now = new Date()) {
     const batch = await collectBatch(snapshot.docs, now, startedAt);
     const counts = batch.results.reduce((all, state) => ({ ...all, [state]: (all[state] || 0) + 1 }), {});
     await finishJob(job, { cursor: snapshot.docs[batch.processed - 1]?.id || null, lastFinishedAt: new Date().toISOString(), counts });
-    return { checked: batch.processed, counts, notificationsSent: 0, strategiesSaved: 0, automaticOutcomesEnabled: false };
+    return { checked: batch.processed, counts, moreRecords: batch.processed < snapshot.size || snapshot.size === MAX_RECORDS,
+      notificationsSent: 0, strategiesSaved: 0, automaticOutcomesEnabled: false };
   } catch (error) { await finishJob(job, { lastErrorAt: new Date().toISOString() }); throw error; }
 }

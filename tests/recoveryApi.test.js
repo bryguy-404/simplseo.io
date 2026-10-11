@@ -153,4 +153,49 @@ describe('Google monitoring', () => {
     expect(result.pages[0].lastError).toBe('temporarily_unavailable');
   });
 
+  it('caps scheduled page work and resumes without deleting unprocessed observations', async () => {
+    const pages = Array.from({ length: 45 }, (_, index) => ({ url: `https://example.test/${String(index).padStart(2, '0')}`, impressions: 3, searchDataStatus: 'has_data' }));
+    await db.collection('onboarding').doc('alice').update({ revampMonitoringEnabled: true, revampPages: pages });
+    fetch.mockImplementation(async () => json({ rows: [{ impressions: 5, clicks: 1 }] }));
+    const first = await monitorRevamp('alice', { scheduled: true, maxPages: 40 });
+    expect(first).toMatchObject({ checked: 40, morePages: true });
+    expect(first.pages).toHaveLength(45);
+    expect(first.pages[44].impressions).toBe(3);
+    expect(records.get('onboarding/alice').revampMonitorCursor).toBe('https://example.test/39');
+    const second = await monitorRevamp('alice', { scheduled: true, maxPages: 40 });
+    expect(second.checked).toBe(5);
+    expect(second.pages[44].impressions).toBe(5);
+    expect((await monitorRevamp('alice', { scheduled: true, maxPages: 40 })).checked).toBe(40);
+  });
+
+  it('stops scheduled page work at the deadline and preserves unprocessed pages', async () => {
+    await db.collection('onboarding').doc('alice').update({ revampMonitoringEnabled: true, revampPages: Array.from({ length: 8 }, (_, index) => ({ url: `https://example.test/${index}`, impressions: 3 })) });
+    let clock = Date.now();
+    const deadline = clock + 100;
+    const spy = vi.spyOn(Date, 'now').mockImplementation(() => clock);
+    try {
+      fetch.mockImplementation(async () => { clock += 1000; return json({ rows: [{ impressions: 5 }] }); });
+      const result = await monitorRevamp('alice', { scheduled: true, maxPages: 40, deadline });
+      expect(result.checked).toBeGreaterThan(0);
+      expect(result.checked).toBeLessThanOrEqual(4);
+      expect(result.pages).toHaveLength(8);
+      expect(result.pages[7].impressions).toBe(3);
+    } finally { spy.mockRestore(); }
+  });
+
+  it('does not save scheduled observations after monitoring is disabled or the property changes', async () => {
+    await db.collection('onboarding').doc('alice').update({ revampMonitoringEnabled: true });
+    fetch.mockImplementation(async () => {
+      await db.collection('onboarding').doc('alice').update({ revampMonitoringEnabled: false });
+      return json({ rows: [] });
+    });
+    await expect(monitorRevamp('alice', { scheduled: true, maxPages: 40 })).rejects.toMatchObject({ status: 409 });
+    expect(records.get('onboarding/alice').revampLastCheckedAt).toBeUndefined();
+    fetch.mockImplementation(async () => {
+      await db.collection('onboarding').doc('alice').update({ gscProperty: 'sc-domain:other.test' });
+      return json({ rows: [] });
+    });
+    await expect(monitorRevamp('alice')).rejects.toMatchObject({ status: 409 });
+  });
+
 });

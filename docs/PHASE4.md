@@ -278,3 +278,7 @@ Release verification and Bryan's live checkpoint are recorded below after comple
 - The bounded deployment error-log scan returned zero records. Artifacts: `/private/tmp/simpleseo-v8-live-account.json`, `simpleseo-v8-live-update-check.json`, `simpleseo-v8-live-deployment.json`, `simpleseo-v8-live-errors.jsonl` and the staged build/promotion logs. These are release checks, not continuous monitoring or ranking evidence.
 
 Bryan's checkpoint: refresh the homepage review, switch to another page and back to see the loading state, then try **Check for updates**. Unchanged inputs should keep the saved tasks. Incomplete external checks should say so and preserve the plan. Publish real changes before using the separate confirmation flow. Phase 5 remains deferred pending this feedback.
+
+### Phase 4 checkpoint accepted
+
+Bryan confirmed that both version 8 changes work and explicitly requested moving to Phase 5. The usability checkpoint is accepted; Phase 5 pilot preparation is active in [the roadmap](ROADMAP.md). This acceptance does not imply that website edits have been published, that progress tracking has begun, or that ranking benefits have been demonstrated. The next milestone is the first real published-and-confirmed homepage change, supported by collection and cost verification.

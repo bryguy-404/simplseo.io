@@ -1,4 +1,5 @@
-const functions = require('firebase-functions');
+// Preserve the existing first-generation endpoints and scheduled trigger.
+const functions = require('firebase-functions/v1');
 const pubsub = require('firebase-functions/v1/pubsub');
 
 // Leave deployed URLs explicitly retired until callers have been removed.
