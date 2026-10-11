@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { ArrowUp, Plus, History, X, Maximize2, Search, Pencil, Trash2, Loader2, RefreshCw, Globe } from 'lucide-react';
+import { ArrowUp, History, X, Maximize2, Search, Pencil, Trash2, Loader2, RefreshCw, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -68,11 +68,11 @@ export default function MentorWorkspace({ compact = false, onClose }) {
   const terminalFailure = ['failed', 'unknown', 'not_saved'].includes(session.pending?.status);
   const newChat = async () => { await session.createConversation(); setShowHistory(false); draftRef.current?.focus(); };
   return <section aria-label="SEO Mentor workspace" className={`flex min-w-0 flex-col bg-background ${compact ? 'w-[min(440px,calc(100vw-28px))] h-[min(660px,75dvh)]' : 'h-[calc(100dvh-130px)] min-h-[440px] max-h-[1000px] rounded-2xl border border-border overflow-hidden'}`}>
-    <header className="flex items-center justify-between gap-2 border-b border-border p-3 sm:p-4">
-      <div className="min-w-0"><h1 className={`${compact ? 'text-base' : 'text-xl'} font-semibold`}>SEO Mentor</h1><p className="text-xs text-muted-foreground">SEO guidance for your business</p></div>
-      <div className="flex items-center gap-1">
+    <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border p-3 sm:p-4">
+      <div className="min-w-32 flex-1"><h1 className={`${compact ? 'text-base' : 'text-xl'} font-semibold`}>SEO Mentor</h1><p className="text-xs text-muted-foreground">SEO guidance for your business</p></div>
+      <div className="ml-auto flex shrink-0 items-center gap-1">
+        <Button type="button" variant="outline" size="sm" disabled={busy || !enabled} onClick={newChat}>New chat</Button>
         <Button type="button" variant="ghost" size="icon" aria-label={showHistory ? 'Close conversation history' : 'Open conversation history'} onClick={() => setShowHistory(!showHistory)}><History className="h-4 w-4" /></Button>
-        <Button type="button" variant="ghost" size="icon" aria-label="New conversation" disabled={busy || !enabled} onClick={newChat}><Plus className="h-4 w-4" /></Button>
         {compact ? <><Button variant="ghost" size="icon" asChild><a href="/chatbot" aria-label="Open full SEO Mentor"><Maximize2 className="h-4 w-4" /></a></Button><Button variant="ghost" size="icon" aria-label="Close SEO Mentor" onClick={onClose}><X className="h-4 w-4" /></Button></> : null}
       </div>
     </header>
