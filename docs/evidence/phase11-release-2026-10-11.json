@@ -1,0 +1,84 @@
+{
+  "phase": 11,
+  "date": "2026-10-11",
+  "commit": "a6789a5",
+  "deploymentId": "dpl_DFwX8G3Tq22Lss4giCrY9MzqdCEk",
+  "publicUrl": "https://simplseo-io.vercel.app",
+  "state": "READY",
+  "pilot": "Bryan only",
+  "emailSendingEnabled": false,
+  "unit": {
+    "filesPassed": 72,
+    "testsPassed": 1291
+  },
+  "browser": {
+    "distinctScenariosPassedAcrossRuns": 209,
+    "finalNotificationTestsPassed": 6,
+    "additionalBellRepetitionsPassed": 5,
+    "limitation": "Earlier development-browser Event errors did not reproduce; strict assertions and expanded diagnostics are retained."
+  },
+  "build": "passed",
+  "lint": {
+    "errors": 0,
+    "existingWarnings": 7
+  },
+  "firestore": {
+    "rules": "deployed",
+    "notificationIndexes": "four READY",
+    "indexesDeleted": 0
+  },
+  "staged": {
+    "verifiedAt": "2026-10-11T20:08:55.790Z",
+    "origin": "https://simplseo-kr2h56gcu-bryan-arambulas-projects.vercel.app",
+    "passed": true,
+    "requests": 9,
+    "batches": 1,
+    "savedRecordsPreserved": 363,
+    "savedPagePlans": 1,
+    "savedNewPagePlans": 0,
+    "savedWorkFingerprint": "9522fe0384dcbc9453f0688d954894077573023d814bd46d10aa407dc00ac537",
+    "activeConfirmedCycles": 0,
+    "verifiedPublications": 0,
+    "notificationCount": 0,
+    "notificationDeliveries": 0,
+    "pilotEnabled": true,
+    "sendingEnabled": false,
+    "preferencesUnchanged": true,
+    "publicationAndMeasurementDatesUnchanged": true,
+    "noSavedWorkOrUsageWrites": true,
+    "noEmailOrProviderCollection": true,
+    "liveLimitations": [
+      "No real email was sent.",
+      "No scheduled execution was invoked or verified.",
+      "No publication or progress result was fabricated."
+    ]
+  },
+  "production": {
+    "verifiedAt": "2026-10-11T20:10:33.928Z",
+    "origin": "https://simplseo-io.vercel.app",
+    "passed": true,
+    "requests": 9,
+    "batches": 1,
+    "savedRecordsPreserved": 363,
+    "savedPagePlans": 1,
+    "savedNewPagePlans": 0,
+    "savedWorkFingerprint": "9522fe0384dcbc9453f0688d954894077573023d814bd46d10aa407dc00ac537",
+    "activeConfirmedCycles": 0,
+    "verifiedPublications": 0,
+    "notificationCount": 0,
+    "notificationDeliveries": 0,
+    "pilotEnabled": true,
+    "sendingEnabled": false,
+    "preferencesUnchanged": true,
+    "publicationAndMeasurementDatesUnchanged": true,
+    "noSavedWorkOrUsageWrites": true,
+    "noEmailOrProviderCollection": true,
+    "liveLimitations": [
+      "No real email was sent.",
+      "No scheduled execution was invoked or verified.",
+      "No publication or progress result was fabricated."
+    ]
+  },
+  "beforeAfterFingerprintsMatch": true,
+  "errorScan": "No error-level logs returned for the exact deployment in the first 15-minute scan; this is limited post-deployment evidence, not long-term monitoring."
+}

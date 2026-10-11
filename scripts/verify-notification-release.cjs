@@ -83,7 +83,8 @@ async function main() {
       if (process.env.VERCEL_VERIFY_CLI) {
         const config = ['request = "GET"', ...(authorized ? [`header = ${JSON.stringify(`Authorization: Bearer ${authentication.idToken}`)}`] : [])].join('\n');
         const output = await new Promise((resolve, reject) => {
-          const child = spawn(process.env.VERCEL_VERIFY_CLI, ['curl', `${origin}${path}`, '--scope', 'bryan-arambulas-projects', '--',
+          const cli = process.env.VERCEL_VERIFY_CLI, nodeEntrypoint = cli.endsWith('.js');
+          const child = spawn(nodeEntrypoint ? process.execPath : cli, [...(nodeEntrypoint ? [cli] : []), 'curl', `${origin}${path}`, '--scope', 'bryan-arambulas-projects', '--',
             '--silent', '--show-error', '--max-time', '60', '--dump-header', '-', '--config', '-', '--write-out', '\nVERIFY_STATUS:%{http_code}'],
           { stdio: ['pipe', 'pipe', 'pipe'], timeout: 75000 });
           let stdout = ''; child.stdout.on('data', chunk => { stdout += chunk; if (stdout.length > 3000000) { child.kill(); reject(Error('Response too large')); } });
@@ -150,6 +151,6 @@ async function main() {
       sendingEnabled: preferences.body.sendingEnabled, preferencesUnchanged: true, publicationAndMeasurementDatesUnchanged: true,
       noSavedWorkOrUsageWrites: true, noEmailOrProviderCollection: true,
       liveLimitations: ['No real email was sent.', 'No scheduled execution was invoked or verified.', 'No publication or progress result was fabricated.'] }, null, 2) + '\n');
-  } finally { await app.delete(); }
+  } finally { await db.terminate(); await app.delete(); }
 }
 main().catch(error => { process.stderr.write(JSON.stringify({ passed: false, stage, error: error.code || error.name || 'verification_failed' }) + '\n'); process.exitCode = 1; });

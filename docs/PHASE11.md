@@ -73,7 +73,11 @@ Verification on 2026-10-11:
 - Production build passed; lint reported zero errors and seven existing warnings. Desktop/mobile inbox, email previews, keyboard operation, safe sign-in return, independent preference errors, unsubscribe and Firestore write denial were checked with isolated fixtures.
 - Firestore rules and indexes deployed successfully. Removed redundant implicit `__name__` index declarations to avoid an existing-index conflict in Firebase CLI; no index or account data was deleted.
 
-Isolated fixtures exercise all states without inserting them into Bryan's production account. Production verification and deployment identifiers are recorded below after promotion.
+Isolated fixtures exercise all states without inserting them into Bryan's production account.
+
+Production pilot released on 2026-10-11 at the existing public URL, from application commit `a6789a5`, deployment `dpl_DFwX8G3Tq22Lss4giCrY9MzqdCEk` (READY). Only Bryan's account is enrolled; event creation is enabled and email sending is disabled. The four new Firestore indexes are READY. Cron definitions remain 02:00 and 03:00 UTC.
+
+The staged and promoted APIs both passed authenticated read-only verification. All 363 saved account records matched the pre-release fingerprint, including plans, conversations, publication/measurement dates, preferences and usage. The account has no active confirmed cycle, verified new-page publication or notification delivery; an empty inbox is the correct result. Live browser inspection verified the bell, empty inbox and Settings' verified recipient with email off. No consent choice was changed. The exact deployment returned no error-level logs during the initial scan; that limited scan does not establish long-term health. See [release evidence](evidence/phase11-release-2026-10-11.json).
 
 Still require observation over time:
 
