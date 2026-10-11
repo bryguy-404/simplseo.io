@@ -76,6 +76,14 @@ Live verification at `2026-10-11T01:58:31Z` passed again on the final build. Gen
 
 The existing one-time morning follow-up now includes both website collectors and backlog/failure reporting. It must observe real scheduled execution. Bryan's next checkpoint is to review the actual inventory and confirm services/area; assessment, any qualifying draft and real publication remain owner-led checkpoints.
 
+### Service confirmation follow-up
+
+The first owner checkpoint exposed a form bug: commas in service labels were treated as separators, so city/state headings inflated the submitted count beyond 12. The server then returned an unrelated confirmation message. Application commit `5163635` preserves one service per line, deduplicates labels before the limit, and explains specific validation failures. Website suggestions now favor service pages and remove location suffixes only when supported by first-party evidence; distinct offerings remain available for owner review. Saved owner confirmations are unchanged. A fresh inventory review fills a blank form from the same server projection and never replaces owner-entered services.
+
+Verification: **723 unit/API tests in 41 files**, **34 affected compiled browser/API tests**, and the isolated production build passed. Lint reports no errors and the same nine preexisting warnings. The current site's read-only projection yields Custom Software Development, Web Design & Development, and Software & App Development, with no city variants.
+
+Released `5163635` as **READY** deployment `dpl_3yxUUVSNHZJKZF5yieQ4vta92JhA` (`https://simplseo-755hq5o9h-bryan-arambulas-projects.vercel.app`) and promoted to the unchanged public URL. The production build passed in 3m 7s. The staged API returned the expected private/no-store JSON 401. Live owner verification at `2026-10-11T02:18:44.220Z` confirmed the three concise suggestions, all 10 anonymous and 10 cross-account boundaries, and preservation of the existing saved plan and 18 archive records. Owner context remains unconfirmed; no AI, inventory refresh or publication occurred during this check. A post-release error-level log scan returned no entries. The eight existing SEO-page 404s remain a separate coverage concern. Rollback to the preceding deployment preserves stored data.
+
 ## Live checkpoints
 
 1. **Inventory and area:** Bryan checks the recognized services, actual target area and existing coverage. Confirming an area does not declare publication.
