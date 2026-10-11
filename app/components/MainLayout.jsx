@@ -8,6 +8,9 @@ import { useTheme } from "../contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import { MessageSquare } from "lucide-react";
 import WorkspaceHeader from "./WorkspaceHeader";
+import { clearNotificationCache } from "../lib/notificationClient";
+import { notificationAuthPath, notificationReturnFromLocation } from "../lib/notificationNavigation";
+import { PublicationEmailPrompt } from "./notifications/NotificationPreferences";
 import ChatAssistant from "../components/ChatAssistant";
 import {
   Popover,
@@ -39,7 +42,7 @@ const MainLayout = ({
     // Don't redirect if on public pages (request-access, verify-code)
     const publicPages = ["/request-access", "/verify-code"];
     if (typeof window !== "undefined" && !isLoading && !user && !publicPages.includes(pathname)) {
-      router.push("/auth");
+      router.push(notificationAuthPath("/auth", notificationReturnFromLocation(window.location)));
     }
   }, [user, isLoading, router, pathname]);
 
@@ -51,7 +54,7 @@ const MainLayout = ({
       !data?.isComplete &&
       pathname !== "/onboarding"
     ) {
-      router.push("/onboarding");
+      router.push(notificationAuthPath("/onboarding", notificationReturnFromLocation(window.location)));
     }
   }, [isLoading, user, isOnboardingLoaded, data?.isComplete, pathname, router]);
 
@@ -68,6 +71,7 @@ const MainLayout = ({
   }, []);
 
   const handleLogout = async () => {
+    clearNotificationCache();
     await logout();
     
     // After logout, always go to auth page
@@ -146,6 +150,7 @@ const MainLayout = ({
         />
       )}
 
+      {user && data?.isComplete && <PublicationEmailPrompt key={JSON.stringify([user.id, data.websiteUrl, data.gscProperty, data.revampRunId])} accountId={user.id} />}
       {/* Main */}
       <main className="flex-1 overflow-auto">
         {pathname === "/chatbot" ? (

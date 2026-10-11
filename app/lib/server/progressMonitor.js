@@ -229,9 +229,9 @@ export async function refreshUserProgress(uid, now = new Date()) {
   } catch (error) { await finishJob(job, { lastErrorAt: new Date().toISOString() }); throw error; }
 }
 
-export async function runProgressCollection(now = new Date()) {
+export async function runProgressCollection(now = new Date(), options = {}) {
   const startedAt = Date.now();
-  const deadline = startedAt + 220000;
+  const deadline = Math.min(options.deadline || Infinity, startedAt + 220000);
   const ongoingOn = process.env.ONGOING_PAGE_REVIEWS_ENABLED === 'true';
   const job = await acquireJob('daily-progress', now, 60000);
   try {

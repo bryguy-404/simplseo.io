@@ -51,7 +51,7 @@ function LegacyPageContentChangeConfirmation({ pageUrl, provenance, onConfirmed,
       if (result.record?.pageUrl !== pageUrl || result.record.changeType !== 'page_content' || result.record.pageChangeSummary !== summary.trim()) throw new Error('The saved change could not be verified. Reload to check its status.');
       if (!active.current) return;
       setSaved(result.record); setConfirmOpen(false);
-      window.dispatchEvent(new Event('seo-implementation-changed'));
+      window.dispatchEvent(new Event('seo-implementation-changed')); window.dispatchEvent(new Event('seo-publication-confirmed'));
       onConfirmed?.(result.record);
     } catch (failure) { if (active.current) setError(`Your confirmation was not saved. ${failure.message || 'Please try again.'}`); }
     finally { if (active.current) setBusy(false); }
@@ -112,7 +112,7 @@ function SelectedTaskConfirmation({ pageUrl, provenance, plan, selectedTaskIds =
         !usableSavedPagePlan(result.plan, scope) || !selectedTaskIds.every(taskId => result.plan.tasks.some(task => task.id === taskId && isPublishedTask(task, pageUrl) && task.publication.implementationId === record.id && task.publication.implementedAt === record.implementedAt))) throw new Error('The saved publication could not be verified. Reload to check its status before trying again.');
       if (!active.current) return;
       setSaved(record); setConfirmOpen(false);
-      window.dispatchEvent(new Event('seo-implementation-changed'));
+      window.dispatchEvent(new Event('seo-implementation-changed')); window.dispatchEvent(new Event('seo-publication-confirmed'));
       onConfirmed?.(record, result.plan);
     } catch (failure) { if (active.current) setError(`We could not confirm the save. ${failure.message || 'Please try again.'}`); }
     finally { if (active.current) setBusy(false); }

@@ -7,6 +7,7 @@ import { getGscConnection } from './gscConnection';
 import { fetchPageObservation } from './pageObservation';
 import { fetchCurrentPageContent } from './scrapeContent';
 import { ongoingReviewEnabled } from './ongoingReviewFeature';
+import { reconcileNotificationSource } from './notificationEvents';
 
 const DAY = 86400000;
 const COLLECTION = 'pageProgressCycles';
@@ -411,6 +412,9 @@ async function collectCycle(userId, id, { now = new Date(), deadline = Date.now(
     }
     tx.update(ref, next); return next;
   });
+  if (deadline - Date.now() > 1000) {
+    try { await reconcileNotificationSource('pageProgressCycles', id, { now }); } catch { /* Scheduled reconciliation recovers without repeating Google collection. */ }
+  }
   return { state: updated.lifecycle !== 'active' ? 'superseded' : errorsPresent ? 'error' : updated.latestCheckpoint ? 'ready' : 'collecting', cycle: publicOngoingCycle(updated) };
 }
 

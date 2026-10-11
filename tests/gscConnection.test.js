@@ -45,7 +45,7 @@ it('refreshes once on an expired Google authorization response, then retries onl
   expect(records.get('users/alice').gscRefreshToken).toBe('alice-refresh');
 });
 it.each([403, 429, 500])('does not retry Google inspection status %s or leak provider errors', async status => {
-  fetch.mockResolvedValue(new Response(JSON.stringify({ error: { message: 'secret provider diagnostics' } }), { status }));
+  fetch.mockResolvedValue(new Response(JSON.stringify({ error: { message: 'secret provider diagnostics', ...(status === 403 ? { status: 'PERMISSION_DENIED' } : {}) } }), { status }));
   const connection = await getGscConnection('alice');
   await expect(connection.inspect(property)).rejects.toThrow(status === 403 ? 'reconnect_required' : 'temporarily_unavailable');
   expect(fetch).toHaveBeenCalledTimes(1);

@@ -69,7 +69,7 @@ export default function NewPagePlan({ plan, busy, enabled, act, updatePlan, onDi
   const save = () => act('Saving your draft…', '/plan', { planId: plan.id, revision: plan.revision, draft, ownerFacts }, updatePlan, 'PATCH');
   const verifyPublication = async () => {
     setPublicationError('');
-    const result = await act('Checking your published page…', '/publish', { planId: plan.id, revision: plan.revision, pageUrl, confirmed: published, confirmRedirect: Boolean(redirectUrl && confirmedRedirect), ...(redirectUrl && confirmedRedirect ? { confirmedRedirectUrl: redirectUrl } : {}) }, response => { updatePlan(response); setPublication(response.publication); setTracking(response.tracking); setDialog(false); });
+    const result = await act('Checking your published page…', '/publish', { planId: plan.id, revision: plan.revision, pageUrl, confirmed: published, confirmRedirect: Boolean(redirectUrl && confirmedRedirect), ...(redirectUrl && confirmedRedirect ? { confirmedRedirectUrl: redirectUrl } : {}) }, response => { updatePlan(response); setPublication(response.publication); setTracking(response.tracking); setDialog(false); if (response.publication?.verifiedAt) window.dispatchEvent(new Event('new-page-publication-confirmed')); });
     if (result?.failed && result.code === 'confirm_redirect' && result.destination) { setRedirectUrl(result.destination); setConfirmedRedirect(false); }
     if (result?.failed) setPublicationError(result.error || 'We couldn’t verify this page. Your saved draft is unchanged.');
   };

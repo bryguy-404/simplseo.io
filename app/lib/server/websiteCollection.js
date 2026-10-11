@@ -3,8 +3,8 @@ import { runNewPageCollection } from './newPageTracking';
 
 // Separate leases and queues, one scheduled invocation. Starting both collectors
 // together means a slow or failed legacy sweep cannot starve newly published URLs.
-export async function runWebsiteCollections(now = new Date()) {
-  const deadline = Date.now() + 220000;
+export async function runWebsiteCollections(now = new Date(), options = {}) {
+  const deadline = Math.min(options.deadline || Infinity, Date.now() + 220000);
   const runs = await Promise.allSettled([
     runRevampCollection(now, { deadline }),
     runNewPageCollection({ now, deadline }),

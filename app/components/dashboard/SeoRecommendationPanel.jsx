@@ -79,7 +79,7 @@ export default function SeoRecommendationPanel({
         await writeSeoRecord(doc(db, 'implementedSeoTips', seoImplementationId(user.id, pageUrl)), record, { merge: true });
       }
       setSaved(record); setConfirmOpen(false);
-      window.dispatchEvent(new Event('seo-implementation-changed'));
+      window.dispatchEvent(new Event('seo-implementation-changed')); window.dispatchEvent(new Event('seo-publication-confirmed'));
       onConfirmed?.(record);
       toast.success('Change saved. Page progress will collect dated search observations.');
     } catch (failure) { setError(`Your confirmation was not saved. ${failure.message || 'Your website edit is unaffected. Please try saving again.'}`); }

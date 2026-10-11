@@ -20,6 +20,7 @@ import Link from "next/link";
 import { auth, db } from "../lib/firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 import { signOut } from "firebase/auth";
+import { notificationAuthPath, notificationReturnFromLocation } from "../lib/notificationNavigation";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -91,9 +92,9 @@ const Auth = () => {
           docSnap.exists() && docSnap.data()?.isComplete;
 
         if (hasCompletedOnboarding) {
-          router.push("/dashboard");
+          router.push(notificationReturnFromLocation(window.location) || "/dashboard");
         } else {
-          router.push("/onboarding");
+          router.push(notificationAuthPath("/onboarding", notificationReturnFromLocation(window.location)));
         }
       } else {
         // Check if email is approved before allowing signup (only if access request is enabled)
@@ -114,7 +115,7 @@ const Auth = () => {
         }
 
         await signup(email, password);
-        router.push("/onboarding"); // brand new user, go to onboarding
+        router.push(notificationAuthPath("/onboarding", notificationReturnFromLocation(window.location))); // brand new user, go to onboarding
       }
     } catch (error) {
       toast({
@@ -200,9 +201,9 @@ const Auth = () => {
 
     // Normal flow: redirect based on onboarding status
       if (hasCompletedOnboarding) {
-        router.push("/dashboard");
+        router.push(notificationReturnFromLocation(window.location) || "/dashboard");
       } else {
-        router.push("/onboarding");
+        router.push(notificationAuthPath("/onboarding", notificationReturnFromLocation(window.location)));
       }
     } catch (error) {
       console.error("❌ Google login error:", error);
@@ -239,7 +240,7 @@ const Auth = () => {
         <div className="text-center mb-8">
           <div>
             <img
-              src={isDarkMode ? "./dark.png" : "./light.png"}
+              src={isDarkMode ? "/dark.png" : "/light.png"}
               alt="SimplSEO.io Logo"
               className="w-full h-auto rounded-md"
             />

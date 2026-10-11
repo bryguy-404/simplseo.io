@@ -182,3 +182,13 @@ test('mentor conversations, observations, budgets and operations are private ser
     expect((await request.delete(`${base}/${path}`, { headers: { Authorization: `Bearer ${token}` } })).status(), path).toBe(403);
   }
 });
+
+test('notification evidence, consent, deliveries and budgets cannot be read or changed directly', async ({ request }) => {
+  for (const collection of ['notificationPreferences', 'notificationEvents', 'notificationIssueEpisodes', 'notificationDeliveries', 'notificationJobs', 'notificationBudgets', 'notificationRequestLimits', 'notificationWebhookEvents']) {
+    const path = `${collection}/${uid}`;
+    await app.firestore().doc(path).set({ userId: uid, emailEnabled: false, status: 'active' });
+    expect((await read(request, path)).status(), path).toBe(403);
+    expect((await patch(request, path, { emailEnabled: true, status: 'delivered' })).status(), path).toBe(403);
+    expect((await request.delete(`${base}/${path}`, { headers: { Authorization: `Bearer ${token}` } })).status(), path).toBe(403);
+  }
+});

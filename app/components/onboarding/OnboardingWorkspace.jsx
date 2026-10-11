@@ -1,5 +1,8 @@
 "use client";
 
+import { toast } from 'sonner';
+import { notificationRequest, saveNotificationPreference } from '../../lib/notificationClient';
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOnboarding } from '../../contexts/OnboardingContext';
@@ -36,6 +39,8 @@ export default function OnboardingWorkspace({ existing = false }) {
   const [areasText, setAreasText] = useState('');
   const [acknowledged, setAcknowledged] = useState(false);
   const [privacy, setPrivacy] = useState(false);
+  const [notificationPreferences, setNotificationPreferences] = useState(null);
+  const [emailUpdates, setEmailUpdates] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [editing, setEditing] = useState(!existing);
   const [busy, setBusy] = useState('');
@@ -55,6 +60,12 @@ export default function OnboardingWorkspace({ existing = false }) {
   const inventory = workspace?.inventory;
   const extraction = workspace?.extraction;
   const existingMode = existing || session?.mode === 'existing';
+  useEffect(() => {
+    if (existingMode || step !== 'ready') return;
+    let active = true;
+    notificationRequest('/api/notifications/preferences').then(result => { if (active) setNotificationPreferences(result); }).catch(() => {});
+    return () => { active = false; };
+  }, [existingMode, step]);
 
   const hydrate = useCallback(result => {
     setWorkspace(result); applySetupWorkspace(result);
@@ -171,6 +182,10 @@ export default function OnboardingWorkspace({ existing = false }) {
   const complete = async () => {
     const saved = await save('ready');
     if (!saved) return;
+    if (notificationPreferences?.enabled && !notificationPreferences.chosenAt) {
+      try { setNotificationPreferences(await saveNotificationPreference(notificationPreferences, emailUpdates)); }
+      catch { toast.error('Your setup can continue. Your email choice was not saved; you can retry in Settings → Notifications.'); }
+    }
     const result = await act('Finishing your website setup…', 'complete', { expectedRevision: saved.session.revision });
     if (result) await reloadData();
   };
@@ -207,7 +222,7 @@ export default function OnboardingWorkspace({ existing = false }) {
           <BusinessProfileForm value={draft} servicesText={servicesText} areasText={areasText} onChange={change} onServicesChange={value => { setServicesText(value); setDirty(true); setAcknowledged(false); setError(''); }} onAreasChange={value => { setAreasText(value); setDirty(true); setAcknowledged(false); setError(''); }} confirmed={acknowledged} onConfirmedChange={setAcknowledged} onSave={() => save()} onConfirm={confirm} busy={Boolean(busy)} />
           {existingMode && <p className="text-sm text-muted-foreground">Website: {session.websiteUrl}. To change the website itself, use Website setup instead of editing these business details.</p>}
         </>}
-        {!existingMode && step === 'ready' && <SetupReadiness readiness={workspace.readiness} session={session} inventory={inventory} reviewed={reviewed} googleReady={googleReady} privacy={privacy} onPrivacyChange={value => { setPrivacy(value); setError(''); }} busy={Boolean(busy)} canFinish={canFinish} onCheck={() => act('Checking your website setup…', 'readiness')} onComplete={complete} onStep={setStep} />}
+        {!existingMode && step === 'ready' && <SetupReadiness readiness={workspace.readiness} session={session} inventory={inventory} reviewed={reviewed} googleReady={googleReady} privacy={privacy} onPrivacyChange={value => { setPrivacy(value); setError(''); }} notificationPreferences={notificationPreferences} emailUpdates={emailUpdates} onEmailUpdatesChange={setEmailUpdates} busy={Boolean(busy)} canFinish={canFinish} onCheck={() => act('Checking your website setup…', 'readiness')} onComplete={complete} onStep={setStep} />}
       </CardContent></Card>
     </>}
     {!existingMode && session && <p className="text-xs text-muted-foreground">Saved details stay with your account. Publishing website changes and requesting Google indexing remain your choice.</p>}

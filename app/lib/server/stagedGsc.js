@@ -3,6 +3,7 @@ import { db } from '../firebaseAdmin';
 import { GOOGLE_CLIENT_ID, getGscConnection } from './gscConnection';
 import { propertyContainsUrl } from '../revampState';
 import { RequestError } from './requestAuth';
+import { notificationEnabled, notificationEventsEnabled } from './notificationScope';
 
 const MINUTE = 60000;
 const READONLY_SCOPE = 'https://www.googleapis.com/auth/webmasters.readonly';
@@ -128,9 +129,14 @@ export async function exchangeStagedGsc(uid, { code, state }) {
     if (!stateSnapshot.exists || !sameScope(saved.originalScope, ctx.scope) || saved.originalConnectionVersion !== ctx.connectionVersion) throw expired('Your account or website changed. Connect Google again.');
     if (saved.mode === 'reconnect') {
       assertProperty(properties, saved.property);
+      const connectionVersion = randomBytes(16).toString('hex');
       tx.update(db.collection('users').doc(uid), { gscAccessToken: credentials.accessToken, gscRefreshToken: credentials.refreshToken,
         gscExpiresAt: credentials.accessExpiresAt, gscConnectedAt: new Date().toISOString(), gscSiteUrl: saved.property,
-        gscConnectionVersion: randomBytes(16).toString('hex') });
+        gscConnectionVersion: connectionVersion });
+      if (notificationEnabled(uid) && notificationEventsEnabled()) tx.set(db.collection('notificationConnectionObservations').doc(uid), {
+        userId: uid, property: saved.property, websiteUrl: ctx.scope.websiteUrl || null, websiteRunId: ctx.scope.websiteRunId || null,
+        connectionVersion, status: 'available', checkedAt: new Date().toISOString(),
+      });
       tx.delete(ref);
       return { success: true, connected: true, property: saved.property };
     }

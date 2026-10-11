@@ -101,3 +101,12 @@ it('does not start the collector if durable start evidence cannot be written', a
   await expect(runTrackedCron(request(), 'progress', collect, now)).rejects.toThrow('offline');
   expect(collect).not.toHaveBeenCalled();
 });
+
+it('records notification health separately from a successful Google collection', async () => {
+  await runTrackedCron(request(), 'progress', async () => ({ checked: 3, counts: { ready: 3 }, notificationsSent: 0,
+    notifications: { reconciliation: { checked: 3, counts: {}, moreRecords: false },
+      delivery: { checked: 2, attempts: 2, accepted: 0, counts: { error: 1, privateEmail: 1 }, moreRecords: true } } }), now);
+  expect(runRecords()[0]).toMatchObject({ status: 'completed', checked: 3,
+    notifications: { delivery: { attempts: 2, accepted: 0, counts: { error: 1 }, moreRecords: true } } });
+  expect(JSON.stringify(runRecords())).not.toContain('privateEmail');
+});

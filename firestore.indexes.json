@@ -4,19 +4,40 @@
       "collectionGroup": "pageReviewPlans",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "property", "order": "ASCENDING" },
-        { "fieldPath": "websiteRunId", "order": "ASCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "property",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "websiteRunId",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "newPagePlans",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "property", "order": "ASCENDING" },
-        { "fieldPath": "websiteRunId", "order": "ASCENDING" },
-        { "fieldPath": "websiteUrl", "order": "ASCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "property",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "websiteRunId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "websiteUrl",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
@@ -138,10 +159,74 @@
         {
           "fieldPath": "updatedAt",
           "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "notificationEvents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
         },
         {
-          "fieldPath": "__name__",
+          "fieldPath": "createdAt",
           "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "notificationEvents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "readAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "notificationEvents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "readAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "emailDeliveryId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "notificationDeliveries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "dispatchPending",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextAttemptAt",
+          "order": "ASCENDING"
         }
       ]
     }

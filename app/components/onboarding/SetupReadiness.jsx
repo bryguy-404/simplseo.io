@@ -1,6 +1,7 @@
 "use client";
 
 import Link from 'next/link';
+import { EmailChoice } from '../notifications/NotificationPreferences';
 import { Button } from '@/components/ui/button';
 
 const safeInspectionLink = value => {
@@ -8,7 +9,7 @@ const safeInspectionLink = value => {
 };
 const dateLabel = value => { const date = new Date(value); return Number.isFinite(date.getTime()) ? date.toLocaleDateString() : ''; };
 
-export default function SetupReadiness({ readiness, session, inventory, reviewed, googleReady, privacy, onPrivacyChange, busy, canFinish, onCheck, onComplete, onStep }) {
+export default function SetupReadiness({ readiness, session, inventory, reviewed, googleReady, privacy, onPrivacyChange, notificationPreferences, emailUpdates = false, onEmailUpdatesChange, busy, canFinish, onCheck, onComplete, onStep }) {
   const observations = readiness?.website?.observations;
   const homepage = observations?.homepage;
   const technical = homepage?.technical;
@@ -26,6 +27,7 @@ export default function SetupReadiness({ readiness, session, inventory, reviewed
     {readiness?.inspections?.length > 0 && <details className="rounded-md border p-4 text-sm"><summary className="cursor-pointer">Google’s stored page checks</summary><p className="mt-3 text-muted-foreground">These are Google’s stored observations. They are separate from SimplSEO’s website review.</p><ul className="mt-3 divide-y">{readiness.inspections.map(item => <li key={item.url} className="py-3 space-y-1"><p className="break-all font-medium">{item.url}</p><p>{item.status === 'available' ? item.result?.coverageState || 'Google returned a stored observation.' : 'Google’s status could not be checked. Try again later.'}</p>{item.checkedAt && <p className="text-xs text-muted-foreground">Checked {dateLabel(item.checkedAt)}</p>}{safeInspectionLink(item.inspectionUrl) && <a href={safeInspectionLink(item.inspectionUrl)} className="underline inline-block" target="_blank" rel="noopener noreferrer">Open Google’s page inspection</a>}</li>)}</ul></details>}
     <Button variant="outline" disabled={busy} onClick={onCheck}>Check setup</Button>
     <label className="flex gap-3 text-sm"><input type="checkbox" checked={privacy} onChange={event => onPrivacyChange(event.target.checked)} className="mt-0.5" /><span>I agree to the <Link href="/privacy" target="_blank" className="underline">privacy policy</Link>.</span></label>
+    {notificationPreferences?.enabled && !notificationPreferences.chosenAt && <EmailChoice checked={emailUpdates} onChange={onEmailUpdatesChange} disabled={busy || !notificationPreferences.recipientVerified} recipient={notificationPreferences.recipient} />}
     <div className="flex flex-wrap gap-2"><Button disabled={busy || !canFinish} onClick={onComplete}>Open my SEO workspace</Button>{!session.profileConfirmed && <Button variant="link" onClick={() => onStep('business')}>Confirm business details</Button>}{!googleReady && <Button variant="link" onClick={() => onStep('google')}>Connect Google to finish</Button>}</div>
   </div>;
 }

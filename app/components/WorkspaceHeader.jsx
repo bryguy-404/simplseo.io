@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import NotificationBell from "./notifications/NotificationBell";
 import { useEffect, useState } from "react";
 import {
   ChevronDown, Globe, LayoutDashboard, LogOut, Mail, Menu,
@@ -52,11 +53,11 @@ export default function WorkspaceHeader({ pathname, businessName, websiteUrl, is
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-sm">
-      <div className="container mx-auto flex h-[76px] items-center justify-between gap-3 px-4 sm:px-6">
+      <div className="container mx-auto flex h-[76px] items-center justify-between gap-1 px-3 sm:gap-3 sm:px-6">
         <div className="flex shrink-0 items-center gap-2">
           <DropdownMenu open={navigationOpen} onOpenChange={setNavigationOpen}>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Open navigation menu" className="size-10 lg:hidden">
+              <Button variant="ghost" size="icon" aria-label="Open navigation menu" className="size-9 lg:hidden">
                 <Menu aria-hidden="true" className="size-5" />
               </Button>
             </DropdownMenuTrigger>
@@ -72,7 +73,7 @@ export default function WorkspaceHeader({ pathname, businessName, websiteUrl, is
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-          <Link href="/dashboard" aria-label="SimplSEO dashboard" className="block w-[112px] shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-[156px]">
+          <Link href="/dashboard" aria-label="SimplSEO dashboard" className="block w-[92px] shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-[156px]">
             <img src={isDarkMode ? "/dark.png" : "/light.png"} alt="SimplSEO" className="block h-auto w-full" />
           </Link>
         </div>
@@ -88,9 +89,11 @@ export default function WorkspaceHeader({ pathname, businessName, websiteUrl, is
           ))}
         </nav>
 
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+        <NotificationBell />
         <DropdownMenu key={`account-${pathname}`}>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" aria-label="Account" disabled={loggingOut} className="h-11 shrink-0 gap-2 rounded-full px-3 sm:pl-2">
+            <Button variant="outline" aria-label="Account" disabled={loggingOut} className="h-11 shrink-0 gap-1 rounded-full px-2 sm:gap-2 sm:pl-2 sm:pr-3">
               <span aria-hidden="true" className="hidden size-7 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary sm:flex">{initial}</span>
               <span>{loggingOut ? "Logging out…" : "Account"}</span>
               <ChevronDown aria-hidden="true" className="size-3.5 text-muted-foreground" />
@@ -118,6 +121,7 @@ export default function WorkspaceHeader({ pathname, businessName, websiteUrl, is
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
       {logoutError && <p role="alert" className="container mx-auto px-4 pb-3 text-sm text-destructive">{logoutError}</p>}
     </header>

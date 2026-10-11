@@ -33,7 +33,7 @@ export default function AdditionalPageChange({ cycle, provenance, disabled, onCo
       if (controller.signal.aborted) return;
       if (!response.ok) throw new Error(result.error || 'Please retry after checking the saved progress.');
       if (result.record?.pageUrl !== cycle.pageUrl || result.record.changeType !== 'page_content' || result.record.pageChangeSummary !== summary.trim() || result.record.confirmationMethod !== 'user-confirmed' || !Number.isFinite(Date.parse(result.record.implementedAt))) throw new Error('The saved publication could not be verified. Reload progress before retrying.');
-      setOpen(false); window.dispatchEvent(new Event('seo-implementation-changed')); onConfirmed?.(result.record, result.plan);
+      setOpen(false); window.dispatchEvent(new Event('seo-implementation-changed')); window.dispatchEvent(new Event('seo-publication-confirmed')); onConfirmed?.(result.record, result.plan);
     } catch (failure) { if (!controller.signal.aborted) setError(`We could not confirm the save. ${failure.message}`); }
     finally { if (!controller.signal.aborted) setBusy(false); }
   };

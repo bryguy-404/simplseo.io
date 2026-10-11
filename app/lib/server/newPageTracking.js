@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import * as cheerio from 'cheerio';
 import { db } from '../firebaseAdmin';
+import { reconcileNotificationSource } from './notificationEvents';
 import { propertyContainsUrl } from '../revampState';
 import { pacificDay, recentObservationWindow, shiftDay } from '../progressAssessment';
 import { RequestError } from './requestAuth';
@@ -89,7 +90,7 @@ export async function confirmNewPagePublication(userId, { planId, revision, page
   const verifiedAt = new Date().toISOString();
   const id = publicationId(scope, finalUrl);
   const pubRef = db.collection('newPagePublications').doc(id);
-  return db.runTransaction(async tx => {
+  const publicationResult = await db.runTransaction(async tx => {
     const [currentScope, current, previous] = await Promise.all([readNewPageScope(userId, { write: true, tx }), tx.get(ref), tx.get(pubRef)]);
     assertSameNewPageScope(scope, currentScope);
     assertPlan(scope, current.data());
@@ -105,6 +106,9 @@ export async function confirmNewPagePublication(userId, { planId, revision, page
     tx.set(pubRef, publication); tx.update(ref, { status: plan.status, publicationId: id, revision: plan.revision, updatedAt: verifiedAt });
     return { plan, publication, tracking: trackingView(publication) };
   });
+  try { await reconcileNotificationSource('newPagePublications', id, { now: new Date(verifiedAt) }); }
+  catch { /* A saved publication remains confirmed; reconciliation can recover its notice later. */ }
+  return publicationResult;
 }
 
 function trackingView(publication, now = new Date()) {
@@ -202,6 +206,9 @@ async function collectPublication(scope, publication, { now = new Date(), deadli
       lastError: Object.keys(errors).length ? errors : null, nextCheckAt, leaseUntil: null, lastAttemptAt: startedAt };
     tx.update(ref, next); return next;
   });
+  if (deadline - Date.now() > 1000) {
+    try { await reconcileNotificationSource('newPagePublications', ref.id, { now }); } catch { /* Reconciliation can recover this saved observation later. */ }
+  }
   return { state: Object.values(errors).includes('reconnect_required') ? 'reconnect_required' : Object.keys(errors).length ? 'temporarily_unavailable' : 'usable', ...publicView(updated, now) };
 }
 export async function refreshNewPageTracking(userId, planId, options = {}) {

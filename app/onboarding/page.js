@@ -7,14 +7,15 @@ import { useOnboarding } from '../contexts/OnboardingContext';
 import OnboardingWorkspace from '../components/onboarding/OnboardingWorkspace';
 import EmailVerification from '../components/onboarding/EmailVerification';
 import { Button } from '@/components/ui/button';
+import { notificationAuthPath, notificationReturnFromLocation } from '../lib/notificationNavigation';
 
 export default function OnboardingPage() {
   const { user, isLoading, logout } = useAuth();
   const { data, isLoaded, setupWorkspace, setupError, refreshSetup } = useOnboarding();
   const router = useRouter();
   useEffect(() => {
-    if (!isLoading && !user) router.replace('/auth');
-    else if (isLoaded && data.isComplete) router.replace('/dashboard');
+    if (!isLoading && !user) router.replace(notificationAuthPath('/auth', notificationReturnFromLocation(window.location)));
+    else if (isLoaded && data.isComplete) router.replace(notificationReturnFromLocation(window.location) || '/dashboard');
   }, [user, isLoading, isLoaded, data.isComplete, router]);
   if (isLoading || !isLoaded || !user || data.isComplete) return <p role="status" className="p-8">Loading your saved setup…</p>;
   if (/^Verify your email\b/i.test(setupError)) return <EmailVerification key={user.id} userId={user.id} email={user.email} onVerified={refreshSetup} onSignOut={logout} />;

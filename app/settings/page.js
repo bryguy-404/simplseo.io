@@ -7,6 +7,8 @@ import { useAuth } from "../contexts/AuthContext";
 import { useOnboarding } from "../contexts/OnboardingContext";
 import { useTheme } from "../contexts/ThemeContext";
 import MainLayout from "../components/MainLayout";
+import NotificationPreferences from "../components/notifications/NotificationPreferences";
+import { notificationAuthPath, notificationReturnFromLocation } from "../lib/notificationNavigation";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -128,6 +130,7 @@ export default function Settings() {
   // Loading states
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
+  useEffect(() => { const requestedTab = new URLSearchParams(window.location.search).get("tab"); if (["notifications", "integrations"].includes(requestedTab)) setActiveTab(requestedTab); }, []);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showRevampModal, setShowRevampModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -198,7 +201,7 @@ export default function Settings() {
 
   useEffect(() => {
     if (typeof window !== "undefined" && !authLoading && !user) {
-      router.push("/auth");
+      router.push(notificationAuthPath("/auth", notificationReturnFromLocation(window.location)));
     }
   }, [user, authLoading, router]);
 
@@ -1003,8 +1006,7 @@ export default function Settings() {
 
   const tabs = [
     { id: "profile", label: "Profile", icon: User },
-    // TODO: Uncomment when implementing notification preferences
-    // { id: "notifications", label: "Notifications", icon: Bell },
+    { id: "notifications", label: "Notifications", icon: Bell },
     // TODO: Uncomment when implementing SEO preferences
     // { id: "seo", label: "SEO Preferences", icon: Search },
     { id: "content-keywords", label: "Content & Keywords", icon: FileText },
@@ -1215,87 +1217,7 @@ export default function Settings() {
               </Card>
             )}
 
-            {/* Notifications Tab - TODO: Uncomment when implementing notification preferences
-            {activeTab === "notifications" && (
-              <Card className="border-green-200 dark:border-green-800">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Bell className="w-5 h-5" />
-                    Notification Preferences
-                  </CardTitle>
-                  <CardDescription>
-                    Choose what notifications you&apos;d like to receive via email and real-time alerts.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-8">
-                  <div className="space-y-6">
-                    <h3 className="text-lg font-semibold">Email Notifications</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {[
-                        { key: "emailReports", label: "Weekly SEO Reports", description: "Get a summary of your SEO performance every week" },
-                        { key: "weeklyDigest", label: "Weekly Digest", description: "Top keywords, ranking changes, and recommendations" },
-                        { key: "keywordAlerts", label: "Keyword Alerts", description: "Get notified when your keywords change significantly" },
-                        { key: "rankingChanges", label: "Ranking Changes", description: "Alerts when your pages move up or down in rankings" },
-                        { key: "newFeatures", label: "New Features", description: "Updates about new tools and features" },
-                        { key: "marketingEmails", label: "Marketing Emails", description: "Tips, best practices, and industry insights" }
-                      ].map((item) => (
-                        <div key={item.key} className="flex items-center justify-between p-4 border rounded-lg">
-                          <div className="space-y-1">
-                            <div className="font-medium">{item.label}</div>
-                            <div className="text-sm text-muted-foreground">{item.description}</div>
-                          </div>
-                          <Switch
-                            checked={formData[item.key]}
-                            onCheckedChange={(checked) => handleInputChange(item.key, checked)}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-6">
-                    <h3 className="text-lg font-semibold">Real-time Alerts</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="space-y-1">
-                          <div className="font-medium">Critical Ranking Drops</div>
-                          <div className="text-sm text-muted-foreground">Immediate alerts for significant ranking losses</div>
-                        </div>
-                        <Switch defaultChecked />
-                      </div>
-                      <div className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="space-y-1">
-                          <div className="font-medium">Website Downtime</div>
-                          <div className="text-sm text-muted-foreground">Get notified if your website goes offline</div>
-                        </div>
-                        <Switch defaultChecked />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end pt-4">
-                    <Button 
-                      onClick={handleSave} 
-                      disabled={isSaving}
-                      className="gap-2 bg-green-600 hover:bg-green-700"
-                    >
-                      {isSaving ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="w-4 h-4" />
-                          Save Changes
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            */}
+            {activeTab === "notifications" && <NotificationPreferences key={JSON.stringify([user?.id, data?.websiteUrl, data?.gscProperty, data?.revampRunId])} />}
 
             {/* SEO Preferences Tab - TODO: Uncomment when implementing SEO preferences
             {activeTab === "seo" && (

@@ -135,7 +135,7 @@ export default function PrivacyPolicyPage() {
               <li><strong>AI-Powered Assistance:</strong> Using relevant website observations, saved account evidence, business details, and conversation context to generate personalized SEO guidance.</li>
               <li><strong>Performance Tracking:</strong> Monitoring changes in your search performance over time and alerting you to significant changes.</li>
               <li><strong>Content Optimization:</strong> Generating and suggesting improvements to meta titles, descriptions, and content based on search intent analysis.</li>
-              <li><strong>Progress Notifications:</strong> Sending email notifications when your content starts ranking in Google Search results.</li>
+              <li><strong>Page Updates:</strong> Providing in-app notices about saved result comparisons, published-page check-ins, verified technical concerns, and Google reconnection needs. If you opt in, we send a roundup to your verified sign-in email when new updates are available. These notices do not imply SEO success or that an edit caused a change.</li>
             </ul>
 
             <h3 className="text-xl font-medium text-foreground mt-6">4.2 Service Improvement</h3>
@@ -198,7 +198,7 @@ export default function PrivacyPolicyPage() {
               <li><strong>Google Search Console API:</strong> To fetch your search performance data with your authorization.</li>
               <li><strong>OpenAI:</strong> AI language model provider for generating SEO recommendations and powering our AI assistant. Your data may be processed by OpenAI&apos;s systems to generate responses.</li>
               <li><strong>Vercel:</strong> Application hosting and deployment.</li>
-              <li><strong>SendGrid/Email Services:</strong> For sending notification emails (e.g., when your pages start ranking).</li>
+              <li><strong>Resend:</strong> For optional page-update emails, we send your verified recipient address and a short summary with page names, dates, and links. We do not include private search-query tables or chat content. Open and click tracking are disabled for these emails. Delivery, bounce, and complaint records help prevent duplicate or unwanted mail. Existing contact and access-request messages use our separate email service.</li>
             </ul>
 
             <h3 className="text-xl font-medium text-foreground mt-6">6.2 What We Do NOT Share</h3>

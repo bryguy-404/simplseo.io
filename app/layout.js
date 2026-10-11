@@ -43,7 +43,7 @@ export default function RootLayout({ children }) {
           src="https://accounts.google.com/gsi/client"
           strategy="beforeInteractive"
         /> */}
-        <link rel="icon" href="./favicon.png" />
+        <link rel="icon" href="/favicon.png" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}

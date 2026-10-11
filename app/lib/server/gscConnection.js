@@ -1,6 +1,7 @@
 import { db } from '../firebaseAdmin';
 import { RequestError } from './requestAuth';
 import { propertyContainsUrl } from '../revampState';
+import { notificationConnectionVersion, recordNotificationConnection } from './notificationConnection';
 
 export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '956212275866-7dtgdq7b38b156riehghuvh8b8469ktg.apps.googleusercontent.com';
 const reconnect = () => new RequestError('reconnect_required', 409);
@@ -15,6 +16,8 @@ export async function getGscConnection(uid, { deadline = Infinity, signal } = {}
   if (!user.exists || user.data()?.deletionInProgress) throw reconnect();
   const u = user.data() || {}, l = legacy.data() || {}, o = onboarding.data() || {};
   const expected = o.gscProperty || u.gscSiteUrl || l.siteUrl;
+  const note = status => recordNotificationConnection(uid, status, { property: expected,
+    websiteRunId: o.revampRunId || null, connectionVersion: notificationConnectionVersion(u, l) });
   const primary = { accessToken: u.gscAccessToken, refreshToken: u.gscRefreshToken, siteUrl: u.gscSiteUrl, expiresAt: u.gscExpiresAt || (Date.parse(u.gscConnectedAt) + 3600000) };
   if (primary.siteUrl && primary.siteUrl !== expected) throw reconnect();
   let connection;
@@ -22,10 +25,10 @@ export async function getGscConnection(uid, { deadline = Infinity, signal } = {}
   else if (l.siteUrl === expected && l.refreshToken) connection = { ...l, ...(primary.accessToken ? { accessToken: primary.accessToken, expiresAt: primary.expiresAt } : {}) };
   else if (primary.siteUrl && primary.accessToken) connection = primary;
   else if (l.siteUrl === expected && l.accessToken) connection = l;
-  else throw reconnect();
+  else { await note('reconnect_required'); throw reconnect(); }
   let refreshing;
   const refresh = async () => {
-    if (!connection.refreshToken) throw reconnect();
+    if (!connection.refreshToken) { await note('reconnect_required'); throw reconnect(); }
     if (refreshing) return refreshing;
     refreshing = (async () => {
       let res;
@@ -34,7 +37,7 @@ export async function getGscConnection(uid, { deadline = Infinity, signal } = {}
       } catch { throw new RequestError('temporarily_unavailable', 503); }
       let payload;
       try { payload = await res.json(); } catch { throw new RequestError('temporarily_unavailable', 503); }
-      if (!res.ok) { if (payload.error === 'invalid_grant') throw reconnect(); throw new RequestError('temporarily_unavailable', 503); }
+      if (!res.ok) { if (payload.error === 'invalid_grant') { await note('reconnect_required'); throw reconnect(); } throw new RequestError('temporarily_unavailable', 503); }
       if (!payload.access_token) throw new RequestError('temporarily_unavailable', 503);
       const originalRefreshToken = connection.refreshToken;
       const refreshed = { ...connection, accessToken: payload.access_token, refreshToken: payload.refresh_token || connection.refreshToken, expiresAt: Date.now() + (payload.expires_in || 3600) * 1000 };
@@ -61,9 +64,24 @@ export async function getGscConnection(uid, { deadline = Infinity, signal } = {}
     let response;
     try { response = await send(); if (response.status === 401) { await refresh(); response = await send(); } }
     catch (e) { if (e instanceof RequestError) throw e; throw new RequestError('temporarily_unavailable', 503); }
-    if (response.status === 401 || response.status === 403) throw reconnect();
+    if (response.status === 401 || response.status === 403) {
+      // Google also uses403 for exhausted quotas. Those do not establish a lost
+      // connection and must not create a misleading reconnect notification.
+      if (response.status === 403) {
+        const failure = await response.json().catch(() => null);
+        const reasons = Array.isArray(failure?.error?.errors) ? failure.error.errors.map(item => item.reason) : [];
+        const authorizationFailure = failure?.error?.status === 'PERMISSION_DENIED' || reasons.some(reason => [
+          'forbidden', 'insufficientPermissions', 'authError', 'unauthorized', 'accountDeleted', 'accountDisabled', 'accountUnverified',
+        ].includes(reason));
+        if (!authorizationFailure || failure?.error?.status === 'RESOURCE_EXHAUSTED') throw new RequestError('temporarily_unavailable', 503);
+      }
+      await note('reconnect_required'); throw reconnect();
+    }
     if (!response.ok) throw new RequestError('temporarily_unavailable', 503);
-    try { return await response.json(); } catch { throw new RequestError('temporarily_unavailable', 503); }
+    let result;
+    try { result = await response.json(); } catch { throw new RequestError('temporarily_unavailable', 503); }
+    await note('available');
+    return result;
   };
   return {
     siteUrl: connection.siteUrl,

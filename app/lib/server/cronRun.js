@@ -70,13 +70,22 @@ export async function runTrackedCron(request, job, collect, now = new Date()) {
     const errors = (counts.error || 0) + (counts.reconnect_required || 0) + (counts.temporarily_unavailable || 0);
     const status = errors || counts.deferred || result?.moreRecords === true ? 'partial' : 'completed';
     const collectors = {};
-    for (const key of ['existingPages', 'newPages']) {
+    for (const key of ['existingPages', 'newPages', 'collection']) {
       const item = result?.collectors?.[key];
       if (item) collectors[key] = { checked: finiteCount(item.checked), pagesChecked: finiteCount(item.pagesChecked),
         counts: countsFor(item), moreRecords: item.moreRecords === true };
     }
+    const notifications = {};
+    for (const key of ['reconciliation', 'delivery']) {
+      const item = result?.notifications?.[key];
+      if (item) notifications[key] = { checked: finiteCount(item.checked), attempts: finiteCount(item.attempts),
+        accepted: finiteCount(item.accepted), counts: countsFor(item), moreRecords: item.moreRecords === true };
+    }
+    // Collection health remains independent; a mail outage cannot erase saved
+    // Google observations or make a successful collection look unsuccessful.
     await finish({ status, checked: finiteCount(result?.checked), pagesChecked: finiteCount(result?.pagesChecked), counts,
       moreRecords: result?.moreRecords === true, notificationsSent: finiteCount(result?.notificationsSent),
+      ...(Object.keys(notifications).length ? { notifications } : {}),
       ...(Object.keys(collectors).length ? { collectors } : {}),
     });
     return { ...result, collectionRun: { id: runId, status, trigger, startedAt } };
