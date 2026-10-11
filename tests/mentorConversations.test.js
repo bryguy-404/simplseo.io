@@ -97,6 +97,18 @@ describe('mentor append-only conversations', () => {
     const retry = await sendMentorTurn('alice', input(failed.conversation, { turnId: 'retry-turn', retryOf: 'first-turn' }), generate);
     expect(retry.turn.status).toBe('completed'); expect(retry.messages[0].retryOf).toBe('first-turn'); expect(generate).toHaveBeenCalledTimes(2);
   });
+  it('stores only allowlisted operator diagnostics and does not expose them in saved turn reads', async () => {
+    const conversation = await create();
+    generate.mockRejectedValueOnce(Object.assign(new Error('PRIVATE upstream response'), { mentorFailure: {
+      category: 'input_budget', inputBound: 48000, remainingInput: 23000, remainingOutput: 'PRIVATE', providerStatus: Infinity,
+      prompt: 'PRIVATE prompt', userId: 'PRIVATE account', response: 'PRIVATE response',
+    } }));
+    const failed = await sendMentorTurn('alice', input(conversation), generate);
+    const saved = records.get(`conversations/${conversation.id}/turns/first-turn`);
+    expect(saved.failureDiagnostics).toEqual({ category: 'input_budget', inputBound: 48000, remainingInput: 23000 });
+    expect(failed.turn.status).toBe('failed'); expect(failed.turn).not.toHaveProperty('failureDiagnostics');
+    expect(JSON.stringify(await readMentorTurn('alice', conversation.id, 'first-turn'))).not.toContain('PRIVATE');
+  });
   it('uses one generation lease across threads and replays pending requests', async () => {
     const conversation = await create(), other = await create('alice', 'create-two'); let finish;
     generate.mockImplementation(() => new Promise(resolve => { finish = resolve; }));

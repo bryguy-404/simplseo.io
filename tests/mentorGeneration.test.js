@@ -51,7 +51,31 @@ describe('bounded mentor answer pipeline', () => {
   });
   it('fails safely rather than returning fabricated citations', async () => {
     const d = deps([[final('A fabricated answer.', ['invented'])]]);
-    await expect(generateMentorAnswer(args, d)).rejects.toMatchObject({ status: 503 }); expect(d.provider.create).toHaveBeenCalledTimes(1);
+    await expect(generateMentorAnswer(args, d)).rejects.toMatchObject({ status: 503, mentorFailure: { category: 'validation' } }); expect(d.provider.create).toHaveBeenCalledTimes(1);
+  });
+  it('diagnoses oversized evidence before a second provider attempt without retaining its contents', async () => {
+    const d = deps([[tool('mentor_page_evidence', { pageUrl: 'https://example.test/' })], [final()]]);
+    d.executeEvidence.mockResolvedValueOnce({ data: { status: 'saved' }, sources: [{ id: 'page' }] })
+      .mockResolvedValueOnce({ data: { privateExcerpt: 'PRIVATE business facts '.repeat(2000) }, sources: [{ id: 'page' }] });
+    const error = await generateMentorAnswer(args, d).catch(value => value);
+    expect(error).toMatchObject({ status: 503, mentorFailure: { category: 'input_budget', remainingInput: 23000 } });
+    expect(error.mentorFailure.inputBound).toBeGreaterThan(23000);
+    expect(JSON.stringify(error.mentorFailure)).not.toContain('PRIVATE');
+    expect(d.provider.create).toHaveBeenCalledTimes(1);
+    expect(d.settle).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({ unknown: false, providerAttempts: 1 }));
+  });
+  it('distinguishes exhausted output allowance from input and provider failures', async () => {
+    const d = deps();
+    d.provider.create.mockReset().mockResolvedValueOnce({ ...response([tool('mentor_page_evidence', { pageUrl: 'https://example.test/' })]),
+      usage: { input_tokens: 1000, output_tokens: 5900 } });
+    await expect(generateMentorAnswer(args, d)).rejects.toMatchObject({ status: 503, mentorFailure: { category: 'output_budget', remainingOutput: 100 } });
+    expect(d.provider.create).toHaveBeenCalledTimes(1);
+  });
+  it('diagnoses an initial evidence failure without retaining private exception details', async () => {
+    const d = deps(); d.executeEvidence.mockRejectedValue(new Error('PRIVATE account payload'));
+    const error = await generateMentorAnswer(args, d).catch(value => value);
+    expect(error).toMatchObject({ status: 503, mentorFailure: { category: 'evidence' } });
+    expect(error.message).not.toContain('PRIVATE'); expect(d.provider.create).not.toHaveBeenCalled();
   });
   it('rechecks account scope after generation and returns nothing after deletion', async () => {
     const d = deps([]); d.provider.create.mockImplementationOnce(async () => {
@@ -81,12 +105,12 @@ describe('bounded mentor answer pipeline', () => {
     expect(d.provider.create).toHaveBeenCalledTimes(1);
   });
   it('retains unknown billing and does not retry a provider failure', async () => {
-    const d = deps([]); d.provider.create.mockRejectedValue(new Error('secret upstream detail'));
-    await expect(generateMentorAnswer(args, d)).rejects.toMatchObject({ status: 503 });
+    const d = deps([]); d.provider.create.mockRejectedValue(Object.assign(new Error('secret upstream detail'), { status: 502 }));
+    await expect(generateMentorAnswer(args, d)).rejects.toMatchObject({ status: 503, mentorFailure: { category: 'provider', providerStatus: 502 } });
     expect(d.provider.create).toHaveBeenCalledTimes(1); expect(d.settle).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({ unknown: true }));
   });
   it('stops before external work when the absolute deadline is exhausted', async () => {
-    const d = deps(); await expect(generateMentorAnswer({ ...args, deadline: Date.now() - 1 }, d)).rejects.toThrow(); expect(d.provider.create).not.toHaveBeenCalled();
+    const d = deps(); await expect(generateMentorAnswer({ ...args, deadline: Date.now() - 1 }, d)).rejects.toMatchObject({ status: 503, mentorFailure: { category: 'deadline' } }); expect(d.provider.create).not.toHaveBeenCalled();
   });
   it('does not accept private raw text as a documentation search topic', async () => {
     const d = deps([[tool('read_google_guidance', { topic: 'indexing', latest: true })], [final('Check the documented status.', ['google'])]]);

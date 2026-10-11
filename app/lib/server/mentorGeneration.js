@@ -10,7 +10,8 @@ import { MENTOR_MODEL, MENTOR_POLICY_VERSION, MENTOR_LIMITS, MENTOR_PRICING, MEN
   MENTOR_ANSWER_FORMAT, mentorInputBound, mentorResponseText, validateMentorAnswer, estimatedMentorCost } from '../mentorPolicy';
 
 const plain = value => JSON.parse(JSON.stringify(value ?? null));
-const unavailable = () => new RequestError('The mentor could not finish this answer. Your question and conversation are saved. Please try again.', 503);
+const unavailable = (category, counts = {}) => Object.assign(new RequestError('The mentor could not finish this answer. Your question and conversation are saved. Please try again.', 503),
+  category ? { mentorFailure: { category, ...counts } } : {});
 const unique = items => [...new Map(items.filter(item => item?.id).map(item => [item.id, item])).values()];
 
 /** A bounded tool loop. Injectable dependencies support isolated full-flow tests
@@ -32,7 +33,7 @@ export async function generateMentorAnswer({ uid, scope, conversationId, turnId,
   await validateScope(uid, scope);
   const reservation = await reserve(uid, turnId, { evaluation: deps.evaluation === true });
   let costUsd = 0, unknown = false, attempts = 0, remainingInput = MENTOR_LIMITS.inputTokens,
-    remainingOutput = MENTOR_LIMITS.outputTokens, reads = 0, researchUsed = false, documentationCalls = 0;
+    remainingOutput = MENTOR_LIMITS.outputTokens, reads = 0, researchUsed = false, documentationCalls = 0, phase = 'evidence';
   const sources = [], metricCards = [], actions = [], pages = new Set(), evidenceRevisions = new Map();
   const add = result => {
     for (const reference of result?.evidenceRevisions || []) {
@@ -45,16 +46,19 @@ export async function generateMentorAnswer({ uid, scope, conversationId, turnId,
     return plain(visible);
   };
   const timeLeft = () => {
-    if (signal?.aborted || deadline - Date.now() < 8000) throw unavailable();
+    if (signal?.aborted || deadline - Date.now() < 8000) throw unavailable('deadline');
     return Math.min(100000, deadline - Date.now() - 6000);
   };
   const call = async (request, stage) => {
+    phase = 'evidence';
     timeLeft(); await validateScope(uid, scope);
     const bound = mentorInputBound(request);
-    if (bound > remainingInput || remainingOutput < 256) throw unavailable();
+    if (bound > remainingInput) throw unavailable('input_budget', { inputBound: bound, remainingInput });
+    if (remainingOutput < 256) throw unavailable('output_budget', { remainingOutput });
     remainingInput -= bound;
     request = { ...request, max_output_tokens: Math.min(request.max_output_tokens, remainingOutput) };
     const attempt = attempts++;
+    phase = 'provider';
     try {
       // Turn IDs originate in a browser. Namespace their accounting by account
       // and conversation so another user's same ID cannot overwrite this ledger.
@@ -74,9 +78,14 @@ export async function generateMentorAnswer({ uid, scope, conversationId, turnId,
           cachedInputTokens: usage.input_tokens_details?.cached_tokens || 0, cacheWriteTokens: usage.input_tokens_details?.cache_write_tokens || 0,
           searches: (response.output || []).filter(item => item.type === 'web_search_call').length });
       }
-      if (response.status && response.status !== 'completed') throw unavailable();
+      if (response.status && response.status !== 'completed') throw unavailable('provider');
       return response;
-    } catch (error) { unknown = true; throw error; }
+    } catch (error) {
+      unknown = true;
+      error.mentorFailure ||= { category: signal?.aborted || ['AbortError', 'APIUserAbortError', 'APIConnectionTimeoutError'].includes(error.name) ? 'deadline' : 'provider',
+        ...(Number.isInteger(error.status) ? { providerStatus: error.status } : {}) };
+      throw error;
+    }
   };
   const evidenceTool = async (name, args) => {
     if (reads >= MENTOR_LIMITS.accountReads) return { unavailable: 'Evidence read allowance reached. Answer using the evidence already read.' };
@@ -128,11 +137,14 @@ export async function generateMentorAnswer({ uid, scope, conversationId, turnId,
         ...(!final ? { tools: [...definitions, GOOGLE_GUIDANCE_TOOL], parallel_tool_calls: true } : {}) };
       // Older discussion stays saved, but does not crowd out this turn's evidence.
       while (mentorInputBound(request) > remainingInput && input.length > 2 && ['user', 'assistant'].includes(input[1]?.role)) input.splice(1, 1);
+      phase = 'provider';
       const response = await call(request, `answer_${index + 1}`);
+      phase = 'validation';
       const toolCalls = (response.output || []).filter(item => item.type === 'function_call');
       if (!toolCalls.length) { finalResponse = response; break; }
-      if (final) throw unavailable();
+      if (final) throw unavailable('validation');
       input.push(...(response.output || []));
+      phase = 'evidence';
       for (const toolCall of toolCalls) {
         let result;
         try {
@@ -147,16 +159,19 @@ export async function generateMentorAnswer({ uid, scope, conversationId, turnId,
         input.push({ type: 'function_call_output', call_id: toolCall.call_id, output: JSON.stringify(result) });
       }
     }
-    if (!finalResponse) throw unavailable();
+    if (!finalResponse) throw unavailable('validation');
+    phase = 'evidence';
     await validateScope(uid, scope);
     if (evidenceRevisions.size) await validateEvidence(uid, scope, [...evidenceRevisions.values()]);
+    phase = 'validation';
     const answer = validateMentorAnswer(mentorResponseText(finalResponse), { sources: unique(sources), metricCards: unique(metricCards), actions: unique(actions) });
     return { ...answer, provenance: { model: MENTOR_MODEL, policyVersion: MENTOR_POLICY_VERSION,
       scope, conversationId, turnId, generatedAt: new Date().toISOString(), accountReads: reads,
       providerAttempts: attempts, documentationResearch: researchUsed, evidenceRevisions: [...evidenceRevisions.values()] } };
   } catch (error) {
-    if (error instanceof RequestError) throw error;
-    throw unavailable();
+    const failure = error instanceof RequestError ? error : unavailable();
+    failure.mentorFailure = error.mentorFailure || { category: phase };
+    throw failure;
   } finally {
     await settle(reservation, { costUsd, unknown, providerAttempts: attempts }).catch(() => {});
   }

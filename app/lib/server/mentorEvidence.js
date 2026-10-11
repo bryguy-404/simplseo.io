@@ -6,6 +6,7 @@ import { readSavedMentorActivity } from './mentorActivitySnapshots';
 import { assertMentorAccountScope, mentorHash } from './mentorAccountScope';
 import { RequestError } from './requestAuth';
 import { publicOngoingCycle } from './ongoingProgress';
+import { projectMentorPlan, projectMentorPage, projectMentorTechnical, projectMentorCycle, mentorProjection } from './mentorEvidenceProjection';
 export { readMentorAccountScope, assertMentorAccountScope } from './mentorAccountScope';
 export { runMentorCheck } from './mentorChecks';
 
@@ -142,9 +143,7 @@ export async function executeMentorEvidenceTool(uid, scope, name, args = {}, { d
       const technical = technicalDoc.data();
       if (inventory.evidenceRevision) evidenceRevisions.push(inventory.evidenceRevision);
       if (matches(scope, technical)) evidenceRevisions.push(evidenceRevision('technical', technicalDoc.id, technical));
-      const savedCheck = matches(scope, technical) ? { result: technical.result || null, lastError: technical.lastError || null,
-        lastAttemptAt: technical.lastAttemptAt || null, lastSuccessAt: technical.lastSuccessAt || null,
-        failedObservation: technical.failedObservation || null } : null;
+      const savedCheck = matches(scope, technical) ? projectMentorTechnical(technical) : null;
       const evidence = activity?.value;
       if (activity?.snapshotId) {
         evidenceRevisions.push(evidenceRevision('activity', activity.snapshotId, activity));
@@ -154,12 +153,14 @@ export async function executeMentorEvidenceTool(uid, scope, name, args = {}, { d
         pageUrl, window: key === 'current' ? evidence.window : evidence.previousWindow, observedAt: evidence.fetchedAt,
         status: evidence[key].totalsStatus, ...(evidence[key].totals || {}), source: 'google_search_console',
       }));
-      result = envelope({ pageUrl, page: content ? { status: page.status, observedAt: page.observedAt,
-        htmlTitle: text(content.htmlTitle, 500), metaDescription: text(content.seoMetaDescription, 1000),
-        headings: (content.headings || []).slice(0, 8), content: text(content.textContent, 1800) } : null,
+      const activityPeriod = value => ({ totals: value.totals, totalsStatus: value.totalsStatus, queriesStatus: value.queriesStatus,
+        queries: [...value.queries].sort((a, b) => b.clicks - a.clicks || b.impressions - a.impressions).slice(0, 3)
+          .map(row => ({ query: text(row.query, 160), clicks: row.clicks, impressions: row.impressions, ctr: row.ctr, position: row.position })),
+        savedQueryCount: value.queries.length, queriesLimited: value.queries.length > 3 || value.queries.some(row => row.query?.length > 160),
+        querySelection: 'Top three reported searches by clicks, then impressions; partial.' });
+      result = envelope({ pageUrl, page: content ? { status: page.status, observedAt: page.observedAt, ...projectMentorPage(content) } : null,
       activity: evidence ? { pageUrl, status: evidence.status, fetchedAt: evidence.fetchedAt, window: evidence.window, previousWindow: evidence.previousWindow,
-        current: { totals: evidence.current.totals, totalsStatus: evidence.current.totalsStatus, queriesStatus: evidence.current.queriesStatus, queries: evidence.current.queries.slice(0, 12) },
-        previous: { totals: evidence.previous.totals, totalsStatus: evidence.previous.totalsStatus, queriesStatus: evidence.previous.queriesStatus, queries: evidence.previous.queries.slice(0, 12) } } : null,
+        current: activityPeriod(evidence.current), previous: activityPeriod(evidence.previous) } : null,
       activityLastError: activity?.lastError || null, technical: savedCheck || null,
       limitations: ['Average position is not a fixed Google results page. Reported query totals omit searches; never sum them to reconstruct page totals.',
         'Publication, live page availability, Google stored indexing status and search activity are independent. Missing observations are not zero.'] },
@@ -177,20 +178,12 @@ export async function executeMentorEvidenceTool(uid, scope, name, args = {}, { d
       ]);
       const plan = planDoc.data();
       evidenceRevisions.push(evidenceRevision('page_plan', planDoc.id, plan));
-      const observation = value => value ? { ...value, queries: (value.queries || []).slice(0, 8) } : value;
-      const checkpoint = value => value ? { ...value, baseline: observation(value.baseline), post: observation(value.post) } : value;
-      const cleanCycle = cycle => ({ id: cycle.id, revision: cycle.revision, lifecycle: cycle.lifecycle, confirmedAt: cycle.confirmedAt,
-        confirmation: { summary: text(cycle.confirmation?.summary), taskLabels: cycle.confirmation?.taskLabels?.slice(0, 20), searchFocus: cycle.confirmation?.searchFocus }, reviewStatus: cycle.reviewStatus, nextReviewAt: cycle.nextReviewAt,
-        originalComparison: checkpoint(cycle.originalComparison), latestCheckpoint: checkpoint(cycle.latestCheckpoint),
-        latestDecision: publicOngoingCycle(cycle).latestDecision, technical: cycle.technical, lastError: cycle.lastError,
-        lastSuccessAt: cycle.lastSuccessAt });
       const scopedCycles = [...new Map([...activeCycles.docs, ...cycles.docs].map(doc => [doc.id, { ...doc.data(), id: doc.id }])).values()]
         .filter(cycle => matches(scope, cycle));
       evidenceRevisions.push(...scopedCycles.map(cycle => evidenceRevision('cycle', cycle.id, cycle)));
-      result = envelope({ pageUrl, plan: matches(scope, plan) ? { id: plan.id || planDoc.id, revision: plan.revision,
-        tasks: (plan.tasks || []).slice(0, 30), tasksLimited: (plan.tasks || []).length > 30,
-        analysis: plan.review?.analysis || null, updatedAt: plan.updatedAt } : null,
-      cycles: scopedCycles.map(cleanCycle),
+      result = envelope({ pageUrl, plan: matches(scope, plan) ? projectMentorPlan({ ...plan, id: plan.id || planDoc.id }) : null,
+      cycles: scopedCycles.slice(0, 2).map(cycle => projectMentorCycle(cycle, publicOngoingCycle(cycle).latestDecision)),
+      cyclesLimited: scopedCycles.length > 2,
       limitations: ['These are saved plans and a bounded selection of current-version cycles; older history may be omitted. Talking about an edit does not confirm publication or reset its measurement dates.'] },
       [source('page_work', link.href, 'Saved page improvements and progress', plan?.updatedAt)], [], [link,
         ...scopedCycles.filter(cycle => cycle.lifecycle === 'active').slice(0, 1).map(cycle => ({
@@ -225,5 +218,10 @@ export async function executeMentorEvidenceTool(uid, scope, name, args = {}, { d
     }
   }
   await assertMentorAccountScope(uid, scope);
+  if (name === 'mentor_new_page_work') {
+    const projected = mentorProjection(result.data, { textLimit: 300, arrayLimit: 4 });
+    result.data = { ...projected.value, projection: { excerptedFields: projected.excerptedFields,
+      fullSavedWork: 'Use Open New page ideas for complete owner-edited drafts and publication history. Excerpts are not finished replacement text.' } };
+  }
   return JSON.parse(JSON.stringify({ ...result, evidenceRevisions }));
 }

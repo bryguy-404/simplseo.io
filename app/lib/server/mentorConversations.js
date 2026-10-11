@@ -19,6 +19,17 @@ const asRevision = value => {
   if (!Number.isSafeInteger(value) || value < 0) throw new RequestError('Reload this conversation before continuing.', 409);
   return value;
 };
+function failureDiagnostics(error) {
+  const source = error?.mentorFailure || (error?.name === 'AbortError' ? { category: 'deadline' } : null);
+  if (!source || !['input_budget', 'output_budget', 'deadline', 'validation', 'provider', 'evidence'].includes(source.category)) return null;
+  // Operator-only metadata. Never store prompts, answers, raw provider errors,
+  // resource identifiers or arbitrary exception properties in this field.
+  const safe = { category: source.category };
+  for (const field of ['inputBound', 'remainingInput', 'remainingOutput', 'providerStatus']) {
+    if (Number.isSafeInteger(source[field]) && Math.abs(source[field]) <= 1000000000) safe[field] = source[field];
+  }
+  return safe;
+}
 const sameScope = (record, scope) => record?.schemaVersion === 9 && record.scope?.key === scope.key;
 const owned = (snapshot, uid) => {
   if (!snapshot.exists || snapshot.data()?.userId !== uid || snapshot.data()?.status === 'deleted') throw new RequestError('Conversation not found.', 404);
@@ -267,6 +278,7 @@ async function sendMentorTurnWithinDeadline(uid, input, generate, deadline) {
       if (turn.data()?.status !== 'pending' || lease.data()?.token !== token) return;
       const unknown = failure.name === 'AbortError' || failure.status === 409;
       tx.update(turnRef, { status: unknown ? 'unknown' : 'failed', stage: null, completedAt: new Date(),
+        failureDiagnostics: failureDiagnostics(failure),
         error: failure.status && failure.status < 500 ? failure.message : 'The answer could not be completed. Your question and earlier replies are saved. You can retry.' });
       if (data.activeTurnId === turnId) tx.update(conversationRef, { activeTurnId: null, revision: data.revision + 1 });
       tx.delete(leaseRef(uid));

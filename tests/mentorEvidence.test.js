@@ -16,7 +16,10 @@ import { newPageScopeKey } from '../app/lib/server/newPageScope';
 import { getGscConnection } from '../app/lib/server/gscConnection';
 import { fetchCurrentPageContent } from '../app/lib/server/scrapeContent';
 import { collectPageReviewEvidence } from '../app/lib/server/pageReviewEvidence';
-import { readMentorAccountScope, assertMentorAccountScope, assertMentorEvidenceRevisions, executeMentorEvidenceTool, readMentorWorkspaceContext, runMentorCheck } from '../app/lib/server/mentorEvidence';
+import { readMentorAccountScope, assertMentorAccountScope, assertMentorEvidenceRevisions, executeMentorEvidenceTool, readMentorWorkspaceContext, runMentorCheck, MENTOR_EVIDENCE_TOOLS } from '../app/lib/server/mentorEvidence';
+import { MENTOR_SYSTEM, MENTOR_ANSWER_FORMAT, mentorInputBound, MENTOR_LIMITS } from '../app/lib/mentorPolicy';
+import { GOOGLE_GUIDANCE_TOOL } from '../app/lib/mentorDocumentationPolicy';
+import { projectMentorCycle, projectMentorTechnical, mentorProjection } from '../app/lib/server/mentorEvidenceProjection';
 import { readPageReviewPlan } from '../app/lib/server/pageReviewPlans';
 import { newOngoingCycle, readOngoingCycle } from '../app/lib/server/ongoingProgress';
 import { readNewPagePlan } from '../app/lib/server/newPagePlanning';
@@ -52,6 +55,92 @@ beforeEach(() => {
 });
 
 describe('stored mentor evidence', () => {
+  it('bounds the actual-shaped homepage tool round without losing saved edits, metrics or task status', async () => {
+    const scope = await readMentorAccountScope('u1');
+    const key = mentorHash(['u1', identity.property, site, 'run1']);
+    const originalCopy = 'Replace this original generated sentence.';
+    const editedCopy = 'Owner edit: Request an estimate for residential plumbing in South Bend.';
+    const recommendations = ['heading', 'content', 'internal_link'].map((type, index) => ({
+      type, basis: 'opportunity', label: `Useful saved improvement ${index + 1}`, location: 'Services section',
+      reason: 'The saved page can clarify the service and give visitors a useful next step. '.repeat(5),
+      instruction: 'Explain this verified service in the existing section, without making unsupported claims. '.repeat(6),
+      proposedText: originalCopy, targetUrl: index === 2 ? `${site}services/plumbing` : null,
+    }));
+    records.set(`pageReviewPlans/${key}`, { userId: 'u1', ...identity, pageUrl: site, revision: 4, updatedAt: at.toISOString(),
+      review: { analysis: { action: 'content_first', metadataVerdict: 'keep', summary: 'Improve the existing service information.',
+        nextStep: 'Use the first saved task.', searchFocus: { phrase: 'plumber South Bend', source: 'observed', intent: 'service', reason: 'Relevant to the confirmed service area.' },
+        recommendations, strategy: { evidence: 'Duplicated strategy evidence. '.repeat(150) } } },
+      tasks: recommendations.map((recommendation, index) => ({ id: `task-${index}`, recommendation,
+        status: index === 0 ? 'done' : 'todo', priority: index + 1, draft: editedCopy,
+        facts: { fullPage: 'Repeated page and query evidence. '.repeat(200) },
+        ...(index === 0 ? { publication: { implementedAt: '2026-09-01T12:00:00Z', cycleId: 'cycle-1' } } : {}) })) });
+    const inventoryKey = newPageScopeKey({ userId: 'u1', ...identity });
+    records.get(`newPageInventories/${inventoryKey}/pages/home`).content = { htmlTitle: 'Plumbing in South Bend',
+      seoMetaDescription: 'Residential plumbing and repair services in South Bend.', textContent: 'Verified service information. '.repeat(400),
+      headings: Array.from({ length: 12 }, (_, index) => ({ tag: index ? 'h2' : 'h1', text: `Service section ${index}`,
+        segments: ['Repeated structural and page context. '.repeat(120)], sectionText: 'Long page subsection. '.repeat(100) })) };
+    const saved = evidence();
+    for (const period of [saved.current, saved.previous]) period.queries = Array.from({ length: 20 }, (_, index) => ({
+      query: `Reported plumbing query ${index}`, clicks: index === 15 ? 2 : 0, impressions: 3, ctr: 0, position: 12.5 }));
+    collectPageReviewEvidence.mockResolvedValue(saved);
+    await refreshSavedMentorActivity('u1', scope, { pageUrl: site, now: at });
+    vi.clearAllMocks();
+    const before = structuredClone([...records]);
+    const visible = result => { const { evidenceRevisions: _refs, ...data } = result; return data; };
+    const business = visible(await executeMentorEvidenceTool('u1', scope, 'read_business_context', {}));
+    const page = visible(await executeMentorEvidenceTool('u1', scope, 'mentor_page_evidence', { pageUrl: site }));
+    const work = visible(await executeMentorEvidenceTool('u1', scope, 'mentor_page_work', { pageUrl: site }));
+    const request = { model: 'gpt-6.1-sol', store: false, service_tier: 'default', reasoning: { effort: 'low' },
+      max_output_tokens: 1800, include: ['reasoning.encrypted_content'], text: { format: MENTOR_ANSWER_FORMAT },
+      tools: [...MENTOR_EVIDENCE_TOOLS, GOOGLE_GUIDANCE_TOOL], parallel_tool_calls: true,
+      input: [{ role: 'developer', content: MENTOR_SYSTEM }, { role: 'user', content: JSON.stringify({
+        question: 'How is my homepage doing, and what should I do next?', selection: { pageUrl: site }, savedBusiness: business }) },
+      ...[['mentor_page_evidence', page], ['mentor_page_work', work]].flatMap(([name, result], index) => [
+        { type: 'function_call', call_id: `call-${index}`, name, arguments: JSON.stringify({ pageUrl: site }) },
+        { type: 'function_call_output', call_id: `call-${index}`, output: JSON.stringify(result) }])] };
+    expect(mentorInputBound(request)).toBeLessThan(18000);
+    const withDocumentation = { ...request, tools: undefined, parallel_tool_calls: undefined, max_output_tokens: 2600, input: [...request.input,
+      { type: 'function_call', call_id: 'docs', name: 'read_google_guidance', arguments: JSON.stringify({ topic: 'Search performance and useful improvements' }) },
+      { type: 'function_call_output', call_id: 'docs', output: JSON.stringify({
+        sources: [{ id: 'google-guidance', title: 'Google Search guidance', url: 'https://developers.google.com/search/docs/fundamentals/seo-starter-guide',
+          excerpt: 'Reviewed documentation excerpt. '.repeat(90), retrievedAt: at.toISOString() }] }) }] };
+    // The final no-tools request still fits after the real first call used
+    // 1,355 input tokens and a representative second call used 4,000.
+    // This uses the unchanged complete-request byte bound, not a token guess.
+    expect(mentorInputBound(withDocumentation)).toBeLessThan(MENTOR_LIMITS.inputTokens - 1355 - 4000);
+    expect(work.data.plan.tasks[0].draft).toBe(editedCopy);
+    expect(work.data.plan.tasks[0].recommendation.proposedText).toBe(originalCopy);
+    expect(work.data.plan.tasks[0].publication.implementedAt).toBe('2026-09-01T12:00:00Z');
+    expect(work.data.plan.taskStatusCounts).toEqual({ done: 1, todo: 2 });
+    expect(work.data.plan.projection.excerptedFields).toContain('tasks[0].recommendation.instruction');
+    expect(page.data.activity.current.totals).toEqual(metrics);
+    expect(page.data.activity.current.savedQueryCount).toBe(20);
+    expect(page.data.activity.current.queriesLimited).toBe(true);
+    expect(page.data.activity.current.queries[0].clicks).toBe(2);
+    expect(page.data.page.projection.partialExcerpt).toBe(true);
+    expect([...records]).toEqual(before);
+    [getGscConnection, collectPageReviewEvidence, fetchCurrentPageContent].forEach(mock => expect(mock).not.toHaveBeenCalled());
+  });
+
+  it('retains mixed-version cautions and failed technical observations in compact evidence', () => {
+    const cycle = projectMentorCycle({ id: 'cycle', lifecycle: 'superseded', confirmedAt: '2026-09-01',
+      previousCycleId: 'earlier', supersededAt: '2026-09-15', confirmation: { interveningChange: true, searchFocus: { phrase: 'plumber South Bend' } },
+      latestCheckpoint: { day: 28, lowVolume: true, source: 'google_search_console', limitation: 'Another edit affected this period.',
+        baseline: { clicks: 0, queriesStatus: 'unavailable' }, post: { clicks: 1, queriesStatus: 'available' } },
+      technical: { checkedAt: at.toISOString(), errors: { indexing: 'unavailable' },
+        issues: [{ code: 'noindex', stale: true, checkedAt: '2026-09-15' }], publicPage: { status: 'available', noindex: true },
+        indexing: { status: 'available', lastCrawlTime: '2026-09-01' } } });
+    expect(cycle.confirmation.interveningChange).toBe(true);
+    expect(cycle.supersededAt).toBe('2026-09-15');
+    expect(cycle.latestCheckpoint).toMatchObject({ lowVolume: true, limitation: 'Another edit affected this period.', baseline: { clicks: 0, queriesStatus: 'unavailable' } });
+    expect(cycle.technical).toMatchObject({ errors: { indexing: 'unavailable' }, issues: [{ code: 'noindex', stale: true }] });
+    const check = projectMentorTechnical({ lastError: 'Partial check', result: { website: { status: 'available', technical: { noindex: true } } },
+      failedObservation: { website: { status: 'unavailable', httpStatus: 404 }, indexing: { status: 'unavailable' } } });
+    expect(check.result.website.technical.noindex).toBe(true);
+    expect(check.failedObservation).toMatchObject({ website: { status: 'unavailable', httpStatus: 404 }, indexing: { status: 'unavailable' } });
+    const address = `https://example.test/${'long-path'.repeat(35)}`;
+    expect(mentorProjection({ targetUrl: address }).value.targetUrl).toBe(address);
+  });
   it('reads account context and pages without any external calls or writes', async () => {
     const scope = await readMentorAccountScope('u1'), before = structuredClone([...records]);
     const profile = await executeMentorEvidenceTool('u1', scope, 'read_business_context', {});

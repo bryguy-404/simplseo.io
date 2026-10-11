@@ -237,9 +237,12 @@ async function main() {
       }
       stage = 'investigation preservation';
       unchanged(afterReads, await capture(), { investigate: true });
-      investigation = { kind, cached: Boolean(check.cached), observationPersisted: true,
+      investigation = { kind, cached: Boolean(check.cached || (kind === 'activity' && check.result?.cached)),
+        operationReused: Boolean(check.cached), observationPersisted: true,
         status: check.lastError ? 'unavailable_or_partial' : 'available', lastAttemptAt: check.lastAttemptAt,
-        lastSuccessAt: check.lastSuccessAt, tasksAndPublicationDatesUnchanged: true, generatedAnswers: 0 };
+        lastSuccessAt: check.lastSuccessAt,
+        observationAt: kind === 'activity' ? check.result?.value?.fetchedAt || null : check.result?.checkedAt || null,
+        tasksAndPublicationDatesUnchanged: true, generatedAnswers: 0 };
     }
     process.stdout.write(JSON.stringify({ verifiedAt: new Date().toISOString(), origin, pilotEnabledForOwner: workspace.body.enabled,
       generationEnabled: workspace.body.generationEnabled, anonymousChecks: anonymous.length, crossAccountChecks: 2,
