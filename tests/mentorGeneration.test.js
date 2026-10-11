@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 vi.mock('../app/lib/firebaseAdmin', async () => (await import('./fakeFirestore')).fakeFirestore());
 import { RequestError } from '../app/lib/server/requestAuth';
 import { generateMentorAnswer } from '../app/lib/server/mentorGeneration';
@@ -7,6 +7,7 @@ const args = { uid: 'alice', scope, conversationId: 'convo1', turnId: 'turn1', m
 const tool = (name, params) => ({ type: 'function_call', name, arguments: JSON.stringify(params), call_id: `${name}-call` });
 const final = (answer = 'The saved report is dated. Keep monitoring before deciding on another edit.', sourceIds = ['page']) => ({ type: 'message', content: [{ type: 'output_text', text: JSON.stringify({ answer, sourceIds, metricIds: [], actionIds: [] }) }] });
 const response = output => ({ status: 'completed', usage: { input_tokens: 1000, output_tokens: 200 }, output });
+afterEach(() => { vi.useRealTimers(); });
 function deps(outputs = [[final()]]) {
   const provider = { create: vi.fn() }; outputs.forEach(items => provider.create.mockResolvedValueOnce(response(items)));
   return { provider, assertScope: vi.fn(), assertEvidence: vi.fn(), reserve: vi.fn().mockResolvedValue({ id: 'budget' }), settle: vi.fn().mockResolvedValue(undefined),
@@ -63,6 +64,93 @@ describe('bounded mentor answer pipeline', () => {
     expect(JSON.stringify(error.mentorFailure)).not.toContain('PRIVATE');
     expect(d.provider.create).toHaveBeenCalledTimes(1);
     expect(d.settle).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({ unknown: false, providerAttempts: 1 }));
+  });
+  it('uses one exact count when bytes overflow, preserves the current question and excludes generation options', async () => {
+    const d = deps([[tool('mentor_page_evidence', { pageUrl: 'https://example.test/' })], [final()]]);
+    d.executeEvidence.mockResolvedValueOnce({ sources: [{ id: 'page' }] })
+      .mockResolvedValueOnce({ data: { excerpt: 'Current relevant facts. '.repeat(1800) }, sources: [{ id: 'page' }] });
+    d.countInput = vi.fn().mockResolvedValue({ input_tokens: 4000 });
+    const result = await generateMentorAnswer({ ...args, history: [{ role: 'user', content: 'OLDER QUESTION' }, { role: 'assistant', content: 'OLDER ANSWER' }] }, d);
+    expect(d.countInput).toHaveBeenCalledTimes(1); expect(d.provider.create).toHaveBeenCalledTimes(2);
+    const [body, options] = d.countInput.mock.calls[0];
+    expect(Object.keys(body).sort()).toEqual(['input', 'model', 'parallel_tool_calls', 'reasoning', 'text', 'tools']);
+    expect(JSON.stringify(body.input)).toContain(args.message); expect(JSON.stringify(body.input)).toContain('savedBusiness');
+    expect(JSON.stringify(body.input)).not.toContain('OLDER');
+    expect(body.input).toEqual(d.provider.create.mock.calls[1][0].input);
+    expect(options).toMatchObject({ timeout: 8000, maxRetries: 0 });
+    expect(result.provenance).toMatchObject({ providerAttempts: 2, inputTokenChecks: 1 });
+    expect(d.record).toHaveBeenCalledTimes(2);
+  });
+  it('rejects an exact count exceeding the remaining cumulative input allowance', async () => {
+    const d = deps([[tool('mentor_page_evidence', { pageUrl: 'https://example.test/' })], [final()]]);
+    d.executeEvidence.mockResolvedValue({ data: { excerpt: 'e'.repeat(28000) }, sources: [{ id: 'page' }] });
+    d.countInput = vi.fn().mockResolvedValueOnce({ input_tokens: 1000 }).mockResolvedValueOnce({ input_tokens: 23001 });
+    await expect(generateMentorAnswer(args, d)).rejects.toMatchObject({ status: 503, mentorFailure: { category: 'input_budget', inputBound: 23001, remainingInput: 23000 } });
+    expect(d.provider.create).toHaveBeenCalledTimes(1); expect(d.countInput).toHaveBeenCalledTimes(2);
+  });
+  it.each([null, { input_tokens: '1000' }, { input_tokens: -1 }, { input_tokens: 1.5 }, { input_tokens: Infinity }])('fails closed for an invalid exact token count %j', async count => {
+    const d = deps(); d.executeEvidence.mockResolvedValue({ data: { excerpt: 'e'.repeat(28000) }, sources: [{ id: 'page' }] });
+    d.countInput = vi.fn().mockResolvedValue(count);
+    await expect(generateMentorAnswer(args, d)).rejects.toMatchObject({ status: 503, mentorFailure: { category: 'input_budget' } });
+    expect(d.countInput).toHaveBeenCalledTimes(1); expect(d.provider.create).not.toHaveBeenCalled();
+    expect(d.settle).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({ providerAttempts: 0, unknown: false, costUsd: 0 }));
+  });
+  it('does not retry a failed count or copy its private error into diagnostics', async () => {
+    const d = deps(); d.executeEvidence.mockResolvedValue({ data: { excerpt: 'e'.repeat(28000) }, sources: [{ id: 'page' }] });
+    d.countInput = vi.fn().mockRejectedValue(new Error('PRIVATE upstream count details'));
+    const error = await generateMentorAnswer(args, d).catch(value => value);
+    expect(error).toMatchObject({ status: 503, mentorFailure: { category: 'input_budget' } });
+    expect(JSON.stringify(error)).not.toContain('PRIVATE'); expect(error.message).not.toContain('PRIVATE');
+    expect(d.countInput).toHaveBeenCalledTimes(1); expect(d.provider.create).not.toHaveBeenCalled();
+  });
+  it('bounds an unresponsive exact counter to eight seconds and ignores a late result', async () => {
+    vi.useFakeTimers(); const d = deps(); let finish;
+    d.executeEvidence.mockResolvedValue({ data: { excerpt: 'e'.repeat(28000) }, sources: [{ id: 'page' }] });
+    d.countInput = vi.fn(() => new Promise(resolve => { finish = resolve; }));
+    const pending = expect(generateMentorAnswer(args, d)).rejects.toMatchObject({ status: 503, mentorFailure: { category: 'deadline' } });
+    await vi.waitFor(() => expect(d.countInput).toHaveBeenCalledTimes(1));
+    await vi.advanceTimersByTimeAsync(8000); await pending;
+    expect(d.countInput.mock.calls[0][1].signal.aborted).toBe(true);
+    finish({ input_tokens: 1000 }); await Promise.resolve(); expect(d.provider.create).not.toHaveBeenCalled();
+  });
+  it('uses remaining deadline for counting and rechecks it before generation', async () => {
+    vi.useFakeTimers(); const d = deps();
+    d.executeEvidence.mockResolvedValue({ data: { excerpt: 'e'.repeat(28000) }, sources: [{ id: 'page' }] });
+    d.countInput = vi.fn(async () => { await vi.advanceTimersByTimeAsync(2500); return { input_tokens: 1000 }; });
+    await expect(generateMentorAnswer({ ...args, deadline: Date.now() + 10000 }, d)).rejects.toMatchObject({ status: 503, mentorFailure: { category: 'deadline' } });
+    expect(d.countInput.mock.calls[0][1].timeout).toBe(4000); expect(d.provider.create).not.toHaveBeenCalled();
+  });
+  it('rechecks ownership after counting and starts no generation after account deletion', async () => {
+    const d = deps(); d.executeEvidence.mockResolvedValue({ data: { excerpt: 'e'.repeat(28000) }, sources: [{ id: 'page' }] });
+    d.countInput = vi.fn(async () => { d.assertScope.mockRejectedValue(new RequestError('Account changed.', 409)); return { input_tokens: 1000 }; });
+    await expect(generateMentorAnswer(args, d)).rejects.toMatchObject({ status: 409 });
+    expect(d.countInput).toHaveBeenCalledTimes(1); expect(d.provider.create).not.toHaveBeenCalled();
+  });
+  it('does not count when the conservative estimate fits', async () => {
+    const d = deps(); d.countInput = vi.fn(); const result = await generateMentorAnswer(args, d);
+    expect(d.countInput).not.toHaveBeenCalled(); expect(result.provenance.inputTokenChecks).toBe(0);
+  });
+  it('keeps three main calls, one research call and at most four count checks within the cumulative cap', async () => {
+    const d = deps();
+    d.executeEvidence.mockResolvedValue({ data: { excerpt: 'e'.repeat(28000) }, sources: [{ id: 'page' }] });
+    d.countInput = vi.fn().mockResolvedValueOnce({ input_tokens: 23500 }).mockResolvedValue({ input_tokens: 100 });
+    d.researchEnabled = true; d.reserveResearch = vi.fn().mockResolvedValue(true);
+    d.provider.create.mockReset()
+      .mockResolvedValueOnce({ ...response([tool('read_google_guidance', { topic: 'indexing', latest: true })]), usage: { input_tokens: 23500, output_tokens: 100 } })
+      .mockResolvedValueOnce({ ...response([]), usage: { input_tokens: 100, output_tokens: 100 } })
+      .mockResolvedValueOnce({ ...response([tool('mentor_page_evidence', { pageUrl: 'https://example.test/' })]), usage: { input_tokens: 100, output_tokens: 100 } })
+      .mockResolvedValueOnce({ ...response([final()]), usage: { input_tokens: 100, output_tokens: 100 } });
+    const result = await generateMentorAnswer(args, d);
+    expect(d.countInput).toHaveBeenCalledTimes(4); expect(d.provider.create).toHaveBeenCalledTimes(4);
+    expect(d.provider.create.mock.calls[3][0].tools).toBeUndefined();
+    expect(d.record.mock.calls.map(([entry]) => entry.stage)).toEqual(['answer_1', 'documentation_research', 'answer_2', 'answer_3']);
+    expect(result.provenance).toMatchObject({ providerAttempts: 4, inputTokenChecks: 4 });
+  });
+  it('does not return an answer whose provider-reported input exceeds the cumulative cap', async () => {
+    const d = deps(); d.provider.create.mockReset().mockResolvedValueOnce({ ...response([final()]), usage: { input_tokens: 24001, output_tokens: 100 } });
+    await expect(generateMentorAnswer(args, d)).rejects.toMatchObject({ status: 503, mentorFailure: { category: 'input_budget', remainingInput: -1 } });
+    expect(d.provider.create).toHaveBeenCalledTimes(1);
+    expect(d.settle).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({ providerAttempts: 1, unknown: false }));
   });
   it('distinguishes exhausted output allowance from input and provider failures', async () => {
     const d = deps();

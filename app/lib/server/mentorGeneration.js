@@ -13,6 +13,10 @@ const plain = value => JSON.parse(JSON.stringify(value ?? null));
 const unavailable = (category, counts = {}) => Object.assign(new RequestError('The mentor could not finish this answer. Your question and conversation are saved. Please try again.', 503),
   category ? { mentorFailure: { category, ...counts } } : {});
 const unique = items => [...new Map(items.filter(item => item?.id).map(item => [item.id, item])).values()];
+// Only documented counting fields; generation options such as store,
+// service_tier, include and max_output_tokens are not sent to this endpoint.
+const inputCountBody = request => Object.fromEntries(['model', 'input', 'instructions', 'tools', 'tool_choice',
+  'parallel_tool_calls', 'reasoning', 'text', 'truncation'].filter(key => request[key] !== undefined).map(key => [key, request[key]]));
 
 /** A bounded tool loop. Injectable dependencies support isolated full-flow tests
  * and the explicit quality evaluation; they cannot be supplied by the browser. */
@@ -27,13 +31,16 @@ export async function generateMentorAnswer({ uid, scope, conversationId, turnId,
   const record = deps.record || recordPageReviewResponse;
   const researchAllowed = deps.researchEnabled ?? (process.env.MENTOR_RESEARCH_ENABLED === 'true');
   const requestResearchAllowance = deps.reserveResearch || reserveMentorResearch;
-  const provider = deps.provider || (process.env.OPENAI_API_KEY
-    ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 0, timeout: 110000 }).responses : null);
+  const client = !deps.provider && process.env.OPENAI_API_KEY
+    ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 0, timeout: 110000 }) : null;
+  const provider = deps.provider || client?.responses;
+  const countInput = deps.countInput || (client ? (body, options) => client.post('/responses/input_tokens', { body, ...options }) : null);
   if (!provider) throw new RequestError('The mentor is temporarily unavailable. Saved conversations remain available.', 503);
   await validateScope(uid, scope);
   const reservation = await reserve(uid, turnId, { evaluation: deps.evaluation === true });
   let costUsd = 0, unknown = false, attempts = 0, remainingInput = MENTOR_LIMITS.inputTokens,
-    remainingOutput = MENTOR_LIMITS.outputTokens, reads = 0, researchUsed = false, documentationCalls = 0, phase = 'evidence';
+    remainingOutput = MENTOR_LIMITS.outputTokens, reads = 0, researchUsed = false, documentationCalls = 0, phase = 'evidence',
+    inputTokenChecks = 0, inputTokenCheckMs = 0;
   const sources = [], metricCards = [], actions = [], pages = new Set(), evidenceRevisions = new Map();
   const add = result => {
     for (const reference of result?.evidenceRevisions || []) {
@@ -49,12 +56,49 @@ export async function generateMentorAnswer({ uid, scope, conversationId, turnId,
     if (signal?.aborted || deadline - Date.now() < 8000) throw unavailable('deadline');
     return Math.min(100000, deadline - Date.now() - 6000);
   };
+  const exactInputCount = async (request, bound) => {
+    // One count per controlled request, only after the byte estimate rejects.
+    // Counting is not generation and must not create a billable-answer event.
+    if (!countInput || remainingInput <= 0 || inputTokenChecks >= MENTOR_LIMITS.mainCalls + 1) {
+      throw unavailable('input_budget', { inputBound: bound, remainingInput });
+    }
+    const timeout = Math.min(8000, timeLeft()), controller = new AbortController(), started = Date.now();
+    const abort = () => controller.abort();
+    signal?.addEventListener('abort', abort, { once: true });
+    if (signal?.aborted) abort();
+    let timer;
+    inputTokenChecks++;
+    try {
+      const stopped = new Promise((_, reject) => {
+        const stop = () => reject(unavailable('deadline'));
+        if (controller.signal.aborted) stop(); else controller.signal.addEventListener('abort', stop, { once: true });
+        timer = setTimeout(abort, timeout);
+      });
+      const result = await Promise.race([Promise.resolve().then(() => {
+        if (controller.signal.aborted) throw unavailable('deadline');
+        return countInput(inputCountBody(request), { timeout, signal: controller.signal, maxRetries: 0 });
+      }), stopped]);
+      timeLeft();
+      if (!Number.isSafeInteger(result?.input_tokens) || result.input_tokens < 0) throw unavailable('input_budget', { inputBound: bound, remainingInput });
+      return result.input_tokens;
+    } catch (error) {
+      if (controller.signal.aborted || signal?.aborted || error.mentorFailure?.category === 'deadline') throw unavailable('deadline');
+      throw unavailable('input_budget', { inputBound: bound, remainingInput });
+    } finally {
+      clearTimeout(timer); signal?.removeEventListener('abort', abort);
+      inputTokenCheckMs += Math.max(0, Date.now() - started);
+    }
+  };
   const call = async (request, stage) => {
     phase = 'evidence';
     timeLeft(); await validateScope(uid, scope);
-    const bound = mentorInputBound(request);
-    if (bound > remainingInput) throw unavailable('input_budget', { inputBound: bound, remainingInput });
     if (remainingOutput < 256) throw unavailable('output_budget', { remainingOutput });
+    let bound = mentorInputBound(request);
+    if (bound > remainingInput) {
+      bound = await exactInputCount(request, bound);
+      timeLeft(); await validateScope(uid, scope); timeLeft();
+    }
+    if (bound > remainingInput) throw unavailable('input_budget', { inputBound: bound, remainingInput });
     remainingInput -= bound;
     request = { ...request, max_output_tokens: Math.min(request.max_output_tokens, remainingOutput) };
     const attempt = attempts++;
@@ -126,6 +170,7 @@ export async function generateMentorAnswer({ uid, scope, conversationId, turnId,
     const business = await evidenceTool('read_business_context', {});
     const relevantHistory = history.filter(item => ['user', 'assistant'].includes(item.role)).slice(-8)
       .map(item => ({ role: item.role, content: String(item.content || item.text || item.answer || '').slice(0, 1600) }));
+    const trimmableHistory = new Set(relevantHistory);
     let input = [{ role: 'developer', content: MENTOR_SYSTEM }, ...relevantHistory,
       { role: 'user', content: JSON.stringify({ question: String(message).slice(0, 6000), selection, savedBusiness: business }) }];
     let finalResponse;
@@ -136,9 +181,10 @@ export async function generateMentorAnswer({ uid, scope, conversationId, turnId,
         text: { format: MENTOR_ANSWER_FORMAT }, input,
         ...(!final ? { tools: [...definitions, GOOGLE_GUIDANCE_TOOL], parallel_tool_calls: true } : {}) };
       // Older discussion stays saved, but does not crowd out this turn's evidence.
-      while (mentorInputBound(request) > remainingInput && input.length > 2 && ['user', 'assistant'].includes(input[1]?.role)) input.splice(1, 1);
+      while (mentorInputBound(request) > remainingInput && trimmableHistory.has(input[1])) input.splice(1, 1);
       phase = 'provider';
       const response = await call(request, `answer_${index + 1}`);
+      if (remainingInput < 0) throw unavailable('input_budget', { inputBound: MENTOR_LIMITS.inputTokens - remainingInput, remainingInput });
       phase = 'validation';
       const toolCalls = (response.output || []).filter(item => item.type === 'function_call');
       if (!toolCalls.length) { finalResponse = response; break; }
@@ -167,7 +213,8 @@ export async function generateMentorAnswer({ uid, scope, conversationId, turnId,
     const answer = validateMentorAnswer(mentorResponseText(finalResponse), { sources: unique(sources), metricCards: unique(metricCards), actions: unique(actions) });
     return { ...answer, provenance: { model: MENTOR_MODEL, policyVersion: MENTOR_POLICY_VERSION,
       scope, conversationId, turnId, generatedAt: new Date().toISOString(), accountReads: reads,
-      providerAttempts: attempts, documentationResearch: researchUsed, evidenceRevisions: [...evidenceRevisions.values()] } };
+      providerAttempts: attempts, documentationResearch: researchUsed, inputTokenChecks, inputTokenCheckMs,
+      evidenceRevisions: [...evidenceRevisions.values()] } };
   } catch (error) {
     const failure = error instanceof RequestError ? error : unavailable();
     failure.mentorFailure = error.mentorFailure || { category: phase };
