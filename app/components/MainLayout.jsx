@@ -93,7 +93,7 @@ const MainLayout = ({
     },
     {
       path: "/generic-keywords",
-      label: "Extra Opportunities",
+      label: "New page ideas",
       icon: <TrendingUp className="w-5 h-5" />,
     },
     {

@@ -2830,13 +2830,13 @@ export default function Dashboard() {
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div className="space-y-1">
                 <CardTitle className="flex flex-wrap items-center gap-2">
-                  Extra Opportunities
+                  New page ideas
                   <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-medium">
-                    High Priority
+                    Optional
                   </span>
                 </CardTitle>
                 <CardDescription>
-                  Discover new keywords and content ideas to expand your reach and attract new customers.
+                  Check existing coverage before planning useful new pages.
                 </CardDescription>
               </div>
               <Button asChild variant="outline" size="sm" className="self-start sm:flex-shrink-0">
@@ -2863,7 +2863,7 @@ export default function Dashboard() {
                   Connect Google Search Console
                 </h3>
                 <p className="text-muted-foreground text-sm mb-4">
-                  Find generic keyword opportunities to attract new customers
+                  Connect your website to review its existing coverage
                 </p>
                 <Button onClick={requestGSCAuthToken}>Connect GSC</Button>
               </div>

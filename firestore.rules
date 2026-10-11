@@ -153,6 +153,12 @@ service cloud.firestore {
     match /requestLimits/{path=**} { allow read, write: if false; }
     match /aiUsageEvents/{path=**} { allow read, write: if false; }
     match /cronRuns/{path=**} { allow read, write: if false; }
+    match /newPageWorkspaces/{path=**} { allow read, write: if false; }
+    match /newPageInventories/{path=**} { allow read, write: if false; }
+    match /newPageAssessments/{path=**} { allow read, write: if false; }
+    match /newPagePlans/{path=**} { allow read, write: if false; }
+    match /newPagePublications/{path=**} { allow read, write: if false; }
+    match /newPageJobs/{path=**} { allow read, write: if false; }
     match /genericKeywordsCache/{path=**} { allow read, write: if false; }
     match /skippedKeywords/{path=**} { allow read, write: if false; }
     match /createdContentOpportunities/{path=**} { allow read, write: if false; }

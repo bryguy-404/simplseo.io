@@ -58,3 +58,32 @@ it('normalizes invalid JSON without provider detail and fails mismatched account
   await expect(getGscConnection('alice')).rejects.toThrow('reconnect_required');
   expect(fetch).not.toHaveBeenCalled();
 });
+it.each(['account_deleted', 'onboarding_deleted', 'property_changed', 'website_rebuilt', 'credential_replaced'])('does not restore stale credentials when %s during OAuth refresh', async state => {
+  records.get('users/alice').gscExpiresAt = 1;
+  fetch.mockImplementation(async () => {
+    if (state === 'account_deleted') records.delete('users/alice');
+    if (state === 'onboarding_deleted') records.delete('onboarding/alice');
+    if (state === 'property_changed') records.get('onboarding/alice').gscProperty = 'https://another.test/';
+    if (state === 'website_rebuilt') records.get('onboarding/alice').revampRunId = 'new-website';
+    if (state === 'credential_replaced') records.get('users/alice').gscRefreshToken = 'new-owner-connection';
+    return new Response(JSON.stringify({ access_token: 'stale-new-token', expires_in: 3600 }));
+  });
+  await expect(getGscConnection('alice')).rejects.toThrow('reconnect_required');
+  expect(records.get('users/alice')?.gscAccessToken).not.toBe('stale-new-token');
+  if (state === 'account_deleted') expect(records.has('users/alice')).toBe(false);
+});
+it('honors shared deadlines and cancellation on both OAuth and Google requests', async () => {
+  const expired = Date.now() - 1;
+  const connection = await getGscConnection('alice', { deadline: expired });
+  await expect(connection.inspect(property)).rejects.toThrow('temporarily_unavailable');
+  const controller = new AbortController(); controller.abort();
+  await expect((await getGscConnection('alice', { signal: controller.signal })).query({})).rejects.toThrow('temporarily_unavailable');
+  records.get('users/alice').gscExpiresAt = 1;
+  await expect(getGscConnection('alice', { deadline: expired })).rejects.toThrow('temporarily_unavailable');
+  expect(fetch).not.toHaveBeenCalled();
+});
+it('never recreates credentials for an account missing before a connection starts', async () => {
+  records.delete('users/alice');
+  await expect(getGscConnection('alice')).rejects.toThrow('reconnect_required');
+  expect(fetch).not.toHaveBeenCalled();
+});

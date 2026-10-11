@@ -67,12 +67,14 @@ function linkContext($, node) {
 
 // Always fetch current HTML; callers must not use client-supplied content as
 // evidence of what is on a website. Legacy fallback fields remain for old UI.
-export async function fetchCurrentPageContent(pageUrl, { property } = {}) {
+export async function fetchCurrentPageContent(pageUrl, { property, deadline, signal, allowedHostname } = {}) {
   if (typeof pageUrl !== 'string' || !pageUrl || pageUrl.length > 2048 || !httpUrl(pageUrl)
     || new URL(pageUrl).hash) throw new RequestError('Enter a valid page URL.');
   if (property && !propertyContainsUrl(property, pageUrl)) throw new RequestError('Page must belong to your connected Search Console property.', 403);
   let response;
-  try { response = await publicFetch(pageUrl, property ? { property } : undefined); }
+  const fetchOptions = { ...(property ? { property } : {}), ...(deadline !== undefined ? { deadline } : {}),
+    ...(signal ? { signal } : {}), ...(allowedHostname ? { allowedHostname } : {}) };
+  try { response = await publicFetch(pageUrl, Object.keys(fetchOptions).length ? fetchOptions : undefined); }
   catch (error) {
     if (error instanceof RequestError) throw error;
     throw new RequestError('We could not read this page. Check that it is publicly accessible and try again.', 502);
@@ -84,6 +86,7 @@ export async function fetchCurrentPageContent(pageUrl, { property } = {}) {
   }
   const finalUrl = response.url || pageUrl;
   if (property && !propertyContainsUrl(property, finalUrl)) throw new RequestError('This page redirects outside your connected Search Console property. Review a page on the connected website.', 403);
+  if (allowedHostname && new URL(finalUrl).hostname !== allowedHostname) throw new RequestError('This page redirects outside your selected website.', 403);
   const contentType = response.headers.get('content-type') || '';
   if (!/^(?:text\/html|application\/xhtml\+xml)(?:\s*;|$)/i.test(contentType)) throw new RequestError('This URL does not return an HTML page. Choose a public webpage to review.', 422);
 

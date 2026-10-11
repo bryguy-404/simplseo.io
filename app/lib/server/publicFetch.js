@@ -13,16 +13,28 @@ for (const [network,prefix] of [['2001::',23],['2001:db8::',32],['2002::',16],['
 export function isPublicAddress(address) {
   return isIP(address) === 4 ? !blockedV4.check(address,'ipv4') : isIP(address) === 6 && globalV6.check(address,'ipv6') && !blockedV6.check(address,'ipv6');
 }
-export async function resolvePublicUrl(rawUrl) {
+const interrupted = () => new RequestError('The website check reached its time limit. Please try again.', 504);
+function remainingTime(options, maximum) {
+  if (options.signal?.aborted) throw interrupted();
+  const remaining = Math.min(maximum, (options.deadline ?? Infinity) - Date.now());
+  if (remaining <= 0) throw interrupted();
+  return remaining;
+}
+export async function resolvePublicUrl(rawUrl, options = {}) {
+  remainingTime(options, 10000);
   let url;
   try { url = new URL(rawUrl); } catch { throw new RequestError('Enter a valid website URL.'); }
   if (!['http:','https:'].includes(url.protocol) || url.username || url.password || (url.port && !['80','443'].includes(url.port))) throw new RequestError('Only public HTTP or HTTPS websites can be scanned.');
   const hostname = url.hostname.replace(/^\[|\]$/g,'');
-  let timer;
+  let timer, abort;
   const addresses = isIP(hostname) ? [{ address: hostname, family: isIP(hostname) }] : await Promise.race([
     lookup(hostname,{all:true}),
-    new Promise((_,reject) => { timer = setTimeout(() => reject(new RequestError('The website could not be resolved.',504)),10000); }),
-  ]).finally(() => clearTimeout(timer));
+    new Promise((_,reject) => {
+      timer = setTimeout(() => reject(new RequestError('The website could not be resolved.',504)), remainingTime(options, 10000));
+      abort = () => reject(interrupted());
+      options.signal?.addEventListener('abort', abort, { once: true });
+    }),
+  ]).finally(() => { clearTimeout(timer); options.signal?.removeEventListener('abort', abort); });
   if (!addresses.length || addresses.some(({address}) => !isPublicAddress(address))) throw new RequestError('Only public websites can be scanned.');
   return { url, address: addresses[0] };
 }
@@ -33,10 +45,17 @@ export async function publicFetch(rawUrl, options = {}) {
   let currentUrl = rawUrl;
   const redirectChain = [];
   for (let redirects = 0; redirects <= 5; redirects++) {
+    remainingTime(options, 15000);
     // Check each destination before DNS or HTTP, not only the final response.
     if (options.property && !propertyContainsUrl(options.property, currentUrl)) throw new RequestError('This page redirects outside your connected Search Console property.', 403);
-    const { url, address } = await resolvePublicUrl(currentUrl);
+    if (options.allowedHostname) {
+      let hostname;
+      try { hostname = new URL(currentUrl).hostname; } catch { throw new RequestError('Enter a valid website URL.'); }
+      if (hostname !== options.allowedHostname) throw new RequestError('This page redirects outside your selected website.', 403);
+    }
+    const { url, address } = await resolvePublicUrl(currentUrl, options);
     const response = await new Promise((resolve,reject) => {
+      const timeout = remainingTime(options, 15000);
       const transport = url.protocol === 'https:' ? https : http;
       const headers = { 'User-Agent': 'SimpleSEO/1.0', Accept: 'text/html,application/xml,text/xml', 'Accept-Encoding': 'identity' };
       // No credentials or caller-controlled headers are sent to scanned sites.
@@ -60,9 +79,12 @@ export async function publicFetch(rawUrl, options = {}) {
           Object.defineProperty(result,'url',{value:url.href}); resolve(result);
         });
       });
-      const deadline = setTimeout(() => req.destroy(new RequestError('The website took too long to respond.',504)),15000);
-      req.on('close',() => clearTimeout(deadline));
-      req.on('error',reject); req.end();
+      const deadline = setTimeout(() => req.destroy(new RequestError('The website took too long to respond.',504)), timeout);
+      const abort = () => req.destroy(interrupted());
+      req.on('close',() => { clearTimeout(deadline); options.signal?.removeEventListener('abort', abort); });
+      req.on('error',reject);
+      options.signal?.addEventListener('abort', abort, { once: true });
+      if (options.signal?.aborted) abort(); else req.end();
     });
     if (![301,302,303,307,308].includes(response.status)) {
       Object.defineProperty(response, 'redirectChain', { value: redirectChain });

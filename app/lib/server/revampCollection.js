@@ -7,8 +7,8 @@ const MAX_ACCOUNTS = 20;
 const MAX_PAGES_PER_ACCOUNT = 40;
 const WORK_BUDGET_MS = 120000;
 
-export async function runRevampCollection(now = new Date()) {
-  const deadline = Date.now() + WORK_BUDGET_MS;
+export async function runRevampCollection(now = new Date(), { deadline: sharedDeadline = Infinity } = {}) {
+  const deadline = Math.min(sharedDeadline, Date.now() + WORK_BUDGET_MS);
   const ref = db.collection('progressJobs').doc('daily-website-monitoring');
   const attempt = randomUUID();
   const previous = await db.runTransaction(async tx => {

@@ -13,6 +13,7 @@ export const ACCOUNT_OWNED_COLLECTIONS = [
   'internalLinkSuggestions', 'intentMismatches', 'pageContentCache',
   'seoMetaTitles', 'seoMetaDescriptions', 'genericKeywordsCache',
   'conversations', 'contactMessages', 'requestLimits', 'pageReviewPlans', 'aiUsageEvents',
+  'newPageWorkspaces', 'newPageInventories', 'newPageAssessments', 'newPagePlans', 'newPagePublications', 'newPageJobs',
 ];
 const PREFIXED_COLLECTIONS = [
   'implementedSeoTips', 'contentAuditResults', 'aiSuggestions',
@@ -83,6 +84,11 @@ export async function deleteAccountFirestore(db, uid, verifiedEmail) {
   // A review already in flight may have started its accounting after the first
   // sweep. New accounting transactions now see the missing account roots.
   deletedRoots += await deleteMatching(db, db.collection('aiUsageEvents').where('userId', '==', uid));
+  // In-flight new-page work saves only while account roots still exist. Sweep
+  // anything committed between the first collection pass and root removal.
+  for (const name of ACCOUNT_OWNED_COLLECTIONS.filter(name => name.startsWith('newPage'))) {
+    deletedRoots += await deleteMatching(db, db.collection(name).where('userId', '==', uid));
+  }
   return { deletedRoots };
 }
 

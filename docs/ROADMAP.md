@@ -127,3 +127,9 @@ Version 8 adds immediate page-switch loading feedback and a quieter “Check for
 4. **Expand gradually and evaluate costs.** After the first real workflow is verified, invite a small group of target business owners. Track time to a useful published edit, recommendation usefulness, completion, repeat use, support time and actual API/hosting costs per active account. Pricing is undecided: earlier $50 and later $20–25 ideas are hypotheses to validate, not approved billing changes. Do not promise agency-equivalent results.
 
 Keep the public URL and current stack. New-page generation, automatic outcome decisions/notifications, billing rollout and a Supabase/Railway migration are separate decisions. Phase 5's first checkpoint is a genuinely published and correctly tracked homepage change; ranking and business results remain to be observed over time.
+
+## Phase 6 Evidence-based New page ideas
+
+The approved replacement for Extra Opportunities keeps `/generic-keywords` and adds confirmed service areas, bounded website coverage, justified ideas (including no recommendation), saved editable page plans and manual publication verification. It runs independently of the current-page pilot. Details, operating limits, testing and live checkpoints are in [Phase 6](PHASE6.md).
+
+The first live checkpoint is for Bryan to review current coverage and confirm services/area. A draft is optional and must follow a justified idea. No new page is published or confirmed for testing; indexing and business value remain real-world pilot observations.

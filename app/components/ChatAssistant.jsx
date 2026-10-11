@@ -62,9 +62,9 @@ const ChatAssistant = ({
         help: "I can help you pick the best wins, guide you through them, or explain what results to expect."
       },
       '/generic-keywords': {
-        title: 'Generic Keywords Analysis',
-        message: "I see you're on the AI Generic Keywords page! This analyzes broad, non-branded keywords that could bring in new traffic. Need help understanding what you're seeing?",
-        help: "I can explain the keyword analysis, help you understand the opportunities, or guide you on how to optimize for these generic terms."
+        title: 'New page ideas',
+        message: "You're checking whether a useful new page is missing for an area you serve. Need help with your saved page plan?",
+        help: "I can explain the evidence, help clarify your business facts, or walk through publishing a page yourself. Sometimes another page is not needed."
       },
       '/generic-keywords-ranking': {
         title: 'Generic Keywords Already Ranking',

@@ -58,6 +58,15 @@ describe('account data deletion', () => {
       'pageReviewPlans/current-bob': { userId: 'bob', keep: true },
       'aiUsageEvents/alice-research': { userId: 'alice', inputTokens: 100 },
       'aiUsageEvents/bob-assessment': { userId: 'bob', keep: true },
+      'newPageWorkspaces/alice-work': { userId: 'alice' },
+      'newPageInventories/alice-inventory': { userId: 'alice' },
+      'newPageInventories/alice-inventory/pages/deep': { text: 'owned page' },
+      'newPageAssessments/alice-assessment': { userId: 'alice' },
+      'newPagePlans/alice-plan': { userId: 'alice' },
+      'newPagePublications/alice-publication': { userId: 'alice' },
+      'newPageJobs/alice-lease': { userId: 'alice' },
+      'newPageJobs/daily-new-page-monitoring': { keep: true },
+      'newPagePlans/bob-plan': { userId: 'bob', keep: true },
       [`trainingEvents/${hash}/events/one`]: {},
       [`playbookStrategies/${hash}/strategies/one`]: {},
       [`conversationSummaries/${hash}/summaries/one`]: {},
@@ -112,7 +121,12 @@ describe('account data deletion', () => {
     const store = deletionStore({ 'users/alice': {}, 'onboarding/alice': {} });
     const remove = store.db.recursiveDelete.getMockImplementation();
     store.db.recursiveDelete.mockImplementation(async target => {
-      if (target.path === 'users/alice') store.records.set('aiUsageEvents/in-flight', { userId: 'alice' });
+      if (target.path === 'users/alice') {
+        store.records.set('aiUsageEvents/in-flight', { userId: 'alice' });
+        store.records.set('newPagePlans/in-flight', { userId: 'alice' });
+        store.records.set('newPageInventories/in-flight', { userId: 'alice' });
+        store.records.set('newPageInventories/in-flight/pages/example', { text: 'owned page' });
+      }
       await remove(target);
     });
     await deleteAccountFirestore(store.db, 'alice');

@@ -1,0 +1,74 @@
+# Phase 6 — Evidence-based New page ideas
+
+## Scope
+
+The public URL remains `/generic-keywords`; navigation now says **New page ideas**. This release serves local service businesses seeking inquiries, quotes or bookings. The existing-page pilot continues independently. No business is required to create a page, and no traffic threshold locks another area.
+
+The workflow is: review existing coverage, confirm a real service area and offerings, assess a useful gap, select a justified idea, edit a saved draft, publish in the owner's website builder, then verify the real URL and observe Google. `new_page`, `improve_existing`, `no_opportunity` and `needs_information` are all valid outcomes. There is no quota of ideas to fill.
+
+## Inventory and evidence
+
+`newPageInventory.js` discovers the selected website through its homepage, internal links, robots sitemap declarations, default sitemap, stored URLs and available Search Console observations. It uses the protected fetcher with DNS checks, redirect checks, property and selected-host boundaries, response limits and request deadlines. Downloaded content is data, never instructions.
+
+Limits per inventory are 20 sitemap documents, 500 discovered URLs and 100 HTML fetches. Three workers use resumable 45-second batches. Sitemap XML rejects malformed data, DTDs and entities. Unsupported compressed sitemaps, blocked pages, failed fetches and caps are disclosed. Stored states distinguish fetched, failed, excluded and pending URLs; `ready` means the bounded discovered set was reviewed, not that every possible site URL is known.
+
+Inventory is independent of onboarding and scoped to account, property, selected website URL and website version. Subcollection page records avoid one oversized Firestore document. Refreshing an inventory creates an isolated generation. Content timestamps do not by themselves make a saved assessment stale. Unknown content coverage prevents inventing a gap; the owner gets a specific next check instead of another page recommendation.
+
+Owner-confirmed services, area and business facts are stored separately from first-party website evidence. Nearby area research is an explicit action and requires region/country and public citations. A nearby town is never silently added to the business's service area.
+
+## Assessment, drafts and persistence
+
+The assessment compares related customer needs, known pages and existing saved plans. It returns at most three justified ideas. Observed search phrases must exactly match supplied Search Console queries; other phrases are labeled proposed. Exact-page/query observations use the finalized 28-day window with the existing three-day reporting buffer. Missing Google rows do not establish zero demand or indexing failure.
+
+The OpenAI Responses API uses the existing `gpt-6.1-sol` configuration. Public research gets website context and selected services/area, never private Google queries, metrics, account IDs or owner notes. Each research request is limited to two web-search calls. Assessment and drafting use strict structured output plus server validation. Drafts receive a separate factual/duplicate-content audit against first-party and confirmed owner facts.
+
+A new page needs a distinct purpose and substantive customer value. A location substitution or synonym rewrite is insufficient. Drafts include a search focus, title, description, H1, proposed slug, section outline and copy, links from/to existing pages, required facts, optional writing prompts and evidence. Missing optional information stays outside finished copy. Slug checks report dated not-found or unverified status; they are not URL reservations. The actual URL is checked again after publication.
+
+Records live in `newPageWorkspaces`, `newPageInventories`, `newPageAssessments`, `newPagePlans`, `newPagePublications` and `newPageJobs`. Saved reads do not call AI, crawl websites or refresh Google. Contexts, owner edits, dismissed plans and earlier areas survive reload/sign-out. Plans have stable IDs and revision checks. Changed generated drafts appear as proposed revisions and do not overwrite owner copy. Older website versions remain read-only. Legacy created/skipped entries remain labeled unverified history; old estimated metrics and success labels are not reused as evidence.
+
+Workspace reads return compact plan/history summaries and only the active area's assessment. Opening a plan makes a separate stored-only detail request. This prevents large saved drafts from overflowing the response. Model evidence uses bounded first-party excerpts; insufficient evidence remains a reason to ask for information, not a license to invent claims.
+
+Initial limits per account per UTC day are three area assessment attempts, five draft-generation attempts and two nearby-area searches. Firestore transactions reserve attempts before provider calls. An account-level lease prevents concurrent generation. Unchanged checks and determinations blocked by known unreadable coverage do not spend a generation allowance. Research becomes eligible for another explicit check after seven days; it never runs on page load or a timer. Failed checks preserve existing work. Saved plans have an explicit 200-record account cap rather than silently dropping old records from a bounded read.
+
+Assessment and drafting require website evidence reviewed within seven days. Resuming a batch does not renew old page observations. A stale inventory asks for an explicit website refresh before any paid generation; unchanged checks describe the saved evidence and do not claim that the live website was recrawled.
+
+Usage goes into the private `aiUsageEvents` ledger with feature `new_page_planning` and separate research, assessment, draft and validation stages. Provider tokens, tool-call observations and failure/unknown accounting are stored; prompts, generated copy and private queries are not. Actual model-evaluation evidence is recorded in [the evaluation report](PHASE6_EVALUATION.md).
+
+## Publication and observation
+
+Only the owner publishes. They enter the actual URL and explicitly declare that they opened the live page. The server verifies the property/host, public HTML, redirects, basic match to the plan, canonical declarations and indexing directives. Internal redirects require confirmation. A failed check preserves the draft. Reachable pages with indexing concerns keep those warnings separate from publication verification.
+
+Owner declaration time and server verification time are separate. Neither is presented as Google's discovery date or the historical publication date. Google's stored URL Inspection result and Search Analytics are independent dated observations. Failures retain previous data with its date. Tracking shows rolling 28-day activity, activity after the verification day and prior activity when available. An old URL cannot become an invented new-page success or before/after uplift. Average position is not a Google results-page number.
+
+The 28- and 84-day review prompts are reminders, not success judgments or unlock conditions. The interface links to Google's inspection result when available and to **Improve a page** after publication. Indexing requests remain manual.
+
+The existing 03:00 UTC website-monitoring invocation runs independent existing-page and new-page collectors under one 220-second deadline. There is no third cron. New-page monitoring processes at most 20 due URLs with concurrency two, daily for 90 days and weekly afterward. Oldest-due ordering advances after failures as well as successes. Manual refresh shares each URL's lease and 24-hour cache. Provider requests receive the remaining deadline; aggregate run health identifies each collector. No background AI generation, email or automatic SEO-success classification is enabled.
+
+## Security and retirement
+
+Every API action derives identity from a verified Firebase token and checks the stored account/property/website version. Scope and revisions are checked again before asynchronous results are saved. Direct Firestore client reads/writes to new private collections are denied; authenticated APIs return only the owner's work. Account deletion recursively removes inventories and new records, then sweeps again after deleting roots to close in-flight write races. OAuth refresh uses guarded transactional updates and cannot recreate an account or overwrite a changed connection.
+
+Legacy generic-keyword analysis, keyword-analysis, outline generation, mark-created and skip writes now return authenticated 410 responses. Their UI callers and the account-independent outline cache were removed first. Old created/skipped reads remain available as unverified history.
+
+## Release and rollback
+
+Generation can be paused with `NEW_PAGE_GENERATION_ENABLED=false`. Saved reads, owner edits, inventory and existing publication tracking remain usable. Tests exercise that state. This is the preferred containment action for a recommendation issue; do not delete Firestore records.
+
+The pre-Phase-6 production deployment is `dpl_974BuvecyRuoj7btfrvhLoY3KZ17` (`simplseo-ao2cvwltc-bryan-arambulas-projects.vercel.app`, application source `2e2c1c2`). A Vercel rollback preserves Firestore data. Keep the new private rules and index; the earlier application does not consume new records. A full application rollback also removes the new-page collector from the old cron implementation, so generation pause is preferable when tracking should continue.
+
+Automated release checks cover inventory bounds/uncertainty, decisions, factual drafts, concurrency, scoped reads/writes, revisions and deletion races, publication redirects/directives, independent observations, collector fairness/deadlines, desktop/mobile/keyboard flows and existing-page regressions. A bounded repeated real-model evaluation must reject invented claims and duplicate recommendations in covered fixtures before production promotion.
+
+## Live checkpoints
+
+1. **Inventory and area:** Bryan checks the recognized services, actual target area and existing coverage. Confirming an area does not declare publication.
+2. **Recommendation and draft:** Assess the real site. A supported no-opportunity or improve-existing result is acceptable. Only a qualifying idea becomes a draft; check saved edits survive reload and accounting is recorded.
+3. **Real publication:** After Bryan publishes a worthwhile page himself, verify its actual URL. Do not fabricate a publication to test tracking.
+4. **Scheduled execution:** Correlate an actual overnight provider invocation with stored collector health. A manual request proves route behavior, not scheduler execution. Tracking a real new page remains unverified until one is actually published.
+
+## Limits and deferred work
+
+Inventory is a bounded HTML review, not a browser-rendered or exhaustive site audit. Public research cannot supply verified keyword volume, exact competitors' ranks or a guarantee that a page will be indexed. The recommendation evaluation uses reviewed synthetic service-business examples; real business value still needs the pilot.
+
+Nationwide planning, restaurants, mass city-by-service pages, another SEO-data provider, automatic publishing/indexing, onboarding redesign, payments and stack migration are deferred. The existing Vercel plan/commercial-pilot gate from Phase 5 remains unchanged.
+
+Google's [spam policies](https://developers.google.com/search/docs/essentials/spam-policies) describe doorway and scaled-content concerns; publishing slowly alone does not resolve low-value duplicate content. [Recrawl guidance](https://developers.google.com/search/docs/crawling-indexing/ask-google-to-recrawl) does not promise inclusion after a request. The [URL Inspection API](https://developers.google.com/webmaster-tools/v1/urlInspection.index/inspect) supplies the stored Google view, not a live test or indexing submission.

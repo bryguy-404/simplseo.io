@@ -60,11 +60,11 @@ async function persist(ref, data, operation, execute = () => ref[operation](data
 // A started record survives a process interruption as unknown usage. A failed
 // or timed-out provider request may still be billable; absence is never zero.
 // Each actual provider attempt gets one document, including invalid AI output.
-export async function recordPageReviewResponse({ userId, reviewRunId, stage, requestedModel }, execute) {
+export async function recordPageReviewResponse({ userId, reviewRunId, stage, requestedModel, feature = 'page_review' }, execute) {
   const started = Date.now();
   const ref = db.collection('aiUsageEvents').doc(`${reviewRunId}-${stage}`);
   const initial = {
-    schemaVersion: 1, feature: 'page_review', userId, reviewRunId, stage,
+    schemaVersion: 1, feature, userId, reviewRunId, stage,
     provider: 'openai', requestedModel, startedAt: new Date(started).toISOString(),
     expiresAt: new Date(started + RETENTION_DAYS * 86400000),
     providerOutcome: 'started', ...responseUsage(null),

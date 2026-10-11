@@ -42,3 +42,19 @@ export async function consumePageReviewQuota(userId) {
     entries.forEach((entry, index) => tx.set(entry.ref, { userId, count: (previous[index].data()?.count || 0) + 1, expiresAt: entry.expiresAt }));
   });
 }
+
+export async function consumeNewPageQuota(userId, kind) {
+  const limits = { assessment: 3, draft: 5, nearby: 2 };
+  const limit = limits[kind];
+  if (!limit) throw new RequestError('Unknown planning operation.');
+  const bucket = Math.floor(Date.now() / 86400000);
+  const key = createHash('sha256').update(`new-page:${kind}:${userId}:${bucket}`).digest('hex');
+  const ref = db.collection('requestLimits').doc(key);
+  await db.runTransaction(async tx => {
+    const [previous, user, setup] = await Promise.all([tx.get(ref), tx.get(db.collection('users').doc(userId)), tx.get(db.collection('onboarding').doc(userId))]);
+    if (!user.exists || !setup.exists) throw new RequestError('Your account changed. Reload to continue.', 409);
+    const count = previous.data()?.count || 0;
+    if (count >= limit) throw new RequestError(`Today’s new-page ${kind} allowance is used (${limit} per day). Saved work remains available. Try again tomorrow.`, 429);
+    tx.set(ref, { userId, feature: 'new_page_planning', kind, count: count + 1, expiresAt: new Date((bucket + 2) * 86400000) });
+  });
+}

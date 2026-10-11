@@ -65,3 +65,25 @@ it('retains the exact in-property redirect chain and revalidates its DNS address
   expect(result.redirectChain).toEqual([{ url: 'https://website.test/old', status: 301, destination: 'https://website.test/New?Case=Exact' }]);
   expect(lookup).toHaveBeenCalledTimes(2);
 });
+
+it('restricts redirects to the selected hostname even for domain properties', async () => {
+  transportState.responses.push({ statusCode: 302, headers: { location: 'https://other.website.test/page' }, body: '' });
+  await expect(publicFetch('https://website.test/start', { property: 'sc-domain:website.test', allowedHostname: 'website.test' })).rejects.toMatchObject({ status: 403 });
+  expect(http.request).toHaveBeenCalledTimes(1);
+  expect(lookup).toHaveBeenCalledTimes(1);
+});
+it('does not start DNS or HTTP after cancellation or an expired overall deadline', async () => {
+  const controller = new AbortController(); controller.abort();
+  await expect(publicFetch('https://website.test/', { signal: controller.signal })).rejects.toMatchObject({ status: 504 });
+  await expect(publicFetch('https://website.test/', { deadline: Date.now() - 1 })).rejects.toMatchObject({ status: 504 });
+  expect(lookup).not.toHaveBeenCalled(); expect(http.request).not.toHaveBeenCalled();
+});
+it('bounds a stalled DNS lookup by the shared request deadline and reacts to abort', async () => {
+  lookup.mockReturnValue(new Promise(() => {}));
+  await expect(publicFetch('https://website.test/', { deadline: Date.now() + 15 })).rejects.toMatchObject({ status: 504 });
+  const controller = new AbortController();
+  const result = publicFetch('https://website.test/', { signal: controller.signal });
+  controller.abort();
+  await expect(result).rejects.toMatchObject({ status: 504 });
+  expect(http.request).not.toHaveBeenCalled();
+});

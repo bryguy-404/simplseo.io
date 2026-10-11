@@ -131,3 +131,14 @@ test('AI accounting is private even from its account owner and cannot be altered
   expect((await patch(request, path, { inputTokens: 0 })).status()).toBe(403);
   expect((await request.delete(`${base}/${path}`, { headers: { Authorization: `Bearer ${token}` } })).status()).toBe(403);
 });
+
+test('new-page evidence, saved drafts, publication observations and jobs are server-owned', async ({ request }) => {
+  for (const collection of ['newPageWorkspaces', 'newPageInventories', 'newPageAssessments', 'newPagePlans', 'newPagePublications', 'newPageJobs']) {
+    const path = `${collection}/${uid}-fixture`;
+    await app.firestore().doc(path).set({ userId: uid, revision: 1, status: 'draft' });
+    expect((await read(request, path)).status(), collection).toBe(403);
+    expect((await patch(request, path, { status: 'published' })).status(), collection).toBe(403);
+    expect((await request.delete(`${base}/${path}`, { headers: { Authorization: `Bearer ${token}` } })).status(), collection).toBe(403);
+    expect((await patch(request, `${path}/pages/forged`, { userId: uid }, false)).status(), collection).toBe(403);
+  }
+});

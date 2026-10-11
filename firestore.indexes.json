@@ -1,5 +1,14 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "newPagePublications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "trackingEnabled", "order": "ASCENDING" },
+        { "fieldPath": "nextCheckAt", "order": "ASCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": [
     {
       "collectionGroup": "requestLimits",

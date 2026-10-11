@@ -19,7 +19,7 @@ export async function monitorRevamp(uid, { maxPages = Infinity, deadline = Infin
   if (Date.now() >= deadline) return { pages, connectionStatus: 'deferred', checked: 0, morePages: true };
   let connection;
   let connectionError;
-  try { connection = await getGscConnection(uid); } catch (error) { connectionError = error; }
+  try { connection = await getGscConnection(uid, { deadline }); } catch (error) { connectionError = error; }
   let next = 0;
   const updated = new Array(selected.length);
   await Promise.all(Array.from({ length: Math.min(4, selected.length) }, async () => {
