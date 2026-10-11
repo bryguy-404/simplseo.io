@@ -1,15 +1,17 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 vi.mock('../app/lib/firebaseAdmin', () => ({ db: { collection: vi.fn() }, auth: { verifyIdToken: vi.fn() } }));
 vi.mock('../app/lib/server/newPagePlanning', () => ({ readNewPageWorkspace: vi.fn(), readNewPagePlan: vi.fn(), saveNewPageContext: vi.fn(), assessNewPageIdeas: vi.fn(), suggestNearbyAreas: vi.fn(), selectNewPageIdea: vi.fn(), generateNewPageDraft: vi.fn(), editNewPagePlan: vi.fn() }));
-vi.mock('../app/lib/server/newPageInventory', () => ({ continueNewPageInventory: vi.fn() }));
+vi.mock('../app/lib/server/newPageInventory', () => ({ continueNewPageInventory: vi.fn(), updateNewPageRetirements: vi.fn() }));
 vi.mock('../app/lib/server/newPageTracking', () => ({ confirmNewPagePublication: vi.fn(), refreshNewPageTracking: vi.fn(), readNewPageTracking: vi.fn() }));
 import { auth } from '../app/lib/firebaseAdmin';
 import * as planning from '../app/lib/server/newPagePlanning';
 import * as tracking from '../app/lib/server/newPageTracking';
+import { updateNewPageRetirements } from '../app/lib/server/newPageInventory';
 import { RequestError } from '../app/lib/server/requestAuth';
 import { GET } from '../app/api/new-page-plans/route';
 import { POST as analyze } from '../app/api/new-page-plans/analyze/route';
 import { POST as publish } from '../app/api/new-page-plans/publish/route';
+import { POST as retire } from '../app/api/new-page-plans/inventory/retire/route';
 import { POST as oldGenerate } from '../app/api/generic-keywords/analyze/route';
 import { POST as oldOutline } from '../app/api/generic-keywords/content-outline/route';
 import { POST as oldKeyword } from '../app/api/generic-keywords/keyword-analysis/route';
@@ -18,16 +20,28 @@ import { POST as oldSkip } from '../app/api/content-opportunities/skip/route';
 const request = (method = 'GET', body, token = 'valid', query = '') => new Request(`http://localhost/api/new-page-plans${query}`, { method, headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), 'content-type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
 beforeEach(() => { vi.clearAllMocks(); auth.verifyIdToken.mockResolvedValue({ uid: 'alice' }); planning.readNewPageWorkspace.mockResolvedValue({ plans: [] }); planning.assessNewPageIdeas.mockResolvedValue({ assessment: { outcome: 'no_opportunity' } }); });
 it('anonymous requests cannot read or generate and receive private no-store', async () => {
-  for (const [handler, req] of [[GET, request('GET', undefined, null)], [analyze, request('POST', {}, null)]]) {
+  for (const [handler, req] of [[GET, request('GET', undefined, null)], [analyze, request('POST', {}, null)], [retire, request('POST', {}, null)]]) {
     const response = await handler(req); expect(response.status).toBe(401); expect(response.headers.get('Cache-Control')).toBe('private, no-store');
   }
   expect(planning.readNewPageWorkspace).not.toHaveBeenCalled(); expect(planning.assessNewPageIdeas).not.toHaveBeenCalled();
+  expect(updateNewPageRetirements).not.toHaveBeenCalled();
 });
 it('rejects client-selected owners before service work', async () => {
   expect((await GET(request('GET', undefined, 'valid', '?userId=bob'))).status).toBe(403);
   expect((await analyze(request('POST', { userId: 'bob' }))).status).toBe(403);
   expect((await analyze(request('POST', { userData: { userId: 'bob' } }))).status).toBe(403);
+  expect((await retire(request('POST', { userId: 'bob', confirmed: true }))).status).toBe(403);
+  expect(updateNewPageRetirements).not.toHaveBeenCalled();
   expect(planning.assessNewPageIdeas).not.toHaveBeenCalled();
+});
+it('passes retirement requests with server identity and ignores client observations', async () => {
+  updateNewPageRetirements.mockResolvedValue({ revision: 2, pages: [] });
+  const response = await retire(request('POST', { urls: ['https://example.test/old'], inventoryRevision: 1, confirmed: true,
+    action: 'retire', observedAt: 'invented', httpStatus: 404 }));
+  expect(response.status).toBe(200);
+  expect(updateNewPageRetirements).toHaveBeenCalledWith('alice', { urls: ['https://example.test/old'], inventoryRevision: 1,
+    confirmed: true, action: 'retire', signal: expect.any(AbortSignal) });
+  expect(response.headers.get('Cache-Control')).toBe('private, no-store');
 });
 it('passes only verified identity while saved reads do not invoke analysis', async () => {
   const response = await GET(request()); expect(response.status).toBe(200);

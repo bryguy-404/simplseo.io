@@ -37,7 +37,7 @@ async function main() {
       return { status: response.status, cache: response.headers.get('cache-control'), data: await response.json() };
     };
     stage = 'authentication boundaries';
-    const protectedPaths = ['', '/context', '/inventory', '/areas', '/analyze', '/select', '/draft', '/plan', '/publish', '/tracking'];
+    const protectedPaths = ['', '/context', '/inventory', '/inventory/retire', '/areas', '/analyze', '/select', '/draft', '/plan', '/publish', '/tracking'];
     for (const path of protectedPaths) {
       const method = path === '' ? 'GET' : path === '/plan' ? 'PATCH' : 'POST';
       assert((await request(path, method, method === 'GET' ? undefined : {}, false)).status === 401, 'Anonymous API access was not blocked.');

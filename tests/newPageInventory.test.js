@@ -23,7 +23,7 @@ import { records, db, reset } from '../app/lib/firebaseAdmin';
 import { publicFetch } from '../app/lib/server/publicFetch';
 import { fetchCurrentPageContent } from '../app/lib/server/scrapeContent';
 import { getGscConnection } from '../app/lib/server/gscConnection';
-import { readNewPageInventory, continueNewPageInventory, parseInventorySitemap } from '../app/lib/server/newPageInventory';
+import { readNewPageInventory, continueNewPageInventory, parseInventorySitemap, updateNewPageRetirements } from '../app/lib/server/newPageInventory';
 import { uncertainCoveragePages } from '../app/lib/newPagePolicy';
 
 const scope = { userId: 'u1', property: 'https://example.test/', websiteRunId: 'v1', websiteUrl: 'https://example.test/', businessName: 'Example', businessLocation: 'South Bend' };
@@ -41,6 +41,167 @@ beforeEach(() => {
   fetchCurrentPageContent.mockReset().mockImplementation(async url => content(url));
   query = vi.fn().mockResolvedValue({ rows: [] });
   getGscConnection.mockReset().mockResolvedValue({ siteUrl: scope.property, query });
+});
+
+describe('owner-confirmed removed URLs', () => {
+  const missingUrl = `${scope.websiteUrl}services/retired-service`;
+  const anotherUrl = `${scope.websiteUrl}services/another-retired-service`;
+  const missing = code => Object.assign(fail(), { httpStatus: code });
+  const recordsOfRemoval = () => [...records.entries()].filter(([path]) => path.startsWith(`${root}/retirements/`)).map(([, value]) => value);
+  async function seedMissing(urls = [missingUrl], status = 404) {
+    await db.collection('onboarding').doc('u1').set({ revampPages: urls });
+    fetchCurrentPageContent.mockImplementation(async url => {
+      if (urls.includes(url)) throw missing(status);
+      return content(url);
+    });
+    const inventory = await continueNewPageInventory('u1');
+    publicFetch.mockImplementation(async url => urls.includes(url) ? response('', status)
+      : url.endsWith('robots.txt') ? response('', 404) : response(xml([])));
+    return inventory;
+  }
+  const retire = inventory => updateNewPageRetirements('u1', { urls: [missingUrl], inventoryRevision: inventory.revision, confirmed: true, action: 'retire' });
+
+  it.each([404, 410])('requires a fresh direct HTTP %s and keeps a persistent owner declaration without inventing indexing', async status => {
+    const inventory = await seedMissing([missingUrl], status);
+    const saved = await retire(inventory);
+    expect(saved.revision).toBe(inventory.revision + 1);
+    expect(saved.coverage).toMatchObject({ fetched: 1, failed: 0, retired: 1 });
+    expect(saved.pages.find(page => page.url === missingUrl)).toMatchObject({ status: 'retired', reason: 'owner_confirmed_removed',
+      retirementProof: { ownerConfirmedAt: expect.any(String), verifiedAt: expect.any(String), httpStatus: status } });
+    expect(recordsOfRemoval()).toHaveLength(1);
+    expect(recordsOfRemoval()[0]).toMatchObject({ active: true, scope, url: missingUrl, httpStatus: status, revision: 1 });
+    expect(publicFetch).toHaveBeenLastCalledWith(missingUrl, expect.objectContaining({ allowedHostname: 'example.test', property: scope.property, deadline: expect.any(Number) }));
+    expect(JSON.stringify(recordsOfRemoval()[0])).not.toContain('index');
+  });
+  it('requires explicit confirmation, exact stored URLs, and the current inventory revision', async () => {
+    const inventory = await seedMissing();
+    publicFetch.mockClear();
+    for (const patch of [{ confirmed: false }, { inventoryRevision: inventory.revision - 1 }, { urls: [`${missingUrl}/`] },
+      { urls: ['https://other.test/services/retired-service'] }, { urls: [scope.websiteUrl] }, { urls: [missingUrl, missingUrl] }]) {
+      await expect(updateNewPageRetirements('u1', { urls: [missingUrl], inventoryRevision: inventory.revision, confirmed: true, action: 'retire', ...patch })).rejects.toBeTruthy();
+    }
+    expect(publicFetch).not.toHaveBeenCalled(); expect(recordsOfRemoval()).toHaveLength(0);
+    expect((await readNewPageInventory('u1')).revision).toBe(inventory.revision);
+  });
+  it.each(['live', 'server-error', 'redirect', 'network'])('does not retire a URL when its fresh check is %s', async kind => {
+    const inventory = await seedMissing();
+    publicFetch.mockImplementation(async () => {
+      if (kind === 'network') throw fail();
+      const result = response('', kind === 'live' ? 200 : kind === 'server-error' ? 500 : 404);
+      if (kind === 'redirect') Object.defineProperty(result, 'redirectChain', { value: [{ url: missingUrl, destination: `${scope.websiteUrl}moved`, status: 301 }] });
+      return result;
+    });
+    await expect(retire(inventory)).rejects.toMatchObject({ status: 409 });
+    expect(recordsOfRemoval()).toHaveLength(0);
+    expect((await readNewPageInventory('u1')).pages.find(page => page.url === missingUrl)).toMatchObject({ status: 'failed', reason: 'http_404' });
+    expect(records.get(root).leaseUntil).toBeNull();
+  });
+  it('keeps a multi-URL confirmation atomic when one URL fails verification', async () => {
+    const inventory = await seedMissing([missingUrl, anotherUrl]);
+    publicFetch.mockImplementation(async url => response('', url === missingUrl ? 404 : 500));
+    await expect(updateNewPageRetirements('u1', { urls: [missingUrl, anotherUrl], inventoryRevision: inventory.revision, confirmed: true, action: 'retire' })).rejects.toMatchObject({ status: 409 });
+    expect(recordsOfRemoval()).toHaveLength(0);
+    expect((await readNewPageInventory('u1')).coverage).toMatchObject({ failed: 2, retired: 0 });
+  });
+  it('restores a removed URL as pending and retains declaration history', async () => {
+    const saved = await retire(await seedMissing());
+    const proof = recordsOfRemoval()[0]; publicFetch.mockClear();
+    const restored = await updateNewPageRetirements('u1', { urls: [missingUrl], inventoryRevision: saved.revision, confirmed: true, action: 'restore' });
+    expect(restored.canContinue).toBe(true);
+    expect(restored.pages.find(page => page.url === missingUrl)).toMatchObject({ status: 'pending', reason: null });
+    expect(recordsOfRemoval()[0]).toMatchObject({ active: false, ownerConfirmedAt: proof.ownerConfirmedAt, verifiedAt: proof.verifiedAt, restoredAt: expect.any(String), revision: 2 });
+    expect(publicFetch).not.toHaveBeenCalled();
+    const checked = await continueNewPageInventory('u1');
+    expect(checked.pages.find(page => page.url === missingUrl)).toMatchObject({ status: 'failed', reason: 'http_404' });
+  });
+  it.each(['missing', 'live', 'server-error', 'redirect'])('rechecks saved removals after restart when the URL is %s', async kind => {
+    await retire(await seedMissing());
+    fetchCurrentPageContent.mockImplementation(async url => {
+      if (url !== missingUrl || kind === 'live') return content(url);
+      throw missing(kind === 'server-error' ? 500 : 404);
+    });
+    if (kind === 'redirect') publicFetch.mockImplementation(async url => {
+      if (url !== missingUrl) return url.endsWith('robots.txt') ? response('', 404) : response(xml([]));
+      const result = response('', 404);
+      Object.defineProperty(result, 'redirectChain', { value: [{ url, destination: `${scope.websiteUrl}other`, status: 301 }] });
+      return result;
+    });
+    const checked = await continueNewPageInventory('u1', { restart: true });
+    expect(checked.pages.find(page => page.url === missingUrl).status).toBe(kind === 'missing' ? 'retired' : kind === 'live' ? 'fetched' : 'failed');
+    expect(recordsOfRemoval()[0].active).toBe(kind !== 'live');
+  });
+  it('keeps removed URLs discoverable after old website and Google seeds disappear', async () => {
+    await retire(await seedMissing());
+    await db.collection('onboarding').doc('u1').set({ revampPages: [] });
+    const checked = await continueNewPageInventory('u1', { restart: true });
+    expect(checked.pages.find(page => page.url === missingUrl)).toMatchObject({ status: 'retired', sources: ['owner_removal_record'] });
+  });
+  it('requires a new confirmation after a removed URL becomes live and then fails again', async () => {
+    await retire(await seedMissing());
+    fetchCurrentPageContent.mockImplementation(async url => content(url));
+    await continueNewPageInventory('u1', { restart: true });
+    expect(recordsOfRemoval()[0]).toMatchObject({ active: false, reactivatedAt: expect.any(String) });
+    fetchCurrentPageContent.mockImplementation(async url => { if (url === missingUrl) throw missing(404); return content(url); });
+    const checked = await continueNewPageInventory('u1', { restart: true });
+    expect(checked.pages.find(page => page.url === missingUrl)).toMatchObject({ status: 'failed', reason: 'http_404' });
+  });
+  it('verifies at most three URLs concurrently and respects the shared deadline', async () => {
+    const urls = Array.from({ length: 8 }, (_, index) => `${scope.websiteUrl}old-${index}`);
+    const inventory = await seedMissing(urls);
+    let active = 0, maximum = 0;
+    publicFetch.mockImplementation(async (_url, options) => {
+      expect(options.deadline).toBeGreaterThan(Date.now());
+      active += 1; maximum = Math.max(maximum, active);
+      await new Promise(resolve => setTimeout(resolve, 1)); active -= 1;
+      return response('', 404);
+    });
+    await updateNewPageRetirements('u1', { urls, inventoryRevision: inventory.revision, confirmed: true, action: 'retire' });
+    expect(maximum).toBe(3);
+  });
+  it('abandons an expired recheck without creating declarations', async () => {
+    const inventory = await seedMissing(); let clock = Date.now();
+    const date = vi.spyOn(Date, 'now').mockImplementation(() => clock);
+    try {
+      publicFetch.mockImplementation(async () => { clock += 41000; return response('', 404); });
+      await expect(retire(inventory)).rejects.toMatchObject({ status: 409 });
+      expect(recordsOfRemoval()).toHaveLength(0);
+    } finally { date.mockRestore(); }
+  });
+  it.each(['scope', 'deletion', 'revision', 'lease'])('does not save removal after in-flight %s changes', async change => {
+    const inventory = await seedMissing();
+    publicFetch.mockImplementation(async () => {
+      if (change === 'scope') scopeState.current.property = 'https://new.test/';
+      if (change === 'deletion') { scopeState.current = null; records.clear(); }
+      if (change === 'revision') records.get(root).revision += 1;
+      if (change === 'lease') records.get(root).attempt = 'another-attempt';
+      return response('', 404);
+    });
+    await expect(retire(inventory)).rejects.toBeTruthy();
+    expect(recordsOfRemoval()).toHaveLength(0);
+    if (change === 'deletion') expect(records.size).toBe(0);
+  });
+  it('rejects an overlapping review lease before checking URLs', async () => {
+    const inventory = await seedMissing();
+    records.get(root).leaseUntil = new Date(Date.now() + 60000).toISOString(); publicFetch.mockClear();
+    await expect(retire(inventory)).rejects.toMatchObject({ status: 409 });
+    expect(publicFetch).not.toHaveBeenCalled();
+  });
+  it('does not apply a prior website version’s removal declarations', async () => {
+    await retire(await seedMissing()); scopeState.current.websiteRunId = 'v2';
+    const checked = await continueNewPageInventory('u1');
+    expect(checked.pages.find(page => page.url === missingUrl)).toMatchObject({ status: 'failed', reason: 'http_404' });
+    expect(recordsOfRemoval()[0].active).toBe(true);
+  });
+  it('counts rechecked removed URLs toward the 100-page HTML cap', async () => {
+    const urls = Array.from({ length: 110 }, (_, index) => `${scope.websiteUrl}removed-${index}`);
+    await seedMissing(urls);
+    // These server-owned declarations emulate earlier explicit confirmations.
+    for (const [index, url] of urls.entries()) await db.collection('newPageInventories').doc('u1-v1').collection('retirements').doc(`prior-${index}`).set({ scope, url, active: true, ownerConfirmedAt: new Date().toISOString() });
+    fetchCurrentPageContent.mockClear();
+    const checked = await continueNewPageInventory('u1', { restart: true });
+    expect(fetchCurrentPageContent).toHaveBeenCalledTimes(100);
+    expect(checked).toMatchObject({ canContinue: false, coverage: { fetched: 1, retired: 99, pending: 11, truncated: true } });
+  });
 });
 
 describe('strict sitemap input', () => {

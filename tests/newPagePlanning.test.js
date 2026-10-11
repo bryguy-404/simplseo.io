@@ -64,6 +64,47 @@ beforeEach(async () => {
 });
 afterEach(() => { vi.useRealTimers(); delete process.env.NEW_PAGE_GENERATION_ENABLED; });
 
+const retiredPage = () => ({ url: 'https://example.test/services/discontinued', status: 'retired', reason: 'owner_confirmed_removed',
+  observedAt: when.toISOString(), retirementProof: { httpStatus: 404, ownerConfirmedAt: when.toISOString(), verifiedAt: when.toISOString() } });
+it('exposes changed coverage after a removal without generating or altering a saved plan', async () => {
+  const { plan } = await evaluateAndSelect();
+  mocks.inventory.pages.push({ ...retiredPage(), status: 'failed', reason: 'http_404', retirementProof: undefined });
+  await assessNewPageIdeas('alice');
+  expect((await readNewPageWorkspace('alice')).assessments[0]).toMatchObject({ outcome: 'needs_information', coverageChanged: false });
+  mocks.inventory.pages[1] = retiredPage();
+  mocks.inventory.revision++; records.get(`newPageInventories/${mocks.inventory.id}`).revision++;
+  mocks.create.mockClear(); vi.mocked(getGscConnection).mockClear();
+  const result = await readNewPageWorkspace('alice');
+  expect(result.assessments[0]).toMatchObject({ outcome: 'needs_information', coverageChanged: true });
+  expect(result.plans[0].id).toBe(plan.id);
+  expect(mocks.create).not.toHaveBeenCalled(); expect(getGscConnection).not.toHaveBeenCalled();
+});
+it('allows a fresh removal to stop blocking assessment but never uses removed copy as website evidence or a link', async () => {
+  const removed = { ...retiredPage(), content: { textContent: 'Old claims from a discontinued service.' } };
+  mocks.inventory.pages.push(removed);
+  const bundle = buildNewPageBundle({ scope, context, inventory: mocks.inventory, priorPlans: [], research: { sources: [] } });
+  expect(bundle.unknownPages).toEqual([]); expect(bundle.removedPages[0].url).toBe(removed.url);
+  expect(bundle.pages.some(page => page.url === removed.url)).toBe(false);
+  expect(bundle.facts.some(fact => fact.url === removed.url)).toBe(false);
+  expect((await assessNewPageIdeas('alice')).assessment.outcome).toBe('new_page');
+});
+it('preserves unchanged removal evidence on recheck while invalidating a missing proof or restored URL', async () => {
+  mocks.inventory.pages.push(retiredPage());
+  await assessNewPageIdeas('alice');
+  const later = new Date(when.getTime() + 86400000); vi.setSystemTime(later);
+  mocks.inventory.updatedAt = later.toISOString();
+  mocks.inventory.pages[1].observedAt = later.toISOString(); mocks.inventory.pages[1].retirementProof.verifiedAt = later.toISOString();
+  mocks.inventory.revision++; records.get(`newPageInventories/${mocks.inventory.id}`).revision++;
+  expect((await readNewPageWorkspace('alice')).assessments[0].coverageChanged).toBe(false);
+  expect((await assessNewPageIdeas('alice')).unchanged).toBe(true);
+  expect(mocks.create).toHaveBeenCalledTimes(2);
+  mocks.inventory.pages[1].retirementProof = null;
+  expect((await readNewPageWorkspace('alice')).assessments[0].coverageChanged).toBe(true);
+  expect((await assessNewPageIdeas('alice')).assessment.outcome).toBe('needs_information');
+  mocks.inventory.pages[1] = { ...retiredPage(), status: 'pending', reason: null };
+  expect((await readNewPageWorkspace('alice')).assessments[0].coverageChanged).toBe(true);
+});
+
 it('reads saved workspace only and visibly prefills unconfirmed services from observed pages', async () => {
   const result = await readNewPageWorkspace('alice');
   expect(result.business.services).toContain('Plumbing repairs');
@@ -336,11 +377,12 @@ it('restores the active area assessment directly even after more than 200 histor
   expect((await readNewPageWorkspace('alice')).assessments[0].id).toBe(first.assessment.id);
   expect(mocks.create).not.toHaveBeenCalled();
 });
-it.each(['expired', 'missing', 'old_fetched_page'])('rejects %s website evidence before assessment or drafting consumes a generation allowance', async age => {
+it.each(['expired', 'missing', 'old_fetched_page', 'old_retired_page'])('rejects %s website evidence before assessment or drafting consumes a generation allowance', async age => {
   const { plan } = await evaluateAndSelect();
   mocks.create.mockClear(); vi.mocked(getGscConnection).mockClear();
   const allowanceBefore = usageKinds();
-  if (age === 'old_fetched_page') mocks.inventory.pages[0].content.fetchedAt = new Date(when.getTime() - 8 * 86400000).toISOString();
+  if (age === 'old_retired_page') mocks.inventory.pages.push({ ...retiredPage(), retirementProof: { ...retiredPage().retirementProof, verifiedAt: new Date(when.getTime() - 8 * 86400000).toISOString() } });
+  else if (age === 'old_fetched_page') mocks.inventory.pages[0].content.fetchedAt = new Date(when.getTime() - 8 * 86400000).toISOString();
   else mocks.inventory.updatedAt = age === 'expired' ? new Date(when.getTime() - 8 * 86400000).toISOString() : undefined;
   await expect(assessNewPageIdeas('alice')).rejects.toMatchObject({ status: 409, message: expect.stringContaining('Refresh website review first') });
   await expect(generateNewPageDraft('alice', { planId: plan.id, revision: plan.revision })).rejects.toMatchObject({ status: 409, message: expect.stringContaining('Refresh website review first') });

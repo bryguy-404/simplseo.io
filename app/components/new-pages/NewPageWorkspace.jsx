@@ -7,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { authenticatedFetch } from '../../lib/authenticatedFetch';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import NewPagePlan from './NewPagePlan';
 import { areaKey, areaLabel, contextKey, displayDate, fieldClass, safeLink } from './shared';
 
@@ -17,13 +18,14 @@ async function request(path = '', body, signal, method = 'POST') {
   const result = await response.json();
   if (!response.ok) {
     const error = new Error(result.error || 'We couldn’t finish this step. Your saved work is unchanged.');
-    error.details = result;
+    error.details = { ...result, status: response.status };
     throw error;
   }
   return result;
 }
 
 function websiteCheckLabel(page) {
+  if (page.status === 'retired') return 'Marked as removed by you';
   if (page.reason === 'http_404') return 'Page not found (404)';
   if (page.reason === 'http_410') return 'Page removed (410)';
   if (page.reason === 'robots_disallowed') return 'Website rules block our review';
@@ -71,6 +73,10 @@ export default function NewPageWorkspace() {
   const [contextDirty, setContextDirty] = useState(false);
   const [nearby, setNearby] = useState([]);
   const [selectedPlan, setSelectedPlan] = useState('');
+  const [resolution, setResolution] = useState(null);
+  const [resolutionConfirmed, setResolutionConfirmed] = useState(false);
+  const [resolutionError, setResolutionError] = useState('');
+  const [resolutionConflict, setResolutionConflict] = useState(false);
   const controller = useRef(null);
   const generation = useRef(0);
   const actionActive = useRef(false);
@@ -88,7 +94,7 @@ export default function NewPageWorkspace() {
     const token = ++generation.current;
     controller.current?.abort();
     actionActive.current = false;
-    setBusy(''); setData(null); setError(''); setNotice(''); setNearby([]); setSelectedPlan('');
+    setBusy(''); setData(null); setError(''); setNotice(''); setNearby([]); setSelectedPlan(''); setResolution(null); setResolutionConfirmed(false); setResolutionError(''); setResolutionConflict(false);
     if (!user?.id) { setLoading(false); return; }
     const current = new AbortController(); controller.current = current;
     setLoading(true);
@@ -118,7 +124,7 @@ export default function NewPageWorkspace() {
     try {
       const result = await request(path, body, current.signal, method);
       // Area switching restores its stored assessment; this read performs no research.
-      if (path === '/context' || path === '/inventory') result.workspace = await request('', undefined, current.signal);
+      if (path === '/context' || path === '/inventory' || path === '/inventory/retire') result.workspace = await request('', undefined, current.signal);
       if (token !== generation.current) return null;
       apply?.(result); return result;
     } catch (reason) {
@@ -169,6 +175,23 @@ export default function NewPageWorkspace() {
       setNotice('Area saved. Your other areas and plans are still available.');
     });
   };
+  const applyInventoryWorkspace = workspace => setData(previous => ({ ...previous,
+    inventory: workspace.inventory, business: workspace.business || previous.business, assessments: workspace.assessments || [],
+  }));
+  const openResolution = (page, action) => {
+    setResolution({ urls: [page.url || page.pageUrl], action, inventoryRevision: data.inventory.revision });
+    setResolutionConfirmed(false); setResolutionError(''); setResolutionConflict(false);
+  };
+  const confirmResolution = async () => {
+    if (!resolution || !resolutionConfirmed) return;
+    setResolutionError(''); setResolutionConflict(false);
+    const restoring = resolution.action === 'restore';
+    const result = await act(restoring ? 'Restoring this page for review…' : 'Saving your removed-page confirmation…', '/inventory/retire', { ...resolution, confirmed: true }, response => {
+      applyInventoryWorkspace(response.workspace); setResolution(null); setResolutionConfirmed(false);
+      setNotice(restoring ? 'Page restored for review. Continue website review to check it again.' : response.inventory?.canContinue ? 'Page marked as removed. Continue website review, then check for updates.' : 'Page marked as removed. Check for updates to assess your current pages.');
+    });
+    if (result?.failed) { setResolutionError(result.error || 'We couldn’t save this change. Your website has not changed.'); setResolutionConflict(result.status === 409); }
+  };
   const changeArea = next => { setArea(next); setConfirmed(false); setContextDirty(true); setNotice(''); setError(''); };
   const savedContext = data?.context;
   const currentArea = areaKey(savedContext?.area);
@@ -183,8 +206,10 @@ export default function NewPageWorkspace() {
     }, new Map()).values()];
   const inventory = data?.inventory;
   const inventoryPages = Array.isArray(inventory?.pages) ? inventory.pages : [];
-  const reviewed = inventoryPages.filter(page => ['fetched', 'reviewed', 'available'].includes(page.status) || page.content).length;
-  const pagesToCheck = inventoryPages.filter(page => !['fetched', 'reviewed', 'available'].includes(page.status)
+  const activeInventoryPages = inventoryPages.filter(page => page.status !== 'retired');
+  const retiredPages = inventoryPages.filter(page => page.status === 'retired');
+  const reviewed = activeInventoryPages.filter(page => ['fetched', 'reviewed', 'available'].includes(page.status) || page.content).length;
+  const pagesToCheck = activeInventoryPages.filter(page => !['fetched', 'reviewed', 'available'].includes(page.status)
     && !['non_html_response', 'non_html_resource', 'file_extension'].includes(page.reason));
   const hasMissingPages = pagesToCheck.some(page => ['http_404', 'http_410'].includes(page.reason));
   const selected = plans.find(plan => plan.id === selectedPlan && plan.status !== 'dismissed');
@@ -219,23 +244,25 @@ export default function NewPageWorkspace() {
       </CardContent></Card>
 
       <Card><CardContent className="space-y-4 pt-6"><div><h2 className="text-lg font-semibold">2. Check what your website already covers</h2><p className="mt-1 text-sm text-muted-foreground">We review existing pages before suggesting another one—including pages without Google traffic.</p></div>
-        {inventory && <div className="rounded-lg border p-4 text-sm"><p className="font-medium">{inventory.status === 'ready' ? 'Website review saved' : inventory.status === 'unavailable' ? 'Website review unavailable' : 'Website review is partial'}</p><p className="mt-1 text-muted-foreground">{inventoryPages.length} links found · {reviewed} pages read{pagesToCheck.length ? ` · ${pagesToCheck.length} to check` : ''}. {inventory.canContinue ? 'Continue reviewing before checking for gaps.' : 'We may not have found every page on your website.'}</p>{inventory.updatedAt && <p className="mt-1 text-xs text-muted-foreground">Checked {displayDate(inventory.updatedAt)}</p>}
+        {inventory && <div className="rounded-lg border p-4 text-sm"><p className="font-medium">{inventory.status === 'ready' ? 'Website review saved' : inventory.status === 'unavailable' ? 'Website review unavailable' : 'Website review is partial'}</p><p className="mt-1 text-muted-foreground">{inventoryPages.length} links found · {reviewed} pages read{pagesToCheck.length ? ` · ${pagesToCheck.length} to check` : ''}{retiredPages.length ? ` · ${retiredPages.length} marked removed` : ''}. {inventory.canContinue ? 'Continue reviewing before checking for gaps.' : 'We may not have found every page on your website.'}</p>{inventory.updatedAt && <p className="mt-1 text-xs text-muted-foreground">Checked {displayDate(inventory.updatedAt)}</p>}
           {pagesToCheck.length > 0 && <section id="website-pages-to-check" aria-label="Pages to check" className="mt-4 space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4">
             <h3 className="font-medium">Check these links before adding a page</h3>
             <p>We couldn’t finish reading these pages. They may already cover a topic we would otherwise suggest.</p>
             <details><summary className="cursor-pointer font-medium">View {pagesToCheck.length} links to check</summary><ul className="mt-3 max-h-64 space-y-3 overflow-y-auto">{pagesToCheck.map((page, index) => <li key={`${page.url || page.pageUrl}-${index}`}>
               {safeLink(page.url || page.pageUrl) ? <a className="block break-all underline" target="_blank" rel="noopener noreferrer" href={safeLink(page.url || page.pageUrl)}>{page.url || page.pageUrl}</a> : <span className="break-all">{page.url || page.pageUrl}</span>}
               <span className="mt-1 block text-muted-foreground">{websiteCheckLabel(page)}</span>
+              {page.status === 'failed' && ['http_404', 'http_410'].includes(page.reason) && <Button type="button" size="sm" variant="outline" className="mt-2" disabled={disabled} onClick={() => openResolution(page, 'retire')}>This page was removed</Button>}
             </li>)}</ul></details>
-            {hasMissingPages && <p>For a “page not found” link: if the page should exist, check its address in your website builder. If you removed it, check for old links in your website and sitemap.</p>}
+            {hasMissingPages && <p>For a “page not found” link: if the page should exist, check its address in your website builder. If you intentionally removed it, mark it as removed here and check for old links in your website and sitemap.</p>}
             <p>{inventory.canContinue ? 'Click Continue website review to read the next pages.' : `After checking the links, click Refresh website review, then ${assessment ? 'Check for updates' : 'Find useful page ideas'}. If a page opens for you but we still can’t read it, it needs further inspection.`}</p>
             <p className="text-xs text-muted-foreground">These are SimplSEO website checks, not Google indexing results.</p>
           </section>}
+          {retiredPages.length > 0 && <details className="mt-3"><summary className="cursor-pointer">Removed pages ({retiredPages.length})</summary><p className="mt-3 text-muted-foreground">You confirmed these pages are no longer needed. They are left out of new-page planning.</p><ul className="mt-3 space-y-3">{retiredPages.map(page => <li key={page.url || page.pageUrl} className="rounded-lg border p-3">{safeLink(page.url || page.pageUrl) && <a className="block break-all underline" href={safeLink(page.url || page.pageUrl)} target="_blank" rel="noopener noreferrer">{page.url || page.pageUrl}</a>}<span className="mt-1 block text-muted-foreground">{websiteCheckLabel(page)}</span><Button type="button" size="sm" variant="ghost" className="mt-2" disabled={disabled} onClick={() => openResolution(page, 'restore')}>Restore for review</Button></li>)}</ul></details>}
           {inventory.coverage?.limitations?.length > 0 && <details className="mt-3"><summary className="cursor-pointer">What this review can tell us</summary><ul className="mt-3 list-disc space-y-2 pl-5 text-muted-foreground">{inventory.coverage.limitations.map((limitation, index) => <li key={index}>{limitation}</li>)}</ul></details>}
-          {inventoryPages.length > 0 && <details className="mt-3"><summary className="cursor-pointer">View reviewed pages</summary><ul className="mt-3 max-h-64 space-y-2 overflow-y-auto">{inventoryPages.map((page, index) => <li className="flex flex-wrap gap-2 break-all" key={`${page.url || page.pageUrl}-${index}`}>{safeLink(page.url || page.pageUrl) ? <a className="underline" target="_blank" rel="noopener noreferrer" href={safeLink(page.url || page.pageUrl)}>{page.title || page.url || page.pageUrl}</a> : <span>{page.url || page.pageUrl}</span>}<span className="text-muted-foreground">{websiteCheckLabel(page)}</span></li>)}</ul></details>}
+          {activeInventoryPages.length > 0 && <details className="mt-3"><summary className="cursor-pointer">View reviewed pages</summary><ul className="mt-3 max-h-64 space-y-2 overflow-y-auto">{activeInventoryPages.map((page, index) => <li className="flex flex-wrap gap-2 break-all" key={`${page.url || page.pageUrl}-${index}`}>{safeLink(page.url || page.pageUrl) ? <a className="underline" target="_blank" rel="noopener noreferrer" href={safeLink(page.url || page.pageUrl)}>{page.title || page.url || page.pageUrl}</a> : <span>{page.url || page.pageUrl}</span>}<span className="text-muted-foreground">{websiteCheckLabel(page)}</span></li>)}</ul></details>}
         </div>}
         <div className="flex flex-wrap gap-3"><Button variant={inventory ? 'outline' : 'default'} disabled={disabled} onClick={() => act('Reviewing your website…', '/inventory', inventory?.canContinue ? {} : { restart: Boolean(inventory) }, result => {
-            setData(previous => ({ ...previous, inventory: result.inventory, business: result.workspace?.business || previous.business }));
+            setData(previous => ({ ...previous, inventory: result.inventory, business: result.workspace?.business || previous.business, assessments: result.workspace?.assessments || previous.assessments }));
             if (!services.trim() && !savedContext) {
               const observed = result.workspace?.business?.services || [];
               if (observed.length) { setServices([...new Set(observed)].join('\n')); setContextDirty(true); }
@@ -248,7 +275,8 @@ export default function NewPageWorkspace() {
         {contextDirty && <p className="text-sm text-muted-foreground">Save your area and services before continuing.</p>}
       </CardContent></Card>
 
-      {assessment && <section className="space-y-4" aria-label="Page opportunity assessment"><div><h2 className="text-xl font-semibold">Ideas for {areaLabel(assessment.context?.area)}</h2><p className="mt-2 text-sm text-muted-foreground">{assessment.summary}</p></div>
+      {assessment?.coverageChanged && <section aria-label="Updated website review" className="space-y-2 rounded-xl border border-primary/30 bg-primary/5 p-5"><h2 className="font-semibold">Website review updated</h2><p className="text-sm text-muted-foreground">{inventory?.canContinue ? 'Continue website review, then use Check for updates to assess your current pages.' : 'Use Check for updates above to assess your current pages.'} Your saved plans stay available.</p></section>}
+      {assessment && !assessment.coverageChanged && <section className="space-y-4" aria-label="Page opportunity assessment"><div><h2 className="text-xl font-semibold">Ideas for {areaLabel(assessment.context?.area)}</h2><p className="mt-2 text-sm text-muted-foreground">{assessment.summary}</p></div>
         {assessment.outcome === 'no_opportunity' && <div className="flex items-start gap-3 rounded-xl border border-primary/30 bg-primary/5 p-5"><CheckCircle2 className="mt-1 size-5 shrink-0 text-primary" /><div><h3 className="font-semibold">No new page needed right now</h3><p className="mt-1 text-sm text-muted-foreground">Your existing coverage does not justify another page from the evidence reviewed. You can work on an existing page or choose another area.</p><Link className="mt-3 inline-block text-sm underline" href="/low-ctr">Improve an existing page</Link></div></div>}
         {assessment.outcome === 'needs_information' && <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 text-sm"><p>{pagesToCheck.length ? 'Check the existing pages before we suggest another one.' : 'We need more information before suggesting a page.'}</p>{pagesToCheck.length > 0 && <a className="mt-2 inline-block underline" href="#website-pages-to-check">See the links to check</a>}{assessment.questions?.length > 0 ? <ul className="mt-3 list-disc space-y-2 pl-5">{assessment.questions.map((question, index) => <li key={index}>{question === 'Check the unreadable or unreviewed pages in Website coverage, then refresh the inventory.' ? 'Open the links listed in your website review above. After checking them, refresh the website review and check for updates.' : question}</li>)}</ul> : !pagesToCheck.length && <p className="mt-2">Review the guidance below or add business facts above, then check again.</p>}</div>}
         {(assessment.ideas || []).map((idea, index) => {
@@ -267,5 +295,6 @@ export default function NewPageWorkspace() {
       {selected && !contextDirty && areaKey(selected.context?.area) === currentArea && <NewPagePlan key={`${selected.id}:${selected.revision}`} plan={selected} busy={Boolean(busy)} enabled={data.enabled !== false} act={act} updatePlan={updatePlan} onDismiss={() => setSelectedPlan('')} />}
       {(data.history?.length > 0 || plans.some(plan => plan.status === 'dismissed')) && <details className="rounded-xl border p-5 text-sm"><summary className="cursor-pointer">Previous and set-aside ideas</summary><p className="mt-3 text-muted-foreground">Older opportunity records are history. Their estimated metrics and success labels are not verified results.</p>{plans.filter(plan => plan.status === 'dismissed').map(plan => <div key={plan.id} className="mt-3 flex flex-wrap items-center justify-between gap-3"><span>{plan.idea?.topic} · {areaLabel(plan.context?.area)}</span><Button variant="outline" size="sm" disabled={disabled} onClick={() => act('Restoring your plan…', '/plan', { planId: plan.id, revision: plan.revision, status: 'draft' }, result => { updatePlan(result); if (areaKey(plan.context?.area) === currentArea) setSelectedPlan(plan.id); }, 'PATCH')}>Restore plan</Button></div>)}{data.history?.map((record, index) => <HistoryEntry record={record} act={act} disabled={disabled} key={`${record.historyType || 'history'}-${record.id || index}`} />)}</details>}
     </>}
+    <Dialog open={Boolean(resolution)} onOpenChange={open => { if (!busy && !open) setResolution(null); }}><DialogContent className="max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>{resolution?.action === 'restore' ? 'Review this page again?' : 'Mark this page as removed?'}</DialogTitle><DialogDescription>{resolution?.action === 'restore' ? 'Return this address to your website review. Continue the review afterward to check whether it is available again.' : 'Confirm only if you intentionally removed this page and no longer need it. SimplSEO will leave this address out of the pages that need checking.'} This changes your planning record only. It does not delete, edit or publish anything on your website.</DialogDescription></DialogHeader>{resolution?.urls.map(url => <p key={url} className="break-all text-sm">{url}</p>)}{resolutionError && <p role="alert" className="text-sm text-destructive">{resolutionError}</p>}<label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1 size-4 shrink-0 accent-primary" checked={resolutionConfirmed} disabled={disabled} onChange={event => setResolutionConfirmed(event.target.checked)} /><span>{resolution?.action === 'restore' ? 'Include this address in my website review again.' : 'I intentionally removed this page and no longer need it.'}</span></label>{resolutionConflict && <Button variant="outline" disabled={disabled} onClick={() => act('Loading the latest saved review…', '', undefined, workspace => { applyInventoryWorkspace(workspace); setResolution(null); setNotice('Latest website review loaded. Check the page before confirming again.'); })}>Reload saved review</Button>}<DialogFooter><Button variant="outline" disabled={disabled} onClick={() => setResolution(null)}>Cancel</Button><Button disabled={disabled || !resolutionConfirmed || resolutionConflict} onClick={confirmResolution}>{busy ? 'Saving…' : resolution?.action === 'restore' ? 'Restore page' : 'Mark as removed'}</Button></DialogFooter></DialogContent></Dialog>
   </main>;
 }

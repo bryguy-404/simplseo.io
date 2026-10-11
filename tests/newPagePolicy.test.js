@@ -28,6 +28,18 @@ function draft() {
 }
 
 describe('opportunity decisions and evidence', () => {
+  it('resolves only owner-confirmed removals with verified missing-page evidence', () => {
+    const removed = { url: 'https://example.test/old-service', status: 'retired', reason: 'owner_confirmed_removed',
+      retirementProof: { ownerConfirmedAt: '2026-10-10T18:00:00Z', verifiedAt: '2026-10-10T18:00:00Z', httpStatus: 404 } };
+    expect(uncertainCoveragePages({ pages: [removed] })).toEqual([]);
+    expect(uncertainCoveragePages({ pages: [{ ...removed, retirementProof: { ...removed.retirementProof, httpStatus: 410 } }] })).toEqual([]);
+    for (const change of [{ status: 'failed' }, { reason: 'unreadable' }, { retirementProof: null },
+      ...[200, 301, 403, 500].map(httpStatus => ({ retirementProof: { ...removed.retirementProof, httpStatus } })),
+      { retirementProof: { ...removed.retirementProof, verifiedAt: 'invalid' } },
+      { retirementProof: { ...removed.retirementProof, ownerConfirmedAt: undefined } }]) {
+      expect(uncertainCoveragePages({ pages: [{ ...removed, ...change }] })).toHaveLength(1);
+    }
+  });
   it('accepts a supported gap with observed search provenance and owner-grounded purpose', () => {
     expect(validateNewPageAssessment(assessment(), bundle())).toEqual(assessment());
   });

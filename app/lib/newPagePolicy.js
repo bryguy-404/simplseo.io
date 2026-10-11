@@ -31,6 +31,7 @@ const shared = `You help local service businesses attract appropriate inquiries,
 export const NEW_PAGE_ASSESSMENT_INSTRUCTIONS = `${shared}
 Use short, complete sentences. Aim for a summary under 350 characters, purpose under 240, reason under 350 and distinctValue under 450. These are shorter than the schema limits so sentences can finish naturally; never cut a sentence off or append a fragment to fill the remaining space.
 Assess ONE owner-confirmed area and the confirmed services. The inventory includes pages with no Google search observations. Read every page summary and compare customer intent, not just exact keywords or slugs. Group synonymous topics into one need. Compare saved plans too; never recommend another version of a drafted, dismissed or published topic. Do not assume an unindexed page is missing. Metadata quality or a missing city name alone is not a reason for a separate page. Existing broad service coverage often deserves improvement instead of a duplicate local service page.
+Removed pages were explicitly retired by the owner and verified missing from the website. They are not available pages or new-page opportunities by themselves. Do not recreate a retired service just because its old URL exists in records. Search Console observations for those URLs are historical observations, not evidence of current coverage. Recommend only confirmed services with an independently justified customer need.
 Return zero to THREE justified ideas, prioritized by business relevance, actual evidence and distinct value. Three is a maximum, not a quota. Prefer no_opportunity when existing pages already serve the need. Prefer improve_existing and an exact existingPageUrl when a supplied page already serves the intent; say what it can add. Choose needs_information when the inventory, research or essential service/location facts leave the gap uncertain. Ask a specific useful question, never imply a failed crawl means a missing page. Unreviewed/failed/blocked URLs that could cover the topic require inspection first. Content summaries are truncated and do not establish absence within a page.
 new_page requires: service EXACTLY one confirmed service string; owner-confirmed area; distinct intent or substantial separate visitor decision; concrete unique content opportunity; closest existing URLs checked; at least one website/owner evidence ID. A proposed location page must have area-specific first-party substance (real local work, relevant service arrangements or customer questions), not simply proximity, service availability or competitor coverage. If that substance is missing, use needs_information. Do not manufacture other towns. Geography and services in web research establish no facts about this business.
 Return overall outcome new_page only with one or more new_page ideas; otherwise improve_existing with existing-page ideas, needs_information with questions/uncertainties, or no_opportunity with no ideas. requiredFacts are essential questions the owner must answer before a draft; optional writing suggestions belong in later drafting. checkedPageUrls must include the closest supplied fetched pages (at least one). uncertainPageUrls list relevant unreadable/unreviewed URLs. evidenceIds reference only supplied facts or public sources; new pages require a first-party P/O fact, never only a query or competitor. A phrase is observed only if it is an EXACT supplied Search Console query; otherwise proposed. Do not call a proposed phrase proven demand. Provide purpose/intendedCustomer and distinctValue without vague 'SEO benefit' justification.`;
@@ -73,6 +74,12 @@ const knownClaim = (copy, source) => {
   return !(copy.match(/\d+(?:[.,]\d+)*/g) || []).some(number => !numbers.has(number))
     && ![...copy.matchAll(businessClaims)].some(match => !normalized(source).includes(normalized(match[0])));
 };
+export function isVerifiedRetiredPage(page) {
+  const proof = page.retirementProof;
+  return page.status === 'retired' && page.reason === 'owner_confirmed_removed'
+    && [404, 410].includes(proof?.httpStatus)
+    && Number.isFinite(Date.parse(proof?.ownerConfirmedAt)) && Number.isFinite(Date.parse(proof?.verifiedAt));
+}
 export function uncertainCoveragePages(inventory) {
   return (inventory?.pages || []).map(page => {
     if (page.status !== 'fetched') return page;
@@ -80,7 +87,7 @@ export function uncertainCoveragePages(inventory) {
     const readable = [content.h1, content.textContent, typeof content.mainContent === 'string' ? content.mainContent : content.mainContent?.text,
       ...(content.contentSections || []).map(section => section.text)].some(value => typeof value === 'string' && value.trim());
     return readable ? page : { ...page, status: 'unreviewed', reason: 'no_readable_html' };
-  }).filter(page => page.status !== 'fetched'
+  }).filter(page => page.status !== 'fetched' && !isVerifiedRetiredPage(page)
     && !['non_html_response', 'file_extension', 'non_html_resource'].includes(page.reason)
     && !/\/(?:privacy|terms|legal|cookie|login|account)(?:[/-]|$)/i.test(new URL(page.url).pathname));
 }

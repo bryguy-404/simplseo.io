@@ -7,7 +7,7 @@ import { responseText, parseWebResearch } from '../pageReviewPolicy';
 import { NEW_PAGE_MODEL, NEW_PAGE_POLICY_VERSION, NEW_PAGE_ASSESSMENT_SCHEMA, NEW_PAGE_ASSESSMENT_INSTRUCTIONS,
   NEW_PAGE_DRAFT_SCHEMA, NEW_PAGE_DRAFT_INSTRUCTIONS, NEW_PAGE_DRAFT_AUDIT_INSTRUCTIONS, DRAFT_AUDIT_SCHEMA, NEARBY_AREA_SCHEMA,
   newPageStructuredRequest, newPageResearchRequest, validateNewPageAssessment, validateNewPageDraft,
-  validateOwnerDraft, uncertainCoveragePages, parseNearbyAreas } from '../newPagePolicy';
+  validateOwnerDraft, uncertainCoveragePages, isVerifiedRetiredPage, parseNearbyAreas } from '../newPagePolicy';
 import { readNewPageScope, assertSameNewPageScope, newPageScopeKey } from './newPageScope';
 import { readNewPageInventory } from './newPageInventory';
 import { readNewPageTracking } from './newPageTracking';
@@ -50,7 +50,8 @@ async function ownedRecords(collection, userId) {
 function inventoryView(inventory) {
   if (!inventory) return null;
   return { ...inventory, pages: inventory.pages.map(page => ({ url: page.url, status: page.status, reason: page.reason || null,
-    title: page.content?.htmlTitle || '', sources: page.sources || [], observedAt: page.observedAt || null })) };
+    title: page.content?.htmlTitle || '', sources: page.sources || [], observedAt: page.observedAt || null,
+    retirementProof: page.retirementProof || null })) };
 }
 const labelWords = value => (String(value || '').toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).join(' ');
 const distinctServiceLabels = values => {
@@ -182,7 +183,8 @@ export async function readNewPageWorkspace(userId) {
   assertSameNewPageScope(scope, await readNewPageScope(userId));
   return { context: currentContext, contexts: workspace.data()?.contexts || [],
     business: { name: scope.businessName, location: scope.businessLocation, websiteUrl: scope.websiteUrl, services },
-    inventory: inventoryView(inventory), assessments: scoped(scope, currentAssessment) ? [assessmentSummary(currentAssessment)] : [],
+    inventory: inventoryView(inventory), assessments: scoped(scope, currentAssessment) ? [{ ...assessmentSummary(currentAssessment),
+      coverageChanged: currentAssessment.inventoryFingerprint !== inventoryFingerprint(inventory) }] : [],
     plans: plans.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt))), history, enabled: enabled() };
 }
 export async function saveNewPageContext(userId, input) {
@@ -230,7 +232,8 @@ function stableEvidence(value) {
     .sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, stableEvidence(item)]));
 }
 function inventoryFingerprint(inventory) {
-  return hash(stableEvidence({ pages: (inventory?.pages || []).map(page => [page.url, page.status, page.reason || null, page.content || null]).sort((a, b) => a[0].localeCompare(b[0])), coverage: inventory?.coverage }));
+  return hash(stableEvidence({ pages: (inventory?.pages || []).map(page => [page.url, page.status, page.reason || null, page.content || null,
+    ...(page.status === 'retired' ? [isVerifiedRetiredPage(page)] : [])]).sort((a, b) => a[0].localeCompare(b[0])), coverage: inventory?.coverage }));
 }
 function inputFingerprint({ context, inventory, priorPlans }) {
   return hash({ version: NEW_PAGE_POLICY_VERSION, context: contextSignature(context), inventory: inventoryFingerprint(inventory),
@@ -238,8 +241,8 @@ function inputFingerprint({ context, inventory, priorPlans }) {
 }
 async function assertInventoryCurrent(scope, inventory, tx) {
   const age = Date.now() - Date.parse(inventory.updatedAt);
-  const stalePage = (inventory.pages || []).filter(page => page.status === 'fetched').some(page => {
-    const dates = [page.content?.fetchedAt, page.observedAt].map(value => Date.parse(value)).filter(Number.isFinite);
+  const stalePage = (inventory.pages || []).filter(page => page.status === 'fetched' || isVerifiedRetiredPage(page)).some(page => {
+    const dates = [page.status === 'retired' ? page.retirementProof.verifiedAt : page.content?.fetchedAt, page.observedAt].map(value => Date.parse(value)).filter(Number.isFinite);
     const pageAge = dates.length ? Date.now() - Math.min(...dates) : NaN;
     return !Number.isFinite(pageAge) || pageAge > 7 * DAY || pageAge < -300000;
   });
@@ -288,6 +291,8 @@ export function buildNewPageBundle({ scope, context, inventory, priorPlans, quer
     ...queries.map((query, index) => ({ id: `Q${index + 1}`, source: 'google_search_console', text: JSON.stringify(query), ...query }))];
   return { websiteUrl: scope.websiteUrl, businessName: scope.businessName, context, pages,
     unknownPages: uncertainCoveragePages(inventory).map(page => ({ url: page.url, status: page.status, reason: page.reason || null })),
+    removedPages: (inventory?.pages || []).filter(isVerifiedRetiredPage).map(page => ({ url: page.url,
+      ownerConfirmedAt: page.retirementProof.ownerConfirmedAt, verifiedAt: page.retirementProof.verifiedAt })),
     coverage: inventory?.coverage || null, facts, queries, searchStatus, research,
     priorPlans: priorPlans.map(plan => ({ id: plan.id, status: plan.status,
       area: { name: excerpt(plan.context?.area?.name, 120), region: excerpt(plan.context?.area?.region, 120), country: excerpt(plan.context?.area?.country, 120) },

@@ -15,7 +15,7 @@ const idea = { id: 'drain-page', outcome: 'new_page', topic: 'Drain cleaning in 
 const draft = { title: 'Drain Cleaning in South Bend | Example', description: 'Learn about drain cleaning in South Bend and request a quote.',
   h1: 'Drain cleaning in South Bend', slug: '/drain-cleaning', sections: [{ id: 'process', heading: 'How to get help', body: 'Tell us about the drainage issue. We discuss the next step with you.' }],
   links: [{ url: property, text: 'Our plumbing services', placement: 'Link from the homepage service summary.' }], optionalPrompts: ['Add a real local project example if you have one.'] };
-const inventory = { status: 'ready', coverage: { discovered: 2, fetched: 2, limitations: ['A bounded review, not a complete website census.'] }, canContinue: false, updatedAt: now,
+const inventory = { revision: 1, status: 'ready', coverage: { discovered: 2, fetched: 2, limitations: ['A bounded review, not a complete website census.'] }, canContinue: false, updatedAt: now,
   pages: [{ url: property, title: 'Example Plumbing', status: 'fetched' }, { url: `${property}services`, status: 'fetched' }] };
 const summarizePlan = plan => ({ id: plan.id, revision: plan.revision, status: plan.status, context: { area: plan.context.area, services: plan.context.services }, idea: { id: plan.idea.id, topic: plan.idea.topic, service: plan.idea.service, searchFocus: plan.idea.searchFocus }, hasDraft: Boolean(plan.draft), createdAt: plan.createdAt, updatedAt: plan.updatedAt, readOnly: Boolean(plan.readOnly), historyType: plan.historyType });
 const makeAssessment = (overrides = {}) => ({ id: 'assessment-south-bend', context, outcome: 'new_page', summary: 'One useful service gap was found.', ideas: [idea],
@@ -58,6 +58,15 @@ async function setup(page, overrides = {}) {
       if (endpoint === '/plan' && method === 'GET') return json({ plan: [...state.data.plans, ...state.data.history].find(item => item.id === url.searchParams.get('planId')) });
       if (endpoint === '/context') { if (state.contextError) return json({ error: state.contextError }, 400); state.data.context = body; return json({ context: body }); }
       if (endpoint === '/areas') return json({ areas: [{ ...otherArea, reason: 'Nearby community in Indiana.', sourceUrl: 'https://example.org/mishawaka' }] });
+      if (endpoint === '/inventory/retire') {
+        if (body.inventoryRevision !== state.data.inventory.revision) return json({ error: 'Your website review changed. Reload it before confirming this page.' }, 409);
+        const restoring = body.action === 'restore';
+        state.data.inventory = { ...state.data.inventory, revision: state.data.inventory.revision + 1, status: restoring ? 'running' : 'ready', canContinue: restoring,
+          pages: state.data.inventory.pages.map(item => body.urls.includes(item.url) ? { ...item, status: restoring ? 'pending' : 'retired', reason: restoring ? null : 'owner_confirmed_removed' } : item) };
+        state.data.inventory.coverage = { ...state.data.inventory.coverage, retired: state.data.inventory.pages.filter(item => item.status === 'retired').length };
+        state.data.assessments = state.data.assessments.map(item => ({ ...item, coverageChanged: true }));
+        return json({ inventory: state.data.inventory });
+      }
       if (endpoint === '/inventory') { state.data.inventory = state.nextInventory || inventory; if (state.nextServices) state.data.business = { ...state.data.business, services: state.nextServices }; return json({ inventory: state.data.inventory }); }
       if (endpoint === '/analyze') {
         const assessment = state.analysis || state.data.assessments.find(item => item.context.area.name === state.data.context.area.name) || makeAssessment({ id: 'assessment-other', context: state.data.context, outcome: 'no_opportunity', ideas: [] });
@@ -495,4 +504,106 @@ test('partial website coverage names the unreadable URLs and separates this chec
   await expect(page.getByRole('button', { name: 'Plan this page', exact: true })).toHaveCount(0);
   expect(state.calls.every(call => call.method === 'GET')).toBe(true);
   expect(state.errors).toEqual([]);
+});
+
+
+const missingPage = { url: `${property}services/retired-service`, status: 'failed', reason: 'http_404' };
+const missingInventory = () => ({ ...structuredClone(inventory), status: 'partial', pages: [inventory.pages[0], { ...missingPage }], coverage: { fetched: 1, failed: 1, retired: 0, limitations: [] } });
+async function openMissingPageResolution(page) {
+  const checks = page.getByRole('region', { name: 'Pages to check', exact: true });
+  await checks.getByText(/^View \d+ links to check$/).click();
+  await checks.getByRole('button', { name: 'This page was removed', exact: true }).first().click();
+  return page.getByRole('dialog');
+}
+
+test('only missing404 and removed410 pages offer retirement and cancellation changes nothing', async ({ page }) => {
+  const candidate = missingInventory();
+  candidate.pages.push({ url: `${property}services/gone`, status: 'failed', reason: 'http_410' },
+    { url: `${property}services/server-error`, status: 'failed', reason: 'http_500' },
+    { url: `${property}services/unknown`, status: 'failed', reason: 'unreadable' });
+  const state = await setup(page, { inventory: candidate });
+  const before = structuredClone(state.data);
+  const checks = page.getByRole('region', { name: 'Pages to check', exact: true });
+  await checks.getByText('View 4 links to check', { exact: true }).click();
+  await expect(checks.getByRole('button', { name: 'This page was removed', exact: true })).toHaveCount(2);
+  await expect(checks.locator('li').filter({ has: page.getByRole('link', { name: `${property}services/server-error`, exact: true }) }).getByRole('button')).toHaveCount(0);
+  await checks.getByRole('button', { name: 'This page was removed', exact: true }).first().click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('It does not delete, edit or publish anything on your website.');
+  await expect(dialog.getByRole('button', { name: 'Mark as removed', exact: true })).toBeDisabled();
+  await dialog.screenshot({ path: '/private/tmp/simpleseo-phase6-retirement-dialog.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await dialog.screenshot({ path: '/private/tmp/simpleseo-phase6-retirement-dialog-mobile.png' });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(state.data).toEqual(before);
+  expect(state.calls.every(call => call.method === 'GET')).toBe(true);
+});
+
+test('retirement persists without AI and preserves the current saved plan and unsaved wording', async ({ page }) => {
+  const state = await setup(page, { inventory: missingInventory(), assessments: [makeAssessment({ outcome: 'needs_information', summary: 'Old coverage blocker', ideas: [], questions: ['Check the missing page first.'] })] });
+  const originalPlan = structuredClone(state.data.plans[0]);
+  await page.getByRole('region', { name: 'Saved page plans' }).getByRole('button').click();
+  await page.getByLabel('SEO title', { exact: true }).fill('Unsaved owner wording is still here');
+  const dialog = await openMissingPageResolution(page);
+  await dialog.getByRole('checkbox', { name: 'I intentionally removed this page and no longer need it.', exact: true }).check();
+  await dialog.getByRole('button', { name: 'Mark as removed', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Pages to check' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Website review updated', exact: true })).toBeVisible();
+  await expect(page.getByText('Old coverage blocker', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('SEO title', { exact: true })).toHaveValue('Unsaved owner wording is still here');
+  await page.getByText('Removed pages (1)', { exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Restore for review', exact: true })).toBeVisible();
+  await page.locator('details').filter({ has: page.getByText('Removed pages (1)', { exact: true }) }).screenshot({ path: '/private/tmp/simpleseo-phase6-retirement-saved.png' });
+  expect(state.calls.find(call => call.endpoint === '/inventory/retire').body).toEqual({ urls: [missingPage.url], action: 'retire', inventoryRevision: 1, confirmed: true });
+  expect(state.data.plans[0]).toEqual(originalPlan);
+  await page.reload();
+  await expect(page.getByText('Removed pages (1)', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Website review updated', exact: true })).toBeVisible();
+  await page.getByRole('region', { name: 'Saved page plans' }).getByRole('button').click();
+  await expect(page.getByLabel('SEO title', { exact: true })).toHaveValue(originalPlan.draft.title);
+  expect(state.calls.filter(call => ['/analyze', '/draft', '/publish'].includes(call.endpoint))).toHaveLength(0);
+});
+
+test('restoring a removed page requires confirmation and queues an explicit website recheck', async ({ page }) => {
+  const restored = { ...missingPage, status: 'retired', reason: 'owner_confirmed_removed' };
+  const state = await setup(page, { inventory: { ...inventory, pages: [inventory.pages[0], restored], coverage: { retired: 1 } } });
+  const originalPlan = structuredClone(state.data.plans[0]);
+  await page.getByText('Removed pages (1)', { exact: true }).click();
+  await page.getByRole('button', { name: 'Restore for review', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('button', { name: 'Restore page', exact: true })).toBeDisabled();
+  await dialog.getByRole('checkbox', { name: 'Include this address in my website review again.', exact: true }).check();
+  await dialog.getByRole('button', { name: 'Restore page', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Continue website review', exact: true })).toBeEnabled();
+  await expect(page.getByText('Removed pages (1)', { exact: true })).toHaveCount(0);
+  expect(state.calls.find(call => call.endpoint === '/inventory/retire').body.action).toBe('restore');
+  expect(state.data.inventory.pages.find(item => item.url === missingPage.url).status).toBe('pending');
+  expect(state.data.plans[0]).toEqual(originalPlan);
+  expect(state.calls.filter(call => ['/inventory', '/analyze', '/draft'].includes(call.endpoint))).toHaveLength(0);
+});
+
+test('a stale retirement is blocked, shows loading, and can reload the latest saved review before retrying', async ({ page }) => {
+  const state = await setup(page, { inventory: missingInventory() });
+  const dialog = await openMissingPageResolution(page);
+  state.data.inventory.revision = 2;
+  state.block = '/inventory/retire'; state.ready = new Promise(resolve => { state.release = resolve; });
+  await dialog.getByRole('checkbox', { name: 'I intentionally removed this page and no longer need it.', exact: true }).check();
+  await dialog.getByRole('button', { name: 'Mark as removed', exact: true }).click();
+  await expect(dialog.getByRole('button', { name: 'Saving…', exact: true })).toBeDisabled();
+  state.release();
+  await expect(dialog.getByRole('alert')).toContainText('Your website review changed.');
+  await expect(dialog.getByRole('button', { name: 'Mark as removed', exact: true })).toBeDisabled();
+  expect(state.data.inventory.pages.find(item => item.url === missingPage.url).status).toBe('failed');
+  await dialog.getByRole('button', { name: 'Reload saved review', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  // The list remains open after its saved record is refreshed.
+  await page.getByRole('button', { name: 'This page was removed', exact: true }).click();
+  await dialog.getByRole('checkbox', { name: 'I intentionally removed this page and no longer need it.', exact: true }).check();
+  await dialog.getByRole('button', { name: 'Mark as removed', exact: true }).click();
+  await expect(page.getByText('Removed pages (1)', { exact: true })).toBeVisible();
+  expect(state.calls.filter(call => call.endpoint === '/inventory/retire').map(call => call.body.inventoryRevision)).toEqual([1, 2]);
+  expect(state.calls.filter(call => ['/inventory', '/analyze', '/draft'].includes(call.endpoint))).toHaveLength(0);
 });

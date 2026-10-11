@@ -92,6 +92,18 @@ Scoped lint, all **54 planning tests**, the isolated production build, and **two
 
 Released as **READY** deployment `dpl_3gvcJFopHyo8ct9kMYz5vM431TgN` (`https://simplseo-oqroulj2g-bryan-arambulas-projects.vercel.app`) and promoted to the existing public URL. Production build passed, the staged unauthenticated API returned private/no-store JSON 401, and the live page bundle contains the new explanations. Read-only owner verification at `2026-10-11T02:31:40.847Z` passed all authentication boundaries and preserved existing work. Bryan's area is now owner-confirmed; the verification itself made no confirmations, AI calls, publication or inventory changes. The post-release error-level log scan returned no entries.
 
+### Intentionally removed pages
+
+A saved 404/410 link can now be marked **This page was removed**, with an explicit owner confirmation. The authenticated retirement action verifies a fresh, direct 404/410 response for each exact URL before atomically recording the declaration. A live page, redirect, network error or other HTTP failure cannot be retired through this action. Account/property/website-version scope, inventory lease and revision checks protect against stale or cross-account writes.
+
+Removal records are preserved under the scoped inventory, separately from the HTTP observations. They resolve this specific coverage uncertainty without deleting website history or inventing Google indexing results. Inventory refreshes retain and recheck these URLs; a readable page reactivates and clears the old declaration. **Restore for review** returns a URL to pending review. Retired checks count toward the existing HTML cap, and stale verification still requires a fresh website review before assessment. Saved plans and owner edits remain unchanged.
+
+The workspace shows removed pages separately and marks an old assessment as needing an explicit update when coverage changes. A refresh with identical evidence does not require paid regeneration. Removed URLs are excluded from available page evidence and link targets; historical search observations cannot justify recreating a discontinued service. No AI work occurs when confirming, restoring or reading removal records.
+
+Verification: **753 unit/API tests in 41 files** passed; lint has no errors and the same nine existing warnings. A focused real-model fixture with covered current services and historical searches for a retired, unrelated service returned `no_opportunity`, without reviving that service or using its URL as current coverage. One `gpt-6.1-sol` request used 2,719 input and 81 output tokens; it used only synthetic data and performed no research, Google reads or account writes.
+
+The isolated production build and **48 affected browser/security cases** passed (32 UI, seven actual API, nine Firestore rules). Desktop and mobile confirmation dialogs and the saved removed-pages section were visually checked. Tests cover cancellation, restoration, stale revisions, preservation of unsaved plan edits, and denied direct client reads/writes of retirement proofs.
+
 ## Live checkpoints
 
 1. **Inventory and area:** Bryan checks the recognized services, actual target area and existing coverage. Confirming an area does not declare publication.

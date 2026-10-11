@@ -20,6 +20,8 @@ const generalLimitations = [
   'Downloaded HTML is not a browser rendering. Content excerpts and links are bounded; missing excerpt text does not prove it is absent.',
   'Search Console observations are partial and do not establish indexing status. Pages without observations are still inspected.',
 ];
+const isMissingResponse = (response, url) => [404, 410].includes(response.status)
+  && !(response.redirectChain || []).length && (!response.url || response.url === url);
 
 function addLimitation(state, text) {
   if (!state.limitations.includes(text) && state.limitations.length < MAX_LIMITATIONS) state.limitations.push(text);
@@ -105,8 +107,8 @@ function robotsExcluded(rawUrl, rules) {
 
 function view(id, state, pages) {
   const count = status => pages.filter(page => page.status === status).length;
-  const fetched = count('fetched'), failed = count('failed'), excluded = count('excluded'), pending = count('pending');
-  const fetchedAttempts = fetched + failed + pages.filter(page => page.reason === 'non_html_response').length;
+  const fetched = count('fetched'), failed = count('failed'), excluded = count('excluded'), pending = count('pending'), retired = count('retired');
+  const fetchedAttempts = fetched + failed + retired + pages.filter(page => page.reason === 'non_html_response').length;
   const canContinue = !state.initialized || state.robotsStatus === 'pending' || state.googleStatus === 'pending'
     || state.sitemaps.some(item => item.status === 'pending') || (pending > 0 && fetchedAttempts < INVENTORY_LIMITS.htmlPages);
   const limitations = [...generalLimitations, ...state.limitations];
@@ -114,7 +116,7 @@ function view(id, state, pages) {
   const incomplete = failed > 0 || pending > 0 || pages.some(page => page.reason === 'robots_disallowed') || state.truncated || state.limitations.length > 0;
   return { id, scope: state.scope, revision: state.revision, status: canContinue ? 'running' : !fetched ? 'unavailable' : incomplete ? 'partial' : 'ready',
     updatedAt: state.updatedAt, pages: pages.map(({ generation: _generation, ...page }) => page),
-    coverage: { discovered: pages.length, fetched, failed, excluded, pending, truncated: Boolean(state.truncated || (pending && fetchedAttempts >= INVENTORY_LIMITS.htmlPages)),
+    coverage: { discovered: pages.length, fetched, failed, excluded, pending, retired, truncated: Boolean(state.truncated || (pending && fetchedAttempts >= INVENTORY_LIMITS.htmlPages)),
       limitations, sitemapsChecked: state.sitemaps.filter(item => item.status !== 'pending').length, sitemaps: state.sitemaps,
       googleStatus: state.googleStatus, robotsStatus: state.robotsStatus }, canContinue };
 }
@@ -151,6 +153,11 @@ export async function continueNewPageInventory(userId, { restart = false, signal
     return { ...current, attempt };
   });
   const pages = new Map((await readPages(ref, state.generation)).map(page => [page.url, page]));
+  const retirementSnapshots = await ref.collection('retirements').where('active', '==', true).limit(INVENTORY_LIMITS.urls).get();
+  const retirements = new Map(retirementSnapshots.docs.map(doc => ({ ...doc.data(), recordId: doc.id })).filter(record => {
+    try { assertSameNewPageScope(scope, record.scope); return true; } catch { return false; }
+  }).map(record => [record.url, record]));
+  const retirementUpdates = new Map();
   const dirty = new Set();
   const available = () => !signal?.aborted && Date.now() < deadline;
   const options = { property: scope.property, allowedHostname: new URL(scope.websiteUrl).hostname, deadline, ...(signal ? { signal } : {}) };
@@ -186,9 +193,18 @@ export async function continueNewPageInventory(userId, { restart = false, signal
         assertSameNewPageScope(scope, await readNewPageScope(userId, { write: true, tx }));
         const latest = (await tx.get(ref)).data();
         if (latest?.attempt !== attempt || latest.generation !== state.generation) throw new RequestError('Website review changed. Reload before continuing.', 409);
+        const reactivated = await Promise.all(urls.filter(url => retirementUpdates.has(url)).map(async url => {
+          const update = retirementUpdates.get(url), removalRef = ref.collection('retirements').doc(update.recordId);
+          const removal = await tx.get(removalRef);
+          if (removal.exists) assertSameNewPageScope(scope, removal.data().scope);
+          return { removalRef, removal, at: update.at };
+        }));
         for (const url of urls) tx.set(ref.collection('pages').doc(hash(url)), plain(pages.get(url)));
+        for (const { removalRef, removal, at } of reactivated) if (removal.exists) tx.update(removalRef, {
+          active: false, reactivatedAt: at, updatedAt: at, revision: (removal.data().revision || 0) + 1,
+        });
       });
-      urls.forEach(url => dirty.delete(url));
+      urls.forEach(url => { dirty.delete(url); retirementUpdates.delete(url); });
     }
     await db.runTransaction(async tx => {
       assertSameNewPageScope(scope, await readNewPageScope(userId, { write: true, tx }));
@@ -201,6 +217,9 @@ export async function continueNewPageInventory(userId, { restart = false, signal
   try {
     if (!state.initialized) {
       addPage(scope.websiteUrl, 'selected_website');
+      // Keep owner declarations reviewable even after every discovery source
+      // drops an old URL. They still receive a fresh bounded HTTP check.
+      for (const url of retirements.keys()) addPage(url, 'owner_removal_record');
       const [onboarding, legacy] = await Promise.all([db.collection('onboarding').doc(userId).get(), db.collection('siteCrawls').doc(userId).get()]);
       for (const page of (onboarding.data()?.revampPages || []).slice(0, 500)) addPage(typeof page === 'string' ? page : page.url, 'saved_website_record');
       const old = legacy.data() || {};
@@ -267,21 +286,42 @@ export async function continueNewPageInventory(userId, { restart = false, signal
       await flush();
     }
     while (available()) {
-      const attempted = [...pages.values()].filter(page => ['fetched', 'failed'].includes(page.status) || page.reason === 'non_html_response').length;
+      const attempted = [...pages.values()].filter(page => ['fetched', 'failed', 'retired'].includes(page.status) || page.reason === 'non_html_response').length;
       const selected = [...pages.values()].filter(page => page.status === 'pending').slice(0, Math.min(INVENTORY_LIMITS.concurrency, INVENTORY_LIMITS.htmlPages - attempted));
       if (!selected.length) break;
       await Promise.all(selected.map(async page => {
         try {
           const content = await fetchCurrentPageContent(page.url, options);
           if (!pageUrl(content.finalUrl || page.url, scope)) throw new RequestError('Page redirects outside selected website.', 403);
-          page.status = 'fetched'; page.content = content; page.reason = null; page.observedAt = iso(); dirty.add(page.url);
+          page.status = 'fetched'; page.content = content; page.reason = null; page.observedAt = iso();
+          delete page.retirementProof;
+          if (retirements.has(page.url)) {
+            retirementUpdates.set(page.url, { recordId: retirements.get(page.url).recordId, at: page.observedAt });
+            retirements.delete(page.url);
+          }
+          dirty.add(page.url);
           if (content.structureCoverage?.internalLinksTruncated) addLimitation(state, 'Links were truncated on at least one page. Other linked pages may not have been discovered.');
           for (const link of content.internalLinks || []) addPage(link.url, 'internal_link', content.finalUrl || page.url);
         } catch (error) {
           if (!available()) return; // Deadline/cancellation is resumable, not a permanent URL failure.
           page.status = error.status === 422 ? 'excluded' : 'failed';
           page.reason = error.status === 422 ? 'non_html_response' : error.status === 403 ? 'redirect_outside_scope' : error.httpStatus ? `http_${error.httpStatus}` : 'unreadable';
-          page.observedAt = iso(); dirty.add(page.url);
+          page.observedAt = iso();
+          const retirement = retirements.get(page.url);
+          // A declaration never hides a later server error or a live page. The
+          // fresh HTTP result must still say this exact URL is unavailable.
+          if (retirement && [404, 410].includes(error.httpStatus) && available()) {
+            // The scraper's error contains the HTTP code but not a failed
+            // redirect chain. Recheck to avoid retiring a moved URL by mistake.
+            try {
+              const response = await publicFetch(page.url, options);
+              if (isMissingResponse(response, page.url)) {
+                page.status = 'retired'; page.reason = 'owner_confirmed_removed'; page.observedAt = iso();
+                page.retirementProof = { ownerConfirmedAt: retirement.ownerConfirmedAt, verifiedAt: page.observedAt, httpStatus: response.status };
+              }
+            } catch { /* Retain the failure as uncertainty. */ }
+          }
+          dirty.add(page.url);
         }
       }));
       await flush();
@@ -295,5 +335,82 @@ export async function continueNewPageInventory(userId, { restart = false, signal
       if (latest?.attempt === attempt) tx.update(ref, { leaseUntil: null });
     }).catch(() => {});
     throw error;
+  }
+}
+
+export async function updateNewPageRetirements(userId, { urls, inventoryRevision, confirmed, action, signal } = {}) {
+  if (confirmed !== true || !['retire', 'restore'].includes(action) || !Number.isInteger(inventoryRevision)
+    || !Array.isArray(urls) || !urls.length || urls.length > 20 || urls.some(url => typeof url !== 'string')
+    || new Set(urls).size !== urls.length) throw new RequestError('Confirm between one and twenty saved URLs and reload the current website review.');
+  const scope = await readNewPageScope(userId, { write: true });
+  if (urls.some(url => pageUrl(url, scope) !== url)) throw new RequestError('Choose exact saved URLs on the connected website.', 403);
+  const id = newPageScopeKey(scope), ref = db.collection('newPageInventories').doc(id), attempt = randomUUID();
+  const started = Date.now(), deadline = started + 40000;
+  const state = await db.runTransaction(async tx => {
+    assertSameNewPageScope(scope, await readNewPageScope(userId, { write: true, tx }));
+    const current = (await tx.get(ref)).data();
+    if (!current || current.revision !== inventoryRevision) throw new RequestError('Your website review changed. Reload before confirming these URLs.', 409);
+    assertSameNewPageScope(scope, current.scope);
+    if (Date.parse(current.leaseUntil) > Date.now()) throw new RequestError('Your website review is already running. Try again shortly.', 409);
+    tx.update(ref, { attempt, leaseUntil: new Date(started + 70000).toISOString() });
+    return current;
+  });
+  try {
+    const pages = await readPages(ref, state.generation);
+    const selected = urls.map(url => pages.find(page => page.url === url));
+    const prior = await Promise.all(urls.map(url => ref.collection('retirements').doc(hash(url)).get()));
+    if (selected.some((page, index) => !page || (action === 'retire'
+      ? page.status !== 'failed' || !['http_404', 'http_410'].includes(page.reason)
+      : !prior[index].exists || prior[index].data().active !== true))) {
+      throw new RequestError(action === 'retire' ? 'Only saved pages currently returning 404 or 410 can be marked intentionally removed.' : 'Choose a URL with an active removal confirmation.', 409);
+    }
+    for (const record of prior) if (record.exists) assertSameNewPageScope(scope, record.data().scope);
+    const checked = new Map();
+    if (action === 'retire') {
+      for (let offset = 0; offset < urls.length; offset += INVENTORY_LIMITS.concurrency) {
+        await Promise.all(urls.slice(offset, offset + INVENTORY_LIMITS.concurrency).map(async url => {
+          let response;
+          try { response = await publicFetch(url, { property: scope.property, allowedHostname: new URL(scope.websiteUrl).hostname, deadline, ...(signal ? { signal } : {}) }); }
+          catch { throw new RequestError('We could not verify all selected URLs as removed. Your saved review is unchanged. Refresh the website review and try again.', 409); }
+          if (!isMissingResponse(response, url)) throw new RequestError('A selected URL is live, redirects, or no longer returns 404 or 410. Refresh the website review before confirming removal.', 409);
+          checked.set(url, { httpStatus: response.status, verifiedAt: iso() });
+        }));
+      }
+    }
+    if (signal?.aborted || Date.now() >= deadline) throw new RequestError('This check took too long. Your saved review is unchanged. Try again.', 409);
+    const timestamp = iso();
+    await db.runTransaction(async tx => {
+      assertSameNewPageScope(scope, await readNewPageScope(userId, { write: true, tx }));
+      const latest = (await tx.get(ref)).data();
+      if (!latest || latest.revision !== inventoryRevision || latest.generation !== state.generation || latest.attempt !== attempt
+        || Date.parse(latest.leaseUntil) <= Date.now()) throw new RequestError('Your website review changed. Reload before confirming these URLs.', 409);
+      assertSameNewPageScope(scope, latest.scope);
+      const currentRecords = await Promise.all(urls.map(url => tx.get(ref.collection('retirements').doc(hash(url)))));
+      for (let index = 0; index < urls.length; index += 1) {
+        const url = urls[index], page = selected[index], old = currentRecords[index].data();
+        if (old) assertSameNewPageScope(scope, old.scope);
+        const check = checked.get(url);
+        const record = { ...(old || {}), scope, userId, url, active: action === 'retire', revision: (old?.revision || 0) + 1,
+          createdAt: old?.createdAt || timestamp, updatedAt: timestamp,
+          ...(action === 'retire' ? { ownerConfirmedAt: timestamp, verifiedAt: check.verifiedAt, httpStatus: check.httpStatus, retiredAt: timestamp }
+            : { restoredAt: timestamp }) };
+        if (action === 'retire') {
+          page.status = 'retired'; page.reason = 'owner_confirmed_removed'; page.observedAt = check.verifiedAt;
+          page.retirementProof = { ownerConfirmedAt: timestamp, verifiedAt: check.verifiedAt, httpStatus: check.httpStatus };
+        } else {
+          page.status = 'pending'; page.reason = null;
+          delete page.retirementProof;
+        }
+        tx.set(ref.collection('retirements').doc(hash(url)), plain(record));
+        tx.set(ref.collection('pages').doc(hash(url)), plain(page));
+      }
+      tx.update(ref, { revision: inventoryRevision + 1, updatedAt: timestamp, leaseUntil: null });
+    });
+    return await readNewPageInventory(userId);
+  } finally {
+    await db.runTransaction(async tx => {
+      const latest = (await tx.get(ref)).data();
+      if (latest?.attempt === attempt && latest.leaseUntil) tx.update(ref, { leaseUntil: null });
+    }).catch(() => {});
   }
 }

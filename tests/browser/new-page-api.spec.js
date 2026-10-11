@@ -120,7 +120,7 @@ test('real selection and owner edits survive reload while stale revisions fail',
 });
 test('real handlers reject anonymous calls, supplied other identities and foreign saved IDs', async ({ page }) => {
   await setup(page); const assessed = await seedAssessment(page);
-  for (const [endpoint, method] of [['', 'GET'], ['/context', 'POST'], ['/analyze', 'POST'], ['/inventory', 'POST'], ['/areas', 'POST'], ['/select', 'POST'], ['/draft', 'POST'], ['/publish', 'POST'], ['/tracking', 'POST'], ['/plan', 'PATCH'], ['/plan?planId=foreign', 'GET']]) {
+  for (const [endpoint, method] of [['', 'GET'], ['/context', 'POST'], ['/analyze', 'POST'], ['/inventory', 'POST'], ['/inventory/retire', 'POST'], ['/areas', 'POST'], ['/select', 'POST'], ['/draft', 'POST'], ['/publish', 'POST'], ['/tracking', 'POST'], ['/plan', 'PATCH'], ['/plan?planId=foreign', 'GET']]) {
     expect((await call(page, endpoint, method === 'GET' ? undefined : {}, method, '')).status, endpoint).toBe(401);
   }
   expect((await call(page, '/context', { ...initialContext, userId: 'another-account' })).status).toBe(403);

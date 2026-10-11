@@ -141,4 +141,10 @@ test('new-page evidence, saved drafts, publication observations and jobs are ser
     expect((await request.delete(`${base}/${path}`, { headers: { Authorization: `Bearer ${token}` } })).status(), collection).toBe(403);
     expect((await patch(request, `${path}/pages/forged`, { userId: uid }, false)).status(), collection).toBe(403);
   }
+  const retirement = `newPageInventories/${uid}-fixture/retirements/url-hash`;
+  expect((await patch(request, retirement, { userId: uid, active: true, httpStatus: 404 }, false)).status()).toBe(403);
+  await app.firestore().doc(retirement).set({ userId: uid, active: true, httpStatus: 404, ownerConfirmedAt: '2026-10-10T12:00:00Z' });
+  expect((await read(request, retirement)).status()).toBe(403);
+  expect((await patch(request, retirement, { httpStatus: 200, active: false })).status()).toBe(403);
+  expect((await request.delete(`${base}/${retirement}`, { headers: { Authorization: `Bearer ${token}` } })).status()).toBe(403);
 });
