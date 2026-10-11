@@ -1,0 +1,36 @@
+{
+  "staged": {
+    "verifiedAt": "2026-10-11T18:45:44.598Z",
+    "origin": "https://simplseo-q29ezld27-bryan-arambulas-projects.vercel.app",
+    "passed": true,
+    "requests": 7,
+    "batches": 1,
+    "savedRecordsPreserved": 198,
+    "fragmentCounts": {
+      "plan": 1,
+      "cycle": 0,
+      "legacy": 0,
+      "new_page": 0
+    },
+    "accountIdentityPreserved": true,
+    "noSavedWorkOrUsageWrites": true,
+    "noGenerationOrPublication": true
+  },
+  "live": {
+    "verifiedAt": "2026-10-11T18:47:12.898Z",
+    "origin": "https://simplseo-io.vercel.app",
+    "passed": true,
+    "requests": 7,
+    "batches": 1,
+    "savedRecordsPreserved": 198,
+    "fragmentCounts": {
+      "plan": 1,
+      "cycle": 0,
+      "legacy": 0,
+      "new_page": 0
+    },
+    "accountIdentityPreserved": true,
+    "noSavedWorkOrUsageWrites": true,
+    "noGenerationOrPublication": true
+  }
+}

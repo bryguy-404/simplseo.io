@@ -2,7 +2,7 @@
 
 ## Implementation and release status
 
-Implemented October 11, 2026. The new dashboard presents one next action, dated website search activity and saved page work together. The existing dashboard remains available as the rollback path. Production build, aggregate regression results, deployment and live account verification are pending the release record below.
+Released to Bryan's pilot account October 11, 2026. The new dashboard presents one next action, dated website search activity and saved page work together. The existing dashboard remains available as the rollback path. Automated gates and live read-only consistency checks passed; real published-edit/result checkpoints remain future pilot work.
 
 The user authorized implementation and deployment to the existing public project. There is no additional approval gate before the verified pilot deployment. Real website edits and publication confirmations still require the existing owner workflow; this release does not perform them.
 
@@ -74,7 +74,9 @@ Rollback: set `VISUAL_DASHBOARD_ENABLED=false` and redeploy, or restore the prio
 
 - Production build: passed (`npm run build`, Next.js 15.3.6).
 - Aggregate regression and security checks: 1,191 unit tests passed; 17 dashboard/API browser checks, 43 new-page browser checks and 75 existing-workflow/rules browser checks passed (135 total). Lint has zero errors and seven pre-existing warnings; explicit changed-JSX lint passed.
-- Firestore index readiness: two new listing indexes created and building. The full CLI index deploy reported an unrelated pre-existing conversation-index conflict; no indexes were removed. Readiness is verified separately before promotion.
-- Public deployment and pilot enablement: pending.
-- Live saved-data consistency and unchanged-record audit: pending.
+- Firestore index readiness: both new listing indexes independently verified `READY` before promotion. The full CLI index deploy reported an unrelated pre-existing conversation-index conflict; no indexes were removed.
+- Public deployment and pilot enablement: production deployment `dpl_5qwyxeK5n8CBSZ44L6UPsNvQRFT2`, implementation commit `419d0329cfeeb63c472e4ee35c44a4baf815cd30`, staged at `https://simplseo-q29ezld27-bryan-arambulas-projects.vercel.app` then promoted unchanged to `https://simplseo-io.vercel.app`. Enabled only for Bryan's verified account. Prior rollback deployment: `dpl_4fGXhmZLWDiok31EA7cJCfYJgPe7`.
+- Live saved-data consistency and unchanged-record audit: `scripts/verify-dashboard-release.cjs` passed on the staged and public deployments (18:45 and 18:47 UTC). Each audit made seven read-only requests, checked authorization and bounded source reads, matched summaries to stored records, and preserved all 198 protected account records, including AI usage. No AI generation, publication or task confirmation occurred.
+- Live UI: weekly appearances **42, 44, 29, 61**, website total **176 appearances / 7 clicks** for **September 11–October 8, 2026**, observed October 11. Click chart **0, 5, 2, 0** verified. Homepage **148 appearances / 6 clicks**, its **three pending tasks**, and the exact-page link matched Improve a page. Dashboard reload restored the same work. These are search observations, not attributed outcomes.
+- Live data limits: Bryan currently has one current page plan, zero active cycles, zero eligible legacy records and zero current new-page plans. Actual draft-link persistence and collecting/result states were verified in isolated fixtures; no fake live draft or publication was created to exercise them. Historical new-page work remains intact in the protected records.
 - Real published-edit/result checkpoints: remain dependent on genuine owner actions and later observations.
