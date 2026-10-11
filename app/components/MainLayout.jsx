@@ -232,7 +232,7 @@ const MainLayout = ({
             sideOffset={16}
             style={{ width: 'auto', minWidth: '320px', maxWidth: '100vw' }}
           >
-            <div className="max-h-[500px] md:max-h-none overflow-hidden rounded-xl">
+            <div className="overflow-hidden rounded-xl">
               <ChatAssistant
                 onClose={() => setIsChatOpen(false)}
                 aiTips={aiTips}
