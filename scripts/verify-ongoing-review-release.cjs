@@ -4,6 +4,7 @@ require('dotenv').config({ path: '.env.local', quiet: true });
 const fs = require('node:fs');
 const admin = require('firebase-admin');
 const assert = require('node:assert/strict');
+const { spawn } = require('node:child_process');
 const [identityFile, origin = 'https://simplseo-io.vercel.app'] = process.argv.slice(2);
 let stage = 'configuration';
 async function main() {
@@ -31,6 +32,28 @@ async function main() {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: customToken, returnSecureToken: true }), signal: AbortSignal.timeout(15000) });
     const authentication = await signin.json(); assert(signin.ok && authentication.idToken);
     const request = async (path, method = 'GET', data, authorized = true) => {
+      if (process.env.VERCEL_VERIFY_CLI) {
+        // The CLI supplies deployment protection access. App credentials travel
+        // only through stdin, never command arguments, files or printed logs.
+        const config = [`request = ${JSON.stringify(method)}`, 'header = "Content-Type: application/json"',
+          ...(authorized ? [`header = ${JSON.stringify(`Authorization: Bearer ${authentication.idToken}`)}`] : []),
+          ...(data === undefined ? [] : [`data = ${JSON.stringify(JSON.stringify(data))}`])].join('\n');
+        const output = await new Promise((resolve, reject) => {
+          const child = spawn(process.env.VERCEL_VERIFY_CLI, ['curl', `${origin}${path}`, '--scope', 'bryan-arambulas-projects', '--',
+            '--silent', '--show-error', '--max-time', '25', '--dump-header', '-', '--config', '-', '--write-out', '\nVERIFY_STATUS:%{http_code}'],
+          { stdio: ['pipe', 'pipe', 'pipe'], timeout: 45000 });
+          let stdout = ''; child.stdout.on('data', value => { stdout += value.toString(); });
+          child.stderr.resume(); child.on('error', reject);
+          child.on('exit', code => code === 0 ? resolve(stdout) : reject(new Error('Protected deployment request failed.')));
+          child.stdin.end(config);
+        });
+        const status = Number(output.match(/\nVERIFY_STATUS:(\d+)\s*$/)?.[1]);
+        const content = output.replace(/\nVERIFY_STATUS:\d+\s*$/, '');
+        const bodyStart = content.lastIndexOf('\r\n\r\n');
+        assert(bodyStart >= 0 && Number.isInteger(status));
+        const headers = content.slice(0, bodyStart);
+        return { status, cache: [...headers.matchAll(/^cache-control:\s*(.*)$/gim)].at(-1)?.[1] || '', body: JSON.parse(content.slice(bodyStart + 4)) };
+      }
       const response = await fetch(`${origin}${path}`, { method, headers: { 'Content-Type': 'application/json',
         ...(authorized ? { Authorization: `Bearer ${authentication.idToken}` } : {}) },
         ...(data === undefined ? {} : { body: JSON.stringify(data) }), signal: AbortSignal.timeout(25000) });

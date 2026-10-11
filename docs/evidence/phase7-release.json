@@ -1,0 +1,171 @@
+{
+  "recordedAt": "2026-10-11T05:17:32.947Z",
+  "applicationCommit": "cb1ab90",
+  "deploymentId": "dpl_6jfinGeh1f9YbLHavvUEgE4QfVVi",
+  "deploymentUrl": "https://simplseo-aat51vq1f-bryan-arambulas-projects.vercel.app",
+  "publicUrl": "https://simplseo-io.vercel.app",
+  "target": "production",
+  "pilot": "Bryan account only",
+  "stagedVerification": {
+    "verifiedAt": "2026-10-11T05:14:29.205Z",
+    "origin": "https://simplseo-aat51vq1f-bryan-arambulas-projects.vercel.app",
+    "pilotEnabled": true,
+    "anonymousChecks": 6,
+    "crossAccountChecks": 6,
+    "retainedDocuments": 9,
+    "activeHomepageCycles": 0,
+    "savedReadsUsedAI": false,
+    "publicationsConfirmed": 0,
+    "writesDuringVerification": 0,
+    "legacyResetStatus": 410,
+    "realPublicationCheckpoint": "Owner must publish and explicitly confirm a real edit."
+  },
+  "publicVerification": {
+    "verifiedAt": "2026-10-11T05:15:31.180Z",
+    "origin": "https://simplseo-io.vercel.app",
+    "pilotEnabled": true,
+    "anonymousChecks": 6,
+    "crossAccountChecks": 6,
+    "retainedDocuments": 9,
+    "activeHomepageCycles": 0,
+    "savedReadsUsedAI": false,
+    "publicationsConfirmed": 0,
+    "writesDuringVerification": 0,
+    "legacyResetStatus": 410,
+    "realPublicationCheckpoint": "Owner must publish and explicitly confirm a real edit."
+  },
+  "indexes": [
+    {
+      "state": "READY",
+      "fields": [
+        {
+          "fieldPath": "lifecycle",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextCheckAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "state": "READY",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "property",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "websiteRunId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lifecycle",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "state": "READY",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "confirmedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "state": "READY",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "property",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "websiteRunId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lifecycle",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "pageUrl",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "state": "READY",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lifecycle",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextCheckAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
+  "crons": {
+    "enabledAt": 1752773601710,
+    "disabledAt": null,
+    "updatedAt": 1791695693011,
+    "deploymentId": "dpl_6jfinGeh1f9YbLHavvUEgE4QfVVi",
+    "definitions": [
+      {
+        "host": "simplseo-aat51vq1f-bryan-arambulas-projects.vercel.app",
+        "path": "/api/cron/check-revamp-gsc",
+        "schedule": "0 3 * * *"
+      },
+      {
+        "host": "simplseo-aat51vq1f-bryan-arambulas-projects.vercel.app",
+        "path": "/api/cron/check-success-stories",
+        "schedule": "0 2 * * *"
+      }
+    ]
+  },
+  "errorLogsAfterVerification": 0,
+  "scheduledPhase7InvocationVerified": false,
+  "firstExpectedPhase7ProgressRun": "2026-10-12T02:00:00Z",
+  "realHomepagePublicationVerified": false,
+  "matureResultsVerified": false
+}

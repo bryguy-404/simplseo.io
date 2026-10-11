@@ -42,7 +42,7 @@ Release requires unit/API, Firestore rules, desktop/mobile/keyboard and existing
 
 ## Live checkpoints
 
-1. Bryan previews isolated collecting, inconclusive, monitoring and actionable examples. Simulated observations never enter the live account.
+1. Bryan previews [isolated collecting, inconclusive, monitoring and actionable examples](phase7-preview.html). Simulated observations never enter the live account.
 2. After Bryan publishes a worthwhile homepage edit, verify the exact confirmed tasks, date, cycle and next comparison date. Merely testing the screen does not count as publication.
 3. Correlate an actual scheduled Vercel invocation with persisted observations and run health. Manual tests alone do not verify scheduling.
 4. Review the real homepage comparison together at its first eligible checkpoint and again as later evidence matures. Do not backdate a publication to accelerate the pilot.
@@ -55,4 +55,10 @@ October 11, 2026: 848 unit tests in 48 files passed. The isolated production bro
 
 The bounded evaluation made exactly 16 real-model calls. Its original automated result was 12 passes and four overly restrictive fixture-outcome failures; independent content review and narrow offline replay passed all 16 responses without another paid call. See [the evaluation and usage record](PHASE7_EVALUATION.md) for the unmodified original results, adjudication and limitations.
 
-Firestore rules and indexes were deployed to `simpleseo-90570`. Application promotion is pending index readiness and authenticated release verification. Real homepage publication, a Phase-7 scheduled run, and mature-result checkpoints remain pending.
+Firestore rules and all five new indexes were deployed to `simpleseo-90570`; every new index was verified READY before promotion. The production application built from commit `cb1ab90` was staged, verified through authenticated Vercel access, then promoted to https://simplseo-io.vercel.app as deployment `dpl_6jfinGeh1f9YbLHavvUEgE4QfVVi` at approximately 05:15 UTC on October 11. The feature is enabled only for Bryan's verified account.
+
+Both staged and public checks passed six anonymous and six cross-account probes, authenticated stored-progress/plan reads, missing-cycle handling and the retired reset route. Nine saved records retained their exact update times. No guidance was generated, no publication was confirmed, and no active homepage cycle was created by verification. The release's post-check error-log scan returned no entries. See [the release evidence](evidence/phase7-release.json).
+
+Production configuration confirms the same two enabled cron definitions on the new deployment: progress at 02:00 UTC and website/new-page monitoring at 03:00 UTC. This is configuration evidence, not evidence that the new collector already executed. The first expected Phase-7 progress invocation is October 12 at 02:00 UTC, because release followed the October 11 run. The previously requested single morning follow-up keeps its schedule and now explicitly distinguishes earlier-deployment runs from Phase-7 evidence.
+
+Real homepage publication, a Phase-7 scheduled run correlated with stored observations, and mature-result checkpoints remain pending. Bryan's homepage currently has no active ongoing cycle. The next action is to publish worthwhile selected edits and explicitly confirm only the tasks actually completed; the first comparison generally becomes eligible 31 days later.

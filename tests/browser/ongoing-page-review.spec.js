@@ -99,7 +99,7 @@ function decisionFor(cycle, outcome = 'keep_monitoring') {
     whatChanged: outcome === 'gather_evidence' ? 'Both reporting periods have limited search activity.' : 'The later period shows more reported search activity.',
     meaning: 'This is observed activity; it does not establish that the edit caused a change.',
     nextStep: outcome === 'improve_page' ? 'Review the process task below and publish it if it fits your service.' : 'Keep the current page while we collect the next reporting period.',
-    reviewedAt: now, evidenceIds: ['P1'], proposedTasks: outcome === 'improve_page' ? [reviewFor(cycle.pageUrl).analysis.recommendations[1]] : [],
+    reviewedAt: '2026-09-01T15:00:00.000Z', evidenceIds: ['P1'], proposedTasks: outcome === 'improve_page' ? [reviewFor(cycle.pageUrl).analysis.recommendations[1]] : [],
     acceptedAt: null, canAcceptTasks: outcome === 'improve_page' };
 }
 
@@ -409,4 +409,3 @@ test('a publication recorded in another session clears local edit selection and 
   await expect(page.getByRole('article', { name: labels[1], exact: true })).toBeVisible();
   expect(state.calls.publications).toHaveLength(0);
 });
-
