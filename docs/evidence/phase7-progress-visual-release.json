@@ -1,0 +1,66 @@
+{
+  "recordedAt": "2026-10-11T05:58:37.786306+00:00",
+  "applicationCommit": "c762260",
+  "deploymentId": "dpl_H5AH968hkTry1DGiTk2Cp8GG4gbh",
+  "deploymentUrl": "https://simplseo-aoe0sdiw4-bryan-arambulas-projects.vercel.app",
+  "publicUrl": "https://simplseo-io.vercel.app",
+  "target": "production",
+  "status": "READY",
+  "framework": "Next.js 15.3.6",
+  "buildDurationSeconds": 193,
+  "pilot": "Bryan account only; unchanged",
+  "scope": "Presentation only: elapsed tracking, search-result metric cards, expandable guidance.",
+  "verification": {
+    "unitTests": 891,
+    "unitFiles": 49,
+    "presentationTests": 43,
+    "browserAndApiTests": 27,
+    "finalBrowserTestsAfterUnavailableDataGuard": 24,
+    "isolatedProductionBuild": "passed",
+    "lintErrors": 0,
+    "existingLintWarnings": 9,
+    "realModelCalls": 0,
+    "previewUsesIsolatedExamples": true
+  },
+  "stagedVerification": {
+    "verifiedAt": "2026-10-11T05:57:11.826Z",
+    "origin": "https://simplseo-aoe0sdiw4-bryan-arambulas-projects.vercel.app",
+    "pilotEnabled": true,
+    "anonymousChecks": 6,
+    "crossAccountChecks": 6,
+    "retainedDocuments": 9,
+    "activeHomepageCycles": 0,
+    "savedReadsUsedAI": false,
+    "publicationsConfirmed": 0,
+    "writesDuringVerification": 0,
+    "legacyResetStatus": 410,
+    "realPublicationCheckpoint": "Owner must publish and explicitly confirm a real edit."
+  },
+  "publicVerification": {
+    "verifiedAt": "2026-10-11T05:57:55.410Z",
+    "origin": "https://simplseo-io.vercel.app",
+    "pilotEnabled": true,
+    "anonymousChecks": 6,
+    "crossAccountChecks": 6,
+    "retainedDocuments": 9,
+    "activeHomepageCycles": 0,
+    "savedReadsUsedAI": false,
+    "publicationsConfirmed": 0,
+    "writesDuringVerification": 0,
+    "legacyResetStatus": 410,
+    "realPublicationCheckpoint": "Owner must publish and explicitly confirm a real edit."
+  },
+  "postDeploymentErrorScan": {
+    "deploymentId": "dpl_H5AH968hkTry1DGiTk2Cp8GG4gbh",
+    "lookbackMinutes": 20,
+    "entries": 0,
+    "resultLimit": 50
+  },
+  "rollbackDeploymentId": "dpl_6jfinGeh1f9YbLHavvUEgE4QfVVi",
+  "dataMigrationRequired": false,
+  "pendingPilotEvidence": [
+    "A real homepage edit published and explicitly confirmed by the owner.",
+    "Actual scheduled Phase 7 collection correlated with saved observations.",
+    "Mature comparisons and genuine search/business outcomes."
+  ]
+}
