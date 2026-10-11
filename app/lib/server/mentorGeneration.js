@@ -4,7 +4,7 @@ import { RequestError } from './requestAuth';
 import { recordPageReviewResponse } from './aiUsage';
 import { reserveMentorTurn, reserveMentorResearch, settleMentorTurn } from './mentorBudget';
 import { assertMentorAccountScope, assertMentorEvidenceRevisions, MENTOR_EVIDENCE_TOOLS, executeMentorEvidenceTool } from './mentorEvidence';
-import { lookupGoogleGuidance, documentationResearchRequest, researchedDocumentationUrls, readGoogleDocumentation, selectMentorDocumentationExcerpt } from './mentorDocumentation';
+import { lookupGoogleGuidance, documentationResearchRequest, researchedDocumentationUrls, readGoogleDocumentation, selectMentorDocumentationExcerpt, compactMentorDocumentationExcerpt } from './mentorDocumentation';
 import { GOOGLE_GUIDANCE_TOOL } from '../mentorDocumentationPolicy';
 import { MENTOR_MODEL, MENTOR_POLICY_VERSION, MENTOR_LIMITS, MENTOR_PRICING, MENTOR_SYSTEM,
   MENTOR_ANSWER_FORMAT, mentorInputBound, mentorResponseText, validateMentorAnswer, estimatedMentorCost } from '../mentorPolicy';
@@ -17,6 +17,31 @@ const unique = items => [...new Map(items.filter(item => item?.id).map(item => [
 // service_tier, include and max_output_tokens are not sent to this endpoint.
 const inputCountBody = request => Object.fromEntries(['model', 'input', 'instructions', 'tools', 'tool_choice',
   'parallel_tool_calls', 'reasoning', 'text', 'truncation'].filter(key => request[key] !== undefined).map(key => [key, request[key]]));
+const guidanceCallIds = input => new Set(input.filter(item => item.type === 'function_call' && item.name === 'read_google_guidance').map(item => item.call_id));
+function compactDocumentationInputs(input) {
+  const ids = guidanceCallIds(input);
+  return input.map(item => {
+    if (item.type !== 'function_call_output' || !ids.has(item.call_id)) return item;
+    let result; try { result = JSON.parse(item.output); } catch { return item; }
+    if (!Array.isArray(result.documents)) return item;
+    const documents = result.documents.map(document => {
+      const excerpt = compactMentorDocumentationExcerpt(document, result.topic);
+      return excerpt ? { ...document, excerpt, ...(excerpt !== document.excerpt ? { excerptTruncated: true } : {}) } : null;
+    }).filter(Boolean);
+    const retainedIds = new Set(documents.map(document => document.id));
+    return { ...item, output: JSON.stringify({ ...result, documents,
+      ...(Array.isArray(result.sources) ? { sources: result.sources.filter(source => retainedIds.has(source.id)) } : {}),
+      ...(documents.length < result.documents.length ? { excerptLimitation: 'Some documentation passages did not fit as complete sentences and were omitted. Do not infer claims from omitted passages.' } : {}) }) };
+  });
+}
+function visibleDocumentationIds(input) {
+  const ids = guidanceCallIds(input), visible = new Set();
+  for (const item of input) {
+    if (item.type !== 'function_call_output' || !ids.has(item.call_id)) continue;
+    try { for (const document of JSON.parse(item.output).documents || []) if (document.excerpt) visible.add(document.id); } catch { /* An unavailable tool has no citable documents. */ }
+  }
+  return visible;
+}
 
 /** A bounded tool loop. Injectable dependencies support isolated full-flow tests
  * and the explicit quality evaluation; they cannot be supplied by the browser. */
@@ -175,7 +200,9 @@ export async function generateMentorAnswer({ uid, scope, conversationId, turnId,
       { role: 'user', content: JSON.stringify({ question: String(message).slice(0, 6000), selection, savedBusiness: business }) }];
     let finalResponse;
     for (let index = 0; index < MENTOR_LIMITS.mainCalls; index++) {
-      const final = index === MENTOR_LIMITS.mainCalls - 1;
+      const final = researchUsed || index === MENTOR_LIMITS.mainCalls - 1;
+      if (remainingInput < 12000) input = compactDocumentationInputs(input);
+      if (researchUsed) input.push({ role: 'developer', content: 'Answer now using the evidence already available. Explain any missing evidence briefly; do not infer findings or invent extra tasks. No further tools are available for this answer.' });
       const request = { model: MENTOR_MODEL, store: false, service_tier: 'default', reasoning: { effort: 'low' },
         max_output_tokens: Math.min(final ? 2600 : 1800, remainingOutput), include: ['reasoning.encrypted_content'],
         text: { format: MENTOR_ANSWER_FORMAT }, input,
@@ -210,7 +237,8 @@ export async function generateMentorAnswer({ uid, scope, conversationId, turnId,
     await validateScope(uid, scope);
     if (evidenceRevisions.size) await validateEvidence(uid, scope, [...evidenceRevisions.values()]);
     phase = 'validation';
-    const answer = validateMentorAnswer(mentorResponseText(finalResponse), { sources: unique(sources), metricCards: unique(metricCards), actions: unique(actions) });
+    const visibleDocs = visibleDocumentationIds(input);
+    const answer = validateMentorAnswer(mentorResponseText(finalResponse), { sources: unique(sources).filter(source => source.type !== 'google_documentation' || visibleDocs.has(source.id)), metricCards: unique(metricCards), actions: unique(actions) });
     return { ...answer, provenance: { model: MENTOR_MODEL, policyVersion: MENTOR_POLICY_VERSION,
       scope, conversationId, turnId, generatedAt: new Date().toISOString(), accountReads: reads,
       providerAttempts: attempts, documentationResearch: researchUsed, inputTokenChecks, inputTokenCheckMs,

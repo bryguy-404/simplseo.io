@@ -58,15 +58,31 @@ export function selectMentorDocumentationExcerpt(document, topic) {
   return selected.length ? selected.sort((a, b) => a.index - b.index).map(item => item.sentence).join('\n\n') : text.slice(0, 2200);
 }
 
+// Shorten the already selected passage without clipping a qualification or
+// negation halfway through a sentence. Cached documentation stays unchanged.
+export function compactMentorDocumentationExcerpt(document, topic, maxChars = 1200) {
+  const text = document.excerpt || '';
+  if (text.length <= maxChars) return text;
+  const terms = GOOGLE_SEO_TOPICS[topic]?.excerptTerms || [];
+  const sentences = (text.match(/[^.!?]+[.!?]+(?:\s|$)/g) || []).map((sentence, index) => ({ sentence: sentence.trim(), index,
+    score: terms.reduce((sum, term) => sum + (sentence.toLowerCase().includes(term) ? 1 : 0), 0) }))
+    .filter(item => item.sentence.length <= maxChars).sort((a, b) => b.score - a.score || a.index - b.index);
+  const selected = []; let length = 0;
+  for (const item of sentences) if (length + item.sentence.length + (selected.length ? 2 : 0) <= maxChars) {
+    selected.push(item); length += item.sentence.length + (selected.length > 1 ? 2 : 0);
+  }
+  return selected.sort((a, b) => a.index - b.index).map(item => item.sentence).join('\n\n');
+}
+
 export function documentationResearchRequest(topic, model, maxOutputTokens = 1400) {
   const entry = GOOGLE_SEO_TOPICS[topic];
   if (!entry) throw new Error('Choose a supported SEO topic.');
   // Fixed public topic queries are the privacy boundary. Never concatenate a
   // user question, conversation, account URL, business facts or GSC data here.
   return { model, store: false, service_tier: 'default', reasoning: { effort: 'low' }, max_output_tokens: maxOutputTokens,
-    max_tool_calls: 2, tools: [{ type: 'web_search', search_context_size: 'low',
+    max_tool_calls: 1, tools: [{ type: 'web_search', search_context_size: 'low',
       filters: { allowed_domains: ['developers.google.com', 'support.google.com'] } }], tool_choice: 'required',
-    include: ['web_search_call.action.sources'], input: `Find official Google documentation for: ${entry.query}. Use only Google Search Central documentation/blog or Search Console/Business Profile Help answer pages. Briefly identify useful sources; no speculation. At most two searches.` };
+    include: ['web_search_call.action.sources'], input: `Find official Google documentation for: ${entry.query}. Use only Google Search Central documentation/blog or Search Console/Business Profile Help answer pages. Briefly identify useful sources; no speculation. Use at most one search.` };
 }
 
 export function researchedDocumentationUrls(response) {

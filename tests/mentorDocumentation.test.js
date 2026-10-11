@@ -3,7 +3,7 @@ vi.mock('../app/lib/firebaseAdmin', async () => (await import('./fakeFirestore')
 vi.mock('../app/lib/server/publicFetch', () => ({ publicFetch: vi.fn() }));
 import { reset } from '../app/lib/firebaseAdmin';
 import { publicFetch } from '../app/lib/server/publicFetch';
-import { lookupGoogleGuidance, readGoogleDocumentation, documentationResearchRequest, researchedDocumentationUrls, selectMentorDocumentationExcerpt } from '../app/lib/server/mentorDocumentation';
+import { lookupGoogleGuidance, readGoogleDocumentation, documentationResearchRequest, researchedDocumentationUrls, selectMentorDocumentationExcerpt, compactMentorDocumentationExcerpt } from '../app/lib/server/mentorDocumentation';
 const url = 'https://support.google.com/webmasters/answer/7440203?hl=en';
 const html = `<main><h1>Page indexing</h1><p>${'A discovered page is different from a crawled page. '.repeat(10)}</p></main>`;
 beforeEach(() => { reset(); vi.clearAllMocks(); publicFetch.mockImplementation(async page => {
@@ -29,6 +29,14 @@ describe('retrieved official SEO documentation', () => {
     const result = selectMentorDocumentationExcerpt({ excerpt: `${'This is an introductory sentence. '.repeat(90)}${fact}` }, 'titles');
     expect(result).toContain(fact); expect(result.length).toBeLessThanOrEqual(2200);
   });
+  it('shortens documentation using complete relevant sentences without altering its cached excerpt', () => {
+    const qualification = 'The meta description is not used in ranking.';
+    const document = { excerpt: `${'This introduction describes a website. '.repeat(40)}${qualification}` };
+    const original = document.excerpt, compact = compactMentorDocumentationExcerpt(document, 'titles');
+    expect(compact.length).toBeLessThanOrEqual(1200); expect(compact).toContain(qualification); expect(compact.endsWith('.')).toBe(true);
+    expect(document.excerpt).toBe(original);
+    expect(compactMentorDocumentationExcerpt({ excerpt: `${'Long conditional text '.repeat(70)}does not establish a penalty.` }, 'indexing')).toBe('');
+  });
   it('caches successful excerpts and does not fetch twice within seven days', async () => {
     const first = await lookupGoogleGuidance('indexing'); const second = await lookupGoogleGuidance('indexing');
     expect(first.sources).toHaveLength(1); expect(second.documents[0]).toMatchObject({ cached: true, status: 'available' });
@@ -49,7 +57,7 @@ describe('retrieved official SEO documentation', () => {
   });
   it('uses fixed public topics rather than accepting a private search query', () => {
     const request = documentationResearchRequest('indexing', 'gpt-6.1-sol');
-    expect(request.max_tool_calls).toBe(2); expect(request.tools[0].filters.allowed_domains).toEqual(['developers.google.com', 'support.google.com']);
+    expect(request.max_tool_calls).toBe(1); expect(request.input).toContain('at most one search'); expect(request.tools[0].filters.allowed_domains).toEqual(['developers.google.com', 'support.google.com']);
     expect(() => documentationResearchRequest('my private metrics 123 alice@example.test', 'model')).toThrow();
   });
   it('requires completed research and accepts only approved retrieved URLs', () => {

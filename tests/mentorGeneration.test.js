@@ -17,6 +17,27 @@ function deps(outputs = [[final()]]) {
     lookupDocs: vi.fn(async () => ({ topic: 'indexing', documents: [{ id: 'google', title: 'Indexing', url: 'https://support.google.com/webmasters/answer/7440203', excerpt: 'Discovered and crawled are different states.', status: 'available', observedAt: '2026-10-11' }] })),
   };
 }
+function heavyResearchDeps(sourceIds = ['google']) {
+  const d = deps();
+  const documents = [{ id: 'google', title: 'Indexing', url: 'https://support.google.com/webmasters/answer/7440203',
+    observedAt: '2026-10-11', status: 'available', excerpt: 'Indexing does not establish a manual action. '.repeat(45) },
+  { id: 'google2', title: 'Canonicalization', url: 'https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls',
+    observedAt: '2026-10-11', status: 'available', excerpt: 'Google may select a canonical among similar pages. '.repeat(40) },
+  { id: 'unfittable', title: 'Long qualification', url: 'https://developers.google.com/search/docs/essentials/spam-policies',
+    observedAt: '2026-10-11', status: 'available', excerpt: `${'Long conditional text '.repeat(70)}does not establish a penalty.` }];
+  d.lookupDocs.mockResolvedValue({ topic: 'indexing', documents, sources: documents.map(({ id, title, url, observedAt, status }) => ({ id, title, url, observedAt, status })) });
+  d.researchEnabled = true; d.reserveResearch = vi.fn().mockResolvedValue(true);
+  d.provider.create.mockReset()
+    .mockResolvedValueOnce({ ...response([tool('read_google_guidance', { topic: 'indexing', latest: true }),
+      tool('mentor_page_evidence', { pageUrl: 'https://example.test/' })]), usage: { input_tokens: 1761, output_tokens: 82 } })
+    .mockResolvedValueOnce({ ...response([{ type: 'web_search_call', status: 'completed' }]), usage: { input_tokens: 17021, output_tokens: 325 } })
+    .mockResolvedValueOnce({ ...response([final('The current evidence does not establish a penalty.', sourceIds)]), usage: { input_tokens: 5000, output_tokens: 300 } });
+  d.countInput = vi.fn(async body => {
+    const result = body.input.filter(item => item.type === 'function_call_output').map(item => JSON.parse(item.output)).find(item => item.documents);
+    return { input_tokens: result?.documents.every(item => item.excerpt.length <= 1200 && item.excerptTruncated) ? 5000 : 6029 };
+  });
+  return d;
+}
 describe('bounded mentor answer pipeline', () => {
   it('uses scoped server evidence and returns saved-source references', async () => {
     const d = deps([[tool('mentor_page_evidence', { pageUrl: 'https://example.test/' })], [final()]]);
@@ -130,7 +151,7 @@ describe('bounded mentor answer pipeline', () => {
     const d = deps(); d.countInput = vi.fn(); const result = await generateMentorAnswer(args, d);
     expect(d.countInput).not.toHaveBeenCalled(); expect(result.provenance.inputTokenChecks).toBe(0);
   });
-  it('keeps three main calls, one research call and at most four count checks within the cumulative cap', async () => {
+  it('answers on the next main call after research and does not offer further tools', async () => {
     const d = deps();
     d.executeEvidence.mockResolvedValue({ data: { excerpt: 'e'.repeat(28000) }, sources: [{ id: 'page' }] });
     d.countInput = vi.fn().mockResolvedValueOnce({ input_tokens: 23500 }).mockResolvedValue({ input_tokens: 100 });
@@ -138,13 +159,54 @@ describe('bounded mentor answer pipeline', () => {
     d.provider.create.mockReset()
       .mockResolvedValueOnce({ ...response([tool('read_google_guidance', { topic: 'indexing', latest: true })]), usage: { input_tokens: 23500, output_tokens: 100 } })
       .mockResolvedValueOnce({ ...response([]), usage: { input_tokens: 100, output_tokens: 100 } })
-      .mockResolvedValueOnce({ ...response([tool('mentor_page_evidence', { pageUrl: 'https://example.test/' })]), usage: { input_tokens: 100, output_tokens: 100 } })
       .mockResolvedValueOnce({ ...response([final()]), usage: { input_tokens: 100, output_tokens: 100 } });
     const result = await generateMentorAnswer(args, d);
-    expect(d.countInput).toHaveBeenCalledTimes(4); expect(d.provider.create).toHaveBeenCalledTimes(4);
-    expect(d.provider.create.mock.calls[3][0].tools).toBeUndefined();
-    expect(d.record.mock.calls.map(([entry]) => entry.stage)).toEqual(['answer_1', 'documentation_research', 'answer_2', 'answer_3']);
-    expect(result.provenance).toMatchObject({ providerAttempts: 4, inputTokenChecks: 4 });
+    expect(d.countInput).toHaveBeenCalledTimes(3); expect(d.provider.create).toHaveBeenCalledTimes(3);
+    expect(d.provider.create.mock.calls[2][0].tools).toBeUndefined();
+    expect(d.record.mock.calls.map(([entry]) => entry.stage)).toEqual(['answer_1', 'documentation_research', 'answer_2']);
+    expect(result.provenance).toMatchObject({ providerAttempts: 3, inputTokenChecks: 3 });
+  });
+  it('fits a 17k-token research result by shortening only documentation and still processes parallel account tools', async () => {
+    const d = heavyResearchDeps();
+    const account = { data: { clicks: 6, position: 12.3, tasks: [{ id: 'task', text: 'Keep this saved task exactly.' }] },
+      metricCards: [{ id: 'metric', clicks: 6, position: 12.3 }], sources: [{ id: 'page', title: 'Saved page evidence' }] };
+    d.executeEvidence.mockResolvedValueOnce({ data: { confirmedBusinessName: 'Owner confirmed name' }, sources: [{ id: 'page' }] }).mockResolvedValueOnce(account);
+    const originalDocs = JSON.stringify((await d.lookupDocs()).documents);
+    const result = await generateMentorAnswer(args, d);
+    const request = d.provider.create.mock.calls[2][0], outputs = request.input.filter(item => item.type === 'function_call_output').map(item => JSON.parse(item.output));
+    const documentation = outputs.find(item => item.documents);
+    expect(documentation.documents.map(item => item.id)).toEqual(['google', 'google2']);
+    expect(documentation.sources.map(item => item.id)).toEqual(['google', 'google2']);
+    expect(documentation.documents.every(item => item.excerpt.length <= 1200 && item.excerptTruncated && item.excerpt.endsWith('.'))).toBe(true);
+    expect(documentation.documents[0]).toMatchObject({ title: 'Indexing', observedAt: '2026-10-11', status: 'available', url: 'https://support.google.com/webmasters/answer/7440203' });
+    expect(outputs.find(item => item.data?.tasks)).toEqual(account);
+    const question = request.input.find(item => item.role === 'user');
+    expect(JSON.parse(question.content)).toMatchObject({ question: args.message, savedBusiness: { data: { confirmedBusinessName: 'Owner confirmed name' } } });
+    expect(request.tools).toBeUndefined(); expect(request.input.at(-1).content).toContain('Explain any missing evidence');
+    expect(d.provider.create.mock.calls[1][0].max_tool_calls).toBe(1);
+    expect(d.executeEvidence).toHaveBeenCalledTimes(2); expect(d.countInput).toHaveBeenCalledTimes(1);
+    expect(result.sources.map(item => item.id)).toEqual(['google']);
+    expect(JSON.stringify((await d.lookupDocs()).documents)).toBe(originalDocs);
+    expect(d.provider.create).toHaveBeenCalledTimes(3);
+  });
+  it('fails closed if an exact final input count still exceeds the remaining allowance after compaction', async () => {
+    const d = heavyResearchDeps(); d.countInput.mockResolvedValue({ input_tokens: 5300 });
+    await expect(generateMentorAnswer(args, d)).rejects.toMatchObject({ status: 503, mentorFailure: { category: 'input_budget', inputBound: 5300, remainingInput: 5218 } });
+    expect(d.provider.create).toHaveBeenCalledTimes(2); expect(d.countInput).toHaveBeenCalledTimes(1);
+  });
+  it('does not accept a citation whose complete documentation passage was omitted', async () => {
+    const d = heavyResearchDeps(['unfittable']);
+    await expect(generateMentorAnswer(args, d)).rejects.toMatchObject({ status: 503, mentorFailure: { category: 'validation' } });
+    expect(d.provider.create).toHaveBeenCalledTimes(3);
+  });
+  it('retains full documentation excerpts when input headroom is available', async () => {
+    const d = deps([[tool('read_google_guidance', { topic: 'indexing', latest: false })], [final('Keep the documented distinctions.', ['google'])]]);
+    const excerpt = 'Indexing does not establish a manual action. '.repeat(45);
+    d.lookupDocs.mockResolvedValue({ topic: 'indexing', documents: [{ id: 'google', title: 'Indexing', excerpt, status: 'available' }] });
+    await generateMentorAnswer(args, d);
+    const output = d.provider.create.mock.calls[1][0].input.find(item => item.type === 'function_call_output');
+    expect(JSON.parse(output.output).documents[0]).toMatchObject({ excerpt });
+    expect(JSON.parse(output.output).documents[0]).not.toHaveProperty('excerptTruncated');
   });
   it('does not return an answer whose provider-reported input exceeds the cumulative cap', async () => {
     const d = deps(); d.provider.create.mockReset().mockResolvedValueOnce({ ...response([final()]), usage: { input_tokens: 24001, output_tokens: 100 } });
