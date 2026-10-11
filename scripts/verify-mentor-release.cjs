@@ -10,12 +10,14 @@ const admin = require('firebase-admin');
 const assert = require('node:assert/strict');
 const { createHash, randomUUID } = require('node:crypto');
 const { spawn } = require('node:child_process');
+const { isDeepStrictEqual } = require('node:util');
 const args = process.argv.slice(2);
 const positionals = args.filter(value => !value.startsWith('--'));
 const [identityFile, origin = 'https://simplseo-io.vercel.app'] = positionals;
 const flags = args.filter(value => value.startsWith('--'));
 const investigationFlag = flags.find(value => /^--investigate(?:=(?:activity|technical))?$/.test(value));
 let stage = 'configuration';
+let preservationFailures = [];
 const ownedCollections = [
   'pageReviewPlans', 'implementedSeoTips', 'pageProgressCycles', 'newPagePlans', 'newPagePublications',
   'newPageWorkspaces', 'newPageInventories', 'newPageAssessments', 'onboardingInventories', 'onboardingExtractions',
@@ -81,13 +83,26 @@ async function main() {
     const unchanged = (before, after, { investigate = false } = {}) => {
       const permitted = path => investigate && (path.startsWith('mentorActivitySnapshots/') || path.startsWith('mentorCheckOperations/')
         || path.startsWith('requestLimits/mentor-check-'));
+      preservationFailures = [];
       for (const path of new Set([...before.keys(), ...after.keys()])) {
         if (permitted(path)) continue;
         const old = before.get(path), current = after.get(path);
-        assert(old && current, 'A preserved account record was added or removed.');
-        if (investigate && path === `users/${uid}`) assert.deepEqual(omitOAuth(current.data), omitOAuth(old.data), 'The check changed account data beyond credential refresh.');
-        else assert(current.updateTime.isEqual(old.updateTime), 'A preserved account record changed.');
+        const redactOAuth = investigate && path === `users/${uid}`;
+        const oldData = old ? (redactOAuth ? omitOAuth(old.data) : old.data) : {};
+        const currentData = current ? (redactOAuth ? omitOAuth(current.data) : current.data) : {};
+        const matches = old && current && (redactOAuth ? isDeepStrictEqual(oldData, currentData) : current.updateTime.isEqual(old.updateTime));
+        if (matches) continue;
+        // No document paths, identifiers or values: only the known root
+        // collection, top-level field names and Firestore update timestamps.
+        const root = path.split('/')[0];
+        preservationFailures.push({ collection: [...ownedCollections, 'users', 'onboarding', 'gscTokens'].includes(root) ? root : 'other',
+          changedTopLevelFields: [...new Set([...Object.keys(oldData), ...Object.keys(currentData)])]
+            .filter(key => !isDeepStrictEqual(oldData[key], currentData[key]))
+            .map(key => /^[A-Za-z][A-Za-z0-9_]{0,79}$/.test(key) ? key : '[nonstandard field]').sort(),
+          beforeUpdatedAt: old?.updateTime?.toDate().toISOString() || null,
+          afterUpdatedAt: current?.updateTime?.toDate().toISOString() || null });
       }
+      assert.equal(preservationFailures.length, 0, 'A preserved account record changed.');
     };
 
     stage = 'owner session';
@@ -253,4 +268,8 @@ async function main() {
       investigation, providerCallVerification: 'Stored-read provider-free behavior is covered by isolated tests; live account and usage records remained unchanged.' }, null, 2) + '\n');
   } finally { await app.delete(); }
 }
-main().catch(() => { console.error(`Mentor release verification failed during ${stage}. Credentials, private identities and provider payloads are omitted.`); process.exit(1); });
+main().catch(() => {
+  console.error(`Mentor release verification failed during ${stage}. Credentials, private identities and provider payloads are omitted.`);
+  if (preservationFailures.length) process.stderr.write(`${JSON.stringify({ preservationDifferences: preservationFailures }, null, 2)}\n`);
+  process.exit(1);
+});

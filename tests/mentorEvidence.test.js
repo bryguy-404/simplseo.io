@@ -220,6 +220,28 @@ describe('stored mentor evidence', () => {
     await expect(assertMentorEvidenceRevisions('u1', scope, result.evidenceRevisions)).rejects.toMatchObject({ status: 409 });
   });
 
+  it('keeps the dated previous decision distinct when a later checkpoint is ready', async () => {
+    const scope = await readMentorAccountScope('u1');
+    const cycle = newOngoingCycle({ userId: 'u1', gscProperty: identity.property, websiteRunId: 'run1', pageUrl: site,
+      implementedAt: '2026-07-01T12:00:00Z', confirmedTaskIds: [] }, null, { now: at });
+    Object.assign(cycle, { latestCheckpointId: 'day-56', latestCheckpoint: { day: 56, evidenceRevision: 2, baseline: { clicks: 1 }, post: { clicks: 4 } },
+      latestDecisionId: 'review-day-28', latestDecision: { id: 'review-day-28', checkpointId: 'day-28', checkpointRevision: 1,
+        outcome: 'keep_monitoring', summary: 'The earlier period needs more evidence.', reviewedAt: '2026-08-02T12:00:00Z',
+        acceptedAt: '2026-08-03T12:00:00Z', sourcePlanRevision: 3 } });
+    records.set(`pageProgressCycles/${cycle.id}`, cycle);
+    const before = structuredClone([...records]);
+    const result = await executeMentorEvidenceTool('u1', scope, 'mentor_page_work', { pageUrl: site });
+    const compact = result.data.cycles[0];
+    expect(compact.latestCheckpointId).toBe('day-56');
+    expect(compact.latestDecisionId).toBe('review-day-28');
+    expect(compact.latestDecisionMatchesCheckpoint).toBe(false);
+    expect(compact.latestDecision).toMatchObject({ checkpointId: 'day-28', checkpointRevision: 1,
+      reviewedAt: '2026-08-02T12:00:00Z', acceptedAt: '2026-08-03T12:00:00Z', sourcePlanRevision: 3 });
+    expect(projectMentorCycle(cycle, { ...cycle.latestDecision, checkpointId: 'day-56', checkpointRevision: 2 }).latestDecisionMatchesCheckpoint).toBe(true);
+    expect([...records]).toEqual(before);
+    [getGscConnection, collectPageReviewEvidence, fetchCurrentPageContent].forEach(mock => expect(mock).not.toHaveBeenCalled());
+  });
+
   it('hydrates actual new-page plan and publication shapes without exposing private bookkeeping', async () => {
     const scope = await readMentorAccountScope('u1');
     records.set('newPagePlans/plan1', { userId: 'u1', ...identity, revision: 2, status: 'published', publicationId: 'pub1',

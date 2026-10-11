@@ -73,13 +73,15 @@ export function projectMentorCycle(cycle, publicDecision) {
   const observation = value => value ? copy(value, ['window', 'startDate', 'endDate', 'status', 'clicks', 'impressions', 'ctr', 'position', 'fetchedAt', 'observedAt', 'source', 'queriesStatus', 'queryCoverage']) : value;
   const checkpoint = value => value ? { ...copy(value, ['id', 'day', 'evidenceRevision', 'state', 'reason', 'window', 'windows', 'comparison', 'observedAt', 'collectedAt', 'lowVolume', 'limitation', 'source']),
     baseline: observation(value.baseline), post: observation(value.post) } : value;
-  const projected = mentorProjection({ ...copy(cycle, ['id', 'revision', 'lifecycle', 'confirmedAt', 'reviewStatus', 'nextReviewAt', 'lastError', 'lastSuccessAt', 'previousCycleId', 'supersededAt']),
+  const projected = mentorProjection({ ...copy(cycle, ['id', 'revision', 'lifecycle', 'confirmedAt', 'reviewStatus', 'nextReviewAt', 'lastError', 'lastSuccessAt', 'previousCycleId', 'supersededAt', 'latestCheckpointId', 'latestDecisionId']),
     confirmation: copy(cycle.confirmation, ['summary', 'taskLabels', 'interveningChange', 'searchFocus']),
     originalComparison: checkpoint(cycle.originalComparison), latestCheckpoint: checkpoint(cycle.latestCheckpoint),
     technical: cycle.technical ? { ...copy(cycle.technical, ['checkedAt', 'errors', 'issues']),
       publicPage: copy(cycle.technical.publicPage, ['status', 'checkedAt', 'finalUrl', 'httpStatus', 'canonicalUrl', 'noindex']),
       indexing: copy(cycle.technical.indexing, ['status', 'checkedAt', 'verdict', 'coverageState', 'indexingState', 'pageFetchState', 'robotsTxtState', 'googleCanonical', 'userCanonical', 'lastCrawlTime', 'limitation']) } : null,
-    latestDecision: publicDecision ? copy(publicDecision, ['id', 'decision', 'outcome', 'summary', 'whatChanged', 'meaning', 'nextStep', 'nextReviewAt', 'canAcceptTasks']) : publicDecision,
+    latestDecision: publicDecision ? copy(publicDecision, ['id', 'decision', 'outcome', 'summary', 'whatChanged', 'meaning', 'nextStep', 'nextReviewAt', 'canAcceptTasks', 'reviewedAt', 'checkpointId', 'checkpointRevision', 'acceptedAt', 'sourcePlanRevision']) : publicDecision,
+    latestDecisionMatchesCheckpoint: Boolean(publicDecision?.checkpointId && publicDecision.checkpointId === cycle.latestCheckpointId
+      && publicDecision.checkpointRevision === cycle.latestCheckpoint?.evidenceRevision),
   }, { textLimit: 240, arrayLimit: 4 });
   return { ...projected.value, projection: { excerptedFields: projected.excerptedFields, queryRowsAndDetailedEvidenceOmitted: true } };
 }
