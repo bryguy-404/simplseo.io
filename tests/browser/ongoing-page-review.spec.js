@@ -90,7 +90,7 @@ function cycleFor(url, state = 'collecting') {
     confirmation: { taskIds: [taskIds[0]], taskLabels: [labels[0]], summary: 'Published a clearer opening heading.' },
     latestCheckpoint: state === 'collecting' ? null : { id: 'checkpoint-28', day: 28, lowVolume: false,
       windows: { baseline: { startDate: '2026-07-04', endDate: '2026-07-31' }, post: { startDate: '2026-08-02', endDate: '2026-08-29' } },
-      baseline: { clicks: 12, impressions: 250, position: 18, fetchedAt: now }, post: { clicks: 18, impressions: 350, position: 14, fetchedAt: now } },
+      baseline: { status: 'available', clicks: 12, impressions: 250, position: 18, fetchedAt: now }, post: { status: 'available', clicks: 18, impressions: 350, position: 14, fetchedAt: now } },
     latestDecision: null, technical: null, lastError: null };
 }
 function decisionFor(cycle, outcome = 'keep_monitoring') {
@@ -127,12 +127,13 @@ async function signIn(page) {
   await expect(page.getByRole('region', { name: 'Saved page tasks' })).toBeVisible({ timeout: 15000 });
 }
 
-async function setup(page, { state: status = 'collecting', outcome = 'keep_monitoring', saved = false, failAction, deferReview = false, enabled = true } = {}) {
+async function setup(page, { state: status = 'collecting', outcome = 'keep_monitoring', saved = false, failAction, deferReview = false, enabled = true, configure } = {}) {
   const cycle = cycleFor(pageUrl, status);
-  if (outcome === 'gather_evidence' && cycle.latestCheckpoint) Object.assign(cycle.latestCheckpoint, { lowVolume: true, baseline: { clicks: 0, impressions: 8, position: 22, fetchedAt: now }, post: { clicks: 1, impressions: 18, position: 19, fetchedAt: now } });
+  if (outcome === 'gather_evidence' && cycle.latestCheckpoint) Object.assign(cycle.latestCheckpoint, { lowVolume: true, baseline: { status: 'available', clicks: 0, impressions: 8, position: 22, fetchedAt: now }, post: { status: 'available', clicks: 1, impressions: 18, position: 19, fetchedAt: now } });
   const state = { cycle, history: [], plan: planFor(pageUrl), decision: saved ? decisionFor(cycle, outcome) : null,
     calls: { followups: [], publications: [], ai: [], taskUpdates: [], history: 0 }, errors: [], failed: false };
   state.plan.tasks[0] = { ...state.plan.tasks[0], status: 'done', publication: { implementationId: 'fixture-old', pageUrl, implementedAt: cycle.confirmedAt, changeType: 'page_content', confirmationMethod: 'user-confirmed' } };
+  configure?.(state);
   const reviewReady = deferReview ? new Promise(resolve => { state.releaseReview = resolve; }) : Promise.resolve();
   page.on('pageerror', error => state.errors.push(error.message));
   await page.addInitScript(() => localStorage.setItem('hasSeenChatAssistant', 'true'));
@@ -252,7 +253,9 @@ test('failed updates preserve the previous decision and dated observations', asy
   const state = await setup(page, { state: 'reviewed', saved: true, failAction: 'review' });
   await card(page).getByRole('button', { name: 'Check this review for updates' }).click();
   await expect(card(page).getByRole('alert')).toContainText('Reload before trying again');
-  await expect(card(page).getByText('What changed', { exact: true })).toBeVisible();
+  await expect(card(page).getByText('What it means', { exact: true })).toBeVisible();
+  await card(page).getByText('Why this recommendation?', { exact: true }).click();
+  await expect(card(page).getByText('The later period shows more reported search activity.', { exact: true })).toBeVisible();
   await card(page).getByRole('button', { name: 'Reload saved review' }).click();
   await expect(card(page).getByRole('alert')).toHaveCount(0);
   expect(state.calls.followups).toHaveLength(1); expect(state.cycle.revision).toBe(1);
@@ -345,7 +348,7 @@ test('a newer checkpoint marks the previous decision as history until explicitly
   await expect(card(page).getByRole('button', { name: 'Review my results', exact: true })).toBeVisible();
   await expect(card(page).getByRole('button', { name: 'Use these next tasks' })).toHaveCount(0);
   await expect(card(page).getByText('What it means', { exact: true })).not.toBeVisible();
-  await card(page).getByText('Previous review · Oct 10, 2026', { exact: true }).click();
+  await card(page).getByText('Previous review · Sep 1, 2026', { exact: true }).click();
   await expect(card(page).getByText('This earlier recommendation has not been reassessed', { exact: false })).toBeVisible();
   await card(page).getByRole('button', { name: 'Review my results', exact: true }).click();
   await expect(card(page).getByRole('button', { name: 'Use these next tasks' })).toBeVisible();
@@ -371,7 +374,7 @@ test('a lost Google connection keeps dated results and provides a reconnect link
   await expect(card(page).getByRole('link', { name: 'Reconnect Google in website setup' })).toHaveAttribute('href', '/revamp');
   await card(page).getByText('View dated search results', { exact: true }).click();
   await expect(card(page).getByRole('table')).toBeVisible();
-  await expect(card(page).getByText('What changed', { exact: true })).toBeVisible();
+  await expect(card(page).getByText('What it means', { exact: true })).toBeVisible();
   expect(state.calls.followups).toHaveLength(0);
 });
 
@@ -408,4 +411,128 @@ test('a publication recorded in another session clears local edit selection and 
   await page.getByText('Completed and dismissed (2)', { exact: true }).click();
   await expect(page.getByRole('article', { name: labels[1], exact: true })).toBeVisible();
   expect(state.calls.publications).toHaveLength(0);
+});
+
+// The visual overview uses historical, labeled fixtures with a fixed clock.
+// No metric is derived from a live customer account and no AI endpoint is used.
+const metricCard = (page, name) => card(page).getByRole('article', { name, exact: true });
+const observed = '2026-09-01T15:00:00.000Z';
+function datedCheckpoint(state, before = {}, after = {}) {
+  state.cycle.latestCheckpoint.baseline = { ...state.cycle.latestCheckpoint.baseline, ...before, fetchedAt: observed };
+  state.cycle.latestCheckpoint.post = { ...state.cycle.latestCheckpoint.post, ...after, fetchedAt: observed };
+}
+
+test('visual collecting progress gives accessible elapsed time without pretending results exist', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-08-15T15:00:00.000Z'));
+  const state = await setup(page);
+  const bar = card(page).getByRole('progressbar', { name: 'Time until next comparison', exact: true });
+  await expect(bar).toBeVisible();
+  await expect(bar).toHaveAttribute('aria-valuemin', '0');
+  await expect(bar).toHaveAttribute('aria-valuemax', '100');
+  expect(Number(await bar.getAttribute('aria-valuenow'))).toBeGreaterThan(0);
+  expect(Number(await bar.getAttribute('aria-valuenow'))).toBeLessThan(100);
+  await expect(card(page).getByText('14 days since your changes', { exact: true })).toBeVisible();
+  await expect(metricCard(page, 'Clicks')).toHaveCount(0);
+  await expect(card(page).getByRole('button', { name: 'Review my results', exact: true })).toHaveCount(0);
+  await captureFixture(page, 'collecting');
+  await page.reload();
+  await expect(card(page).getByText('14 days since your changes', { exact: true })).toBeVisible();
+  expect(state.calls.followups).toHaveLength(0); expect(state.calls.ai).toHaveLength(0); expect(state.calls.publications).toHaveLength(0);
+});
+
+test('visual result cards show gains and lower-is-better position before any AI review', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-09-01T15:00:00.000Z'));
+  const state = await setup(page, { state: 'review_due', configure: value => datedCheckpoint(value, { clicks: 12, impressions: 250, position: 18 }, { clicks: 15, impressions: 350, position: 13 }) });
+  for (const name of ['Clicks', 'Appearances in search', 'Average position']) await expect(metricCard(page, name)).toBeVisible();
+  await expect(metricCard(page, 'Clicks').getByText('previously 12', { exact: true })).toBeVisible();
+  await expect(metricCard(page, 'Clicks').getByText('15', { exact: true })).toBeVisible();
+  await expect(metricCard(page, 'Clicks')).toContainText('3 more clicks');
+  await expect(metricCard(page, 'Average position')).toContainText('5 positions better');
+  await expect(card(page).getByText('Comparing two 28-day periods', { exact: true })).toBeVisible();
+  await expect(card(page).getByText(/Before: Jul 4, 2026.*Jul 31, 2026/).first()).toBeVisible();
+  await expect(card(page).getByRole('table')).not.toBeVisible();
+  await expect(card(page).getByRole('button', { name: 'Review my results', exact: true })).toBeVisible();
+  await captureFixture(page, 'improving');
+  expect(state.calls.followups).toHaveLength(0); expect(state.calls.ai).toHaveLength(0); expect(state.calls.publications).toHaveLength(0);
+});
+
+test('visual result cards make declines and a worse position understandable without color alone', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-09-01T15:00:00.000Z'));
+  const state = await setup(page, { state: 'review_due', configure: value => datedCheckpoint(value, { clicks: 18, impressions: 350, position: 13 }, { clicks: 12, impressions: 250, position: 18 }) });
+  await expect(metricCard(page, 'Clicks')).toContainText('6 fewer clicks');
+  await expect(metricCard(page, 'Appearances in search')).toContainText(/100 fewer/);
+  await expect(metricCard(page, 'Average position')).toContainText('5 positions worse');
+  await expect(metricCard(page, 'Average position').getByText('previously 13', { exact: true })).toBeVisible();
+  await expect(metricCard(page, 'Average position').getByText('18', { exact: true })).toBeVisible();
+  await captureFixture(page, 'declining');
+  expect(state.calls.followups).toHaveLength(0); expect(state.calls.publications).toHaveLength(0);
+});
+
+test('visual metrics distinguish genuine zero activity from unavailable observations', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-09-01T15:00:00.000Z'));
+  const state = await setup(page, { state: 'review_due', configure: value => datedCheckpoint(value,
+    { status: 'no_data', clicks: 0, impressions: 0, position: null }, { status: 'no_data', clicks: 0, impressions: 0, position: null }) });
+  await expect(metricCard(page, 'Clicks').getByText('0', { exact: true })).toBeVisible();
+  await expect(metricCard(page, 'Clicks').getByText('previously 0', { exact: true })).toBeVisible();
+  await expect(metricCard(page, 'Appearances in search').getByText('0', { exact: true })).toBeVisible();
+  await expect(metricCard(page, 'Appearances in search').getByText('previously 0', { exact: true })).toBeVisible();
+  await expect(metricCard(page, 'Average position')).toContainText('—');
+  expect(await metricCard(page, 'Clicks').innerText()).not.toMatch(/Infinity|NaN|more clicks|fewer clicks/);
+  state.cycle.latestCheckpoint.post = { status: 'unavailable', clicks: null, impressions: null, position: null, fetchedAt: observed };
+  // The collector also flags unavailable checkpoints as lowVolume. That flag
+  // cannot turn a failed observation into evidence of low traffic.
+  state.cycle.latestCheckpoint.lowVolume = true;
+  await page.reload();
+  await expect(metricCard(page, 'Clicks').getByText('0', { exact: true })).toHaveCount(0);
+  await expect(metricCard(page, 'Clicks').getByText('previously 0', { exact: true })).toBeVisible();
+  await expect(metricCard(page, 'Clicks')).toContainText('—');
+  await expect(card(page).getByText('A small amount of activity so far. More time will help confirm the direction.', { exact: true })).toHaveCount(0);
+  await expect(card(page).getByText('Some numbers aren’t available yet. Missing data doesn’t mean zero traffic.', { exact: true })).toBeVisible();
+  expect(await metricCard(page, 'Clicks').innerText()).not.toMatch(/more clicks|fewer clicks|100%/);
+  expect(state.calls.followups).toHaveLength(0); expect(state.calls.ai).toHaveLength(0);
+});
+
+test('visual low-volume overview stays cautious and accessible on mobile with saved restoration', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-09-01T15:00:00.000Z'));
+  const state = await setup(page, { state: 'reviewed', saved: true, outcome: 'gather_evidence', configure: value => datedCheckpoint(value) });
+  await expect(card(page).getByText('A small amount of activity so far. More time will help confirm the direction.', { exact: true })).toBeVisible();
+  await expect(metricCard(page, 'Clicks')).toContainText('1 more click');
+  await captureFixture(page, 'inconclusive');
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const name of ['Clicks', 'Appearances in search', 'Average position']) await expect(metricCard(page, name)).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  const reasoning = card(page).getByText('Why this recommendation?', { exact: true });
+  await reasoning.focus(); await page.keyboard.press('Enter');
+  await expect(card(page).getByText('Both reporting periods have limited search activity.', { exact: true })).toBeVisible();
+  await reasoning.press('Enter');
+  await captureFixture(page, 'inconclusive-mobile');
+  await page.reload();
+  await expect(metricCard(page, 'Clicks')).toContainText('1 more click');
+  await expect(card(page).getByText('Both reporting periods have limited search activity.', { exact: true })).not.toBeVisible();
+  expect(state.calls.followups).toHaveLength(0); expect(state.calls.ai).toHaveLength(0); expect(state.calls.publications).toHaveLength(0);
+});
+
+test('visual progress at its expected date waits for actual collection instead of claiming readiness', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-09-05T15:00:00.000Z'));
+  const state = await setup(page);
+  await expect(card(page).getByRole('progressbar', { name: 'Time until next comparison' })).toHaveAttribute('aria-valuenow', '100');
+  await expect(card(page).getByText('Waiting for the latest search data', { exact: true })).toBeVisible();
+  await expect(card(page).getByRole('heading', { name: 'New results ready to review', exact: true })).toHaveCount(0);
+  await expect(card(page).getByRole('button', { name: 'Review my results', exact: true })).toHaveCount(0);
+  await expect(metricCard(page, 'Clicks')).toHaveCount(0);
+  expect(state.calls.followups).toHaveLength(0); expect(state.calls.ai).toHaveLength(0);
+});
+
+test('visual results remain dated and readable when a later collection fails', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-09-29T15:00:00.000Z'));
+  const state = await setup(page, { state: 'reviewed', saved: true, configure: value => {
+    datedCheckpoint(value); value.cycle.state = 'error'; value.cycle.lastError = { checkedAt: '2026-09-29T12:00:00.000Z', source: 'google_search_console' };
+  } });
+  await expect(card(page).getByText('A recent check could not finish.', { exact: false })).toBeVisible();
+  await expect(metricCard(page, 'Clicks').getByText('18', { exact: true })).toBeVisible();
+  await expect(card(page).getByText(/After: Aug 2, 2026.*Aug 29, 2026/).first()).toBeVisible();
+  await expect(card(page).getByText('What it means', { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(metricCard(page, 'Clicks').getByText('18', { exact: true })).toBeVisible();
+  expect(state.calls.followups).toHaveLength(0); expect(state.calls.publications).toHaveLength(0);
 });

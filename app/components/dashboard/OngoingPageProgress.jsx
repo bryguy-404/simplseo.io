@@ -2,17 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Clock3, CheckCircle2, LoaderCircle } from 'lucide-react';
+import { ChartNoAxesCombined, Clock3, LoaderCircle, TriangleAlert } from 'lucide-react';
 import { authenticatedFetch } from '../../lib/authenticatedFetch';
 import { pageIdentity } from './PageSearchActivity';
 import { googleInspectionLink } from './PageReviewDiagnostics';
 import { Button } from '@/components/ui/button';
+import { ElapsedProgress, SearchResultCards, progressDate as reviewDate } from './ProgressVisuals';
+import { resultMetrics } from '../../lib/progressPresentation';
 
-export const reviewDate = value => {
-  if (!value || !Number.isFinite(Date.parse(value))) return 'Date unavailable';
-  const day = /^\d{4}-\d{2}-\d{2}$/.test(value);
-  return new Date(day ? `${value}T12:00:00Z` : value).toLocaleDateString(undefined, { timeZone: day ? 'UTC' : 'America/Los_Angeles', month: 'short', day: 'numeric', year: 'numeric' });
-};
+export { reviewDate };
 const number = value => Number.isFinite(value) ? value.toLocaleString(undefined, { maximumFractionDigits: 1 }) : '—';
 const labels = { keep_monitoring: 'Keep monitoring this page', gather_evidence: 'More evidence is needed', fix_technical: 'Check a technical issue first', investigate_visibility: 'Look closer at search visibility', improve_page: 'Useful next changes to review' };
 const validDecision = (value, cycle) => value && typeof value.id === 'string' && value.cycleId === cycle.id && value.pageUrl === cycle.pageUrl && Object.hasOwn(labels, value.outcome) && ['summary', 'whatChanged', 'meaning', 'nextStep'].every(key => typeof value[key] === 'string') && Array.isArray(value.proposedTasks);
@@ -25,11 +23,11 @@ export function CycleObservations({ checkpoint }) {
   const unavailable = checkpoint.state === 'incomplete' || checkpoint.baseline?.status === 'unavailable' || checkpoint.post?.status === 'unavailable';
   return <div className="space-y-3">
     <p className="text-xs text-muted-foreground">Before: {reviewDate(before?.startDate)}–{reviewDate(before?.endDate)}<br />After: {reviewDate(after?.startDate)}–{reviewDate(after?.endDate)} · Pacific dates.</p>
-    <div className="overflow-x-auto"><table className="w-full text-sm"><caption className="pb-2 text-left text-xs text-muted-foreground">Exact-page search activity · saved observations</caption><thead><tr className="border-b"><th scope="col" className="py-2 text-left">Metric</th><th scope="col">Before</th><th scope="col">After</th></tr></thead><tbody>{[['Clicks', 'clicks'], ['Appearances in search', 'impressions'], ['Average position', 'position']].map(([label, key]) => <tr key={key} className="border-b"><th scope="row" className="py-2 text-left font-normal">{label}</th><td className="text-center">{number(checkpoint.baseline?.[key])}</td><td className="text-center">{number(checkpoint.post?.[key])}</td></tr>)}</tbody></table></div>
+    <div className="overflow-x-auto"><table className="w-full text-sm"><caption className="pb-2 text-left text-xs text-muted-foreground">Exact-page search activity · saved observations</caption><thead><tr className="border-b"><th scope="col" className="py-2 text-left">Metric</th><th scope="col">Before</th><th scope="col">After</th></tr></thead><tbody>{resultMetrics(checkpoint).map(metric => <tr key={metric.key} className="border-b"><th scope="row" className="py-2 text-left font-normal">{metric.label}</th><td className="text-center">{number(metric.before)}</td><td className="text-center">{number(metric.after)}</td></tr>)}</tbody></table></div>
     <p className="text-xs text-muted-foreground">Average position is a reported average, not a fixed Google results page. Traffic changes do not prove that your edits caused them.</p>
     {unavailable && <p className="text-sm">Some observations are unavailable. Missing data does not mean this page received no traffic.</p>}
     {checkpoint.lowVolume && !unavailable && <p className="text-sm">There is too little search activity for a reliable direction yet. This period is inconclusive.</p>}
-    {(checkpoint.post?.fetchedAt || checkpoint.createdAt) && <p className="text-xs text-muted-foreground">Observed {reviewDate(checkpoint.post?.fetchedAt || checkpoint.createdAt)}.</p>}
+    {(checkpoint.post?.fetchedAt || checkpoint.observedAt || checkpoint.createdAt) && <p className="text-xs text-muted-foreground">Observed {reviewDate(checkpoint.post?.fetchedAt || checkpoint.observedAt || checkpoint.createdAt)}.</p>}
   </div>;
 }
 
@@ -53,7 +51,7 @@ function TechnicalCheck({ technical }) {
 }
 
 function DecisionSummary({ decision }) {
-  return <div className="space-y-3 text-sm"><p className="font-medium">{decision.summary}</p><dl className="space-y-3"><div><dt className="font-medium">What changed</dt><dd className="mt-1 text-muted-foreground">{decision.whatChanged}</dd></div><div><dt className="font-medium">What it means</dt><dd className="mt-1 text-muted-foreground">{decision.meaning}</dd></div><div><dt className="font-medium">What to do next</dt><dd className="mt-1">{decision.nextStep}</dd></div></dl><p className="text-xs text-muted-foreground">Review saved {reviewDate(decision.reviewedAt)}.</p></div>;
+  return <div className="space-y-3 rounded-xl border bg-background/40 p-4 text-sm"><p className="font-semibold">{decision.summary}</p><dl className="space-y-3"><div><dt className="font-medium">What it means</dt><dd className="mt-1 text-muted-foreground">{decision.meaning}</dd></div><div><dt className="font-medium">What to do next</dt><dd className="mt-1">{decision.nextStep}</dd></div></dl><details><summary className="cursor-pointer text-xs text-muted-foreground">Why this recommendation?</summary><p className="mt-2 text-muted-foreground">{decision.whatChanged}</p><p className="mt-2 text-xs text-muted-foreground">Review saved {reviewDate(decision.reviewedAt)}.</p></details></div>;
 }
 
 export default function OngoingPageProgress({ cycle, selected = false, disabled = false, planRevision, onCycle, onPlan, onBusy, onRecordEdit }) {
@@ -99,12 +97,14 @@ export default function OngoingPageProgress({ cycle, selected = false, disabled 
     finally { if (!request.signal.aborted) setBusy(''); }
   };
   const collecting = !cycle.latestCheckpoint;
+  const needsAttention = cycle.state === 'needs_attention';
   const newResults = cycle.state === 'review_due' || cycle.reviewStatus === 'review_due' || Boolean(decision?.checkpointId && cycle.latestCheckpoint && (decision.checkpointId !== cycle.latestCheckpoint.id || (Number.isInteger(decision.checkpointRevision) && decision.checkpointRevision !== (cycle.latestCheckpoint.evidenceRevision || 1))));
-  const title = newResults ? 'New results ready to review' : decision ? labels[decision.outcome] : cycle.state === 'needs_attention' ? 'A website check needs attention' : collecting ? 'Collecting search data' : 'Ready to review your results';
+  const title = needsAttention ? 'A website check needs attention' : newResults ? 'New results ready to review' : decision ? labels[decision.outcome] : collecting ? 'Collecting search data' : 'Ready to review your results';
   const locked = disabled || Boolean(busy) || cycle.readOnly;
-  return <section aria-label={`Ongoing progress for ${pageIdentity(cycle.pageUrl)}`} className="space-y-4 rounded-xl border border-emerald-200 bg-emerald-50/40 p-4 dark:border-emerald-900 dark:bg-emerald-950/15" aria-busy={Boolean(busy)}>
-    <div className="flex flex-wrap items-start justify-between gap-2"><h3 className="flex items-center gap-2 font-semibold">{collecting ? <Clock3 className="h-4 w-4" aria-hidden="true" /> : <CheckCircle2 className="h-4 w-4" aria-hidden="true" />}{title}</h3>{!selected && <a className="break-all text-sm underline" href={cycle.pageUrl} target="_blank" rel="noopener noreferrer">{pageIdentity(cycle.pageUrl)}</a>}</div>
-    {decision && !newResults ? <DecisionSummary decision={decision} /> : <p className="text-sm">{collecting ? 'Your published edits are saved. You can work on another page while we collect search activity.' : 'A new dated comparison is available. Review these results before deciding what to do next.'}</p>}
+  return <section aria-label={`Ongoing progress for ${pageIdentity(cycle.pageUrl)}`} className="space-y-4 rounded-xl border bg-card p-4 sm:p-5" aria-busy={Boolean(busy)}>
+    <div className="flex flex-wrap items-start justify-between gap-2"><h3 className={`flex items-center gap-2 font-semibold ${needsAttention ? 'text-amber-800 dark:text-amber-300' : ''}`}>{needsAttention ? <TriangleAlert className="h-4 w-4" aria-hidden="true" /> : collecting ? <Clock3 className="h-4 w-4" aria-hidden="true" /> : <ChartNoAxesCombined className="h-4 w-4" aria-hidden="true" />}{title}</h3>{!selected && <a className="break-all text-sm underline" href={cycle.pageUrl} target="_blank" rel="noopener noreferrer">{pageIdentity(cycle.pageUrl)}</a>}</div>
+    {collecting ? <ElapsedProgress cycle={cycle} /> : <SearchResultCards checkpoint={cycle.latestCheckpoint} previous={Boolean(cycle.lastError || cycle.state === 'error')} />}
+    {decision && !newResults ? <DecisionSummary decision={decision} /> : !collecting && <p className="text-sm text-muted-foreground">Review these results to choose the next useful step.</p>}
     {decision && newResults && <details className="text-sm"><summary className="cursor-pointer font-medium">Previous review · {reviewDate(decision.reviewedAt)}</summary><div className="mt-3"><p className="mb-3 text-xs text-muted-foreground">This earlier recommendation has not been reassessed against the new reporting period.</p><DecisionSummary decision={decision} /></div></details>}
     {cycle.nextReviewAt && <p className="text-sm font-medium">{collecting ? 'First comparison check' : 'Next comparison check'}: {reviewDate(cycle.nextReviewAt)}</p>}
     {(cycle.lastError || cycle.state === 'error') && <p role="status" className="rounded-lg border p-3 text-sm">A recent check could not finish. Earlier observations and reviews remain saved with their original dates. {cycle.lastError?.connection === 'reconnect_required' ? <Link href="/revamp" className="underline">Reconnect Google in website setup</Link> : <span>Use Check progress to retry.</span>}</p>}
