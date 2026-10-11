@@ -31,7 +31,8 @@ test('stuck account can navigate, finish without keywords, reload, and read pres
   await expect(page).toHaveURL(/dashboard/);
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Website update monitoring' })).toBeVisible();
-  await page.getByRole('button', { name: 'Logout', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Account', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Log out', exact: true }).click();
   await expect(page).toHaveURL(/auth/);
   await login(page);
   await page.goto('/revamp/history');

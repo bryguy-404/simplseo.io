@@ -230,7 +230,8 @@ test('logout clears local draft but server conversation returns after sign-in', 
   await ask(page);
   await expect(page.getByText('Reply saved.', { exact: true })).toBeVisible();
   await page.getByRole('textbox', { name: 'Ask your SEO question' }).fill('Private unsent note');
-  await page.getByRole('button', { name: 'Logout', exact: true }).click();
+  await page.getByRole('button', { name: 'Account', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Log out', exact: true }).click();
   await expect(page).toHaveURL(/auth/);
   const localDrafts = await page.evaluate(() => Object.keys(sessionStorage).filter(key => key.startsWith('mentor-draft-v1:')));
   expect(localDrafts).toEqual([]);

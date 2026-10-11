@@ -222,7 +222,8 @@ test('completed comparison reviews once and restores the saved decision across r
   expect(state.calls.followups).toEqual([{ cycleId: state.cycle.id, expectedRevision: 1, action: 'review' }]);
   expect(state.cycle.confirmedAt).toBe('2026-08-01T15:00:00.000Z'); expect(state.cycle.lifecycle).toBe('active');
   await page.reload(); await expect(card(page).getByText('What it means', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Logout', exact: true }).click();
+  await page.getByRole('button', { name: 'Account', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Log out', exact: true }).click();
   await signIn(page); await expect(card(page).getByRole('heading', { name: 'Keep monitoring this page' })).toBeVisible();
   expect(state.calls.followups).toHaveLength(1); expect(state.calls.ai).toHaveLength(0); expect(state.calls.publications).toHaveLength(0);
 });

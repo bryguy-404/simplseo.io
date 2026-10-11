@@ -204,7 +204,8 @@ test('enrollment rollback preserves a pinned draft while unpinned users see a sa
 test('legacy keyword-step account reaches dashboard with usable navigation and no legacy generation', async ({ page }) => {
   const state = await setup(page, workspace({ eligible: false, legacyCompleted: true }), { completed: true, oldStep: 'keywords' }); await login(page, 'dashboard');
   await expect(page.getByRole('heading', { name: 'Your SEO workspace' })).toBeVisible();
-  await page.getByRole('link', { name: 'Settings', exact: true }).click(); await expect(page).toHaveURL(/settings/);
+  await page.getByRole('button', { name: 'Account', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Settings', exact: true }).click(); await expect(page).toHaveURL(/settings/);
   expect(state.posts).toHaveLength(0); expect(state.unknownPosts).toHaveLength(0);
 });
 
