@@ -152,3 +152,53 @@ test('real selection rejects coverage that changed after the saved assessment', 
   expect(result.status).toBe(409); expect(result.body.error).toContain('coverage has changed');
   expect((await app.firestore().collection('newPagePlans').where('userId', '==', uid).get()).size).toBe(0);
 });
+
+test('real inventory service suggestions remove supported location variants and survive owner confirmation and reload', async ({ page }) => {
+  await page.route('**/*', route => ['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
+  await page.goto('/auth');
+  await app.firestore().doc(`onboarding/${uid}`).update({ businessLocation: 'Riverton, WY' });
+  await app.firestore().doc(`newPageInventories/${scopeId}/pages/fixture`).delete();
+  const observedAt = new Date().toISOString();
+  const pages = [
+    ['web-design', 'Web design — Riverton, WY'],
+    ['web-design/lakeside-wy', 'Web design in Lakeside, WY'],
+    ['web-design/accessibility', 'Website accessibility audits'],
+  ];
+  for (const [index, [path, h1]] of pages.entries()) {
+    await app.firestore().doc(`newPageInventories/${scopeId}/pages/service-${index}`).set({ url: `${property}services/${path}`, status: 'fetched', reason: null, generation: 'fixture-generation', sources: ['sitemap'], observedAt,
+      content: { ...pageContent, h1, htmlTitle: h1, fetchedAt: observedAt } });
+  }
+  const suggested = await call(page, '');
+  expect(suggested.status, JSON.stringify(suggested.body)).toBe(200);
+  expect(suggested.body.context).toBe(null);
+  expect(suggested.body.business.services).toEqual(expect.arrayContaining(['Web design', 'Website accessibility audits']));
+  expect(suggested.body.business.services).toHaveLength(2);
+  const confirmed = { area: { name: 'Riverton', region: 'Wyoming', country: 'United States' }, services: suggested.body.business.services, facts: 'We offer these services in Riverton.', confirmed: true };
+  const saved = await call(page, '/context', confirmed);
+  expect(saved.status, JSON.stringify(saved.body)).toBe(200);
+  await page.reload();
+  const restored = await call(page, '');
+  expect(restored.body.context.services).toEqual(confirmed.services);
+  expect(restored.body.context.area).toEqual(confirmed.area);
+  const ownerLabels = ['Heating, cooling and ventilation', 'Custom service for Riverton, WY'];
+  expect((await call(page, '/context', { ...confirmed, services: ownerLabels })).status).toBe(200);
+  expect((await call(page, '')).body.context.services).toEqual(ownerLabels);
+  expect((await app.firestore().collection('aiUsageEvents').where('userId', '==', uid).get()).size).toBe(0);
+  expect((await app.firestore().collection('requestLimits').where('userId', '==', uid).get()).size).toBe(0);
+});
+
+test('real service validation distinguishes missing and excessive services and preserves commas within twelve labels', async ({ page }) => {
+  await setup(page);
+  const empty = await call(page, '/context', { ...initialContext, services: [] });
+  expect(empty.status).toBe(400); expect(empty.body.error).toBe('Add at least one service you offer, with one service per line.');
+  const tooMany = await call(page, '/context', { ...initialContext, services: Array.from({ length: 13 }, (_, index) => `Repair service ${index + 1}`) });
+  expect(tooMany.status).toBe(400); expect(tooMany.body.error).toContain('12');
+  const invalid = await call(page, '/context', { ...initialContext, services: ['A'.repeat(121)] });
+  expect(invalid.status).toBe(400); expect(invalid.body.error).toContain('120');
+  const labels = Array.from({ length: 12 }, (_, index) => `Specialized service ${index + 1}, including repairs`);
+  const saved = await call(page, '/context', { ...initialContext, services: [...labels, `  ${labels[0].toUpperCase()}  `] });
+  expect(saved.status, JSON.stringify(saved.body)).toBe(200);
+  expect(saved.body.context.services).toEqual(labels);
+  await page.reload();
+  expect((await call(page, '')).body.context.services).toEqual(labels);
+});

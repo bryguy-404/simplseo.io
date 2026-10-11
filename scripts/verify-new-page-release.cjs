@@ -73,6 +73,7 @@ async function main() {
     console.log(JSON.stringify({ verifiedAt: new Date().toISOString(), origin: ORIGIN, authChecks: protectedPaths.length, crossAccountChecks: protectedPaths.length,
       retiredWrites: 5, savedPlansPreserved: preserved.length, existingRecordsPreserved: snapshots.length,
       newPublicationsCreated: 0, aiCallsDuringCheck: 0, generationEnabled: first.data.enabled, ownerContextConfirmed: Boolean(reloaded.data.context?.confirmed), inventoryBatches: batches,
+      suggestedServices: reloaded.data.business?.services || [],
       inventory: inventory && { status: inventory.status, coverage: inventory.coverage, pages: inventory.pages.map(page => ({ url: page.url, status: page.status, reason: page.reason || null })) },
       nextCheckpoint: 'Owner reviews actual service/area and coverage; do not confirm publication.' }, null, 2));
   } finally { await app.delete(); }

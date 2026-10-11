@@ -40,7 +40,7 @@ test.beforeEach(async () => {
 async function setup(page, overrides = {}) {
   const state = { data: { enabled: true, business: { name: 'Example Plumbing', websiteUrl: property, location: 'South Bend', services: ['Drain cleaning'] },
     context: structuredClone(context), inventory: structuredClone(inventory), assessments: [makeAssessment()], plans: [makePlan()], history: [], ...overrides },
-    calls: [], errors: [], saveFails: false, redirect: false, ready: Promise.resolve(), block: '', analysis: null, nextInventory: null };
+    calls: [], errors: [], saveFails: false, redirect: false, ready: Promise.resolve(), block: '', analysis: null, nextInventory: null, nextServices: null, contextError: null };
   page.on('pageerror', error => state.errors.push(error.message));
   await page.addInitScript(() => localStorage.setItem('hasSeenChatAssistant', 'true'));
   await page.route('**/*', async route => {
@@ -56,9 +56,9 @@ async function setup(page, overrides = {}) {
       if (state.block === endpoint) await state.ready;
       if (!endpoint) return json({ ...state.data, contexts: state.data.contexts || [...new Map(state.data.assessments.map(item => [item.context.area.name, item.context])).values()], assessments: state.data.assessments.filter(item => JSON.stringify(item.context) === JSON.stringify(state.data.context)), plans: state.data.plans.map(summarizePlan), history: state.data.history.map(item => item.idea ? summarizePlan(item) : item) });
       if (endpoint === '/plan' && method === 'GET') return json({ plan: [...state.data.plans, ...state.data.history].find(item => item.id === url.searchParams.get('planId')) });
-      if (endpoint === '/context') { state.data.context = body; return json({ context: body }); }
+      if (endpoint === '/context') { if (state.contextError) return json({ error: state.contextError }, 400); state.data.context = body; return json({ context: body }); }
       if (endpoint === '/areas') return json({ areas: [{ ...otherArea, reason: 'Nearby community in Indiana.', sourceUrl: 'https://example.org/mishawaka' }] });
-      if (endpoint === '/inventory') { state.data.inventory = state.nextInventory || inventory; return json({ inventory: state.data.inventory }); }
+      if (endpoint === '/inventory') { state.data.inventory = state.nextInventory || inventory; if (state.nextServices) state.data.business = { ...state.data.business, services: state.nextServices }; return json({ inventory: state.data.inventory }); }
       if (endpoint === '/analyze') {
         const assessment = state.analysis || state.data.assessments.find(item => item.context.area.name === state.data.context.area.name) || makeAssessment({ id: 'assessment-other', context: state.data.context, outcome: 'no_opportunity', ideas: [] });
         state.data.assessments = [assessment, ...state.data.assessments.filter(item => item.id !== assessment.id)];
@@ -325,13 +325,15 @@ test('mobile controls fit the screen and the publication dialog supports keyboar
 
 test('website review can discover services before the first owner confirmation', async ({ page }) => {
   const state = await setup(page, { context: null, inventory: null, assessments: [], plans: [], business: { name: 'Example Plumbing', websiteUrl: property, location: '', services: [] } });
-  state.nextInventory = { ...inventory, pages: [{ url: `${property}services/drain-cleaning`, status: 'fetched', content: { h1: 'Drain cleaning' } }] };
+  state.nextInventory = { ...inventory, pages: [{ url: `${property}services/drain-cleaning`, status: 'fetched', content: { h1: 'Drain cleaning in South Bend, IN' } }] };
+  state.nextServices = ['Drain cleaning'];
   await expect(page.getByRole('button', { name: 'Review my website' })).toBeEnabled();
   await page.getByRole('button', { name: 'Review my website' }).click();
   await expect(page.getByLabel('Services offered here')).toHaveValue('Drain cleaning');
   await expect(page.getByRole('checkbox', { name: 'My business offers these services in this area.' })).not.toBeChecked();
   await expect(page.getByRole('button', { name: 'Find useful page ideas' })).toBeDisabled();
   expect(state.calls.filter(call => ['/analyze', '/draft'].includes(call.endpoint))).toHaveLength(0);
+  expect(state.calls.filter(call => call.endpoint === '' && call.method === 'GET')).toHaveLength(2);
 });
 
 test('generation pause keeps saved drafting edits and publication available', async ({ page }) => {
@@ -400,4 +402,67 @@ test('previous website drafts remain readable history without edit or publicatio
   await expect(page.getByRole('button', { name: 'Save my edits' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'I published this page' })).toHaveCount(0);
   expect(state.calls.every(call => call.method === 'GET')).toBe(true);
+});
+
+
+test('twelve comma-containing services remain twelve labels and duplicate lines do not grow the list', async ({ page }) => {
+  const state = await setup(page);
+  const labels = ['South Bend', 'Mishawaka', 'Granger', 'Goshen', 'Elkhart', 'Osceola', 'Niles', 'Bremen', 'Plymouth', 'La Porte', 'Warsaw', 'Middlebury'].map(city => `Website design in ${city}, IN`);
+  await page.getByLabel('Services offered here').fill([...labels, `  ${labels[0].toUpperCase()}  `].join('\n'));
+  await page.getByRole('checkbox', { name: 'My business offers these services in this area.' }).check();
+  await page.getByRole('button', { name: 'Save this area', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Area saved.' })).toBeVisible();
+  expect(state.calls.filter(call => call.endpoint === '/context')).toHaveLength(1);
+  expect(state.calls.find(call => call.endpoint === '/context').body.services).toEqual(labels);
+  await page.reload();
+  await expect(page.getByLabel('Services offered here')).toHaveValue(labels.join('\n'));
+  expect(state.calls.filter(call => ['/analyze', '/draft'].includes(call.endpoint))).toHaveLength(0);
+});
+
+test('reviewing the website keeps owner-typed services instead of replacing them with projected labels', async ({ page }) => {
+  const state = await setup(page, { context: null, inventory: null, assessments: [], plans: [], business: { name: 'Example Plumbing', websiteUrl: property, location: '', services: [] } });
+  await page.getByLabel('Services offered here').fill('Owner-defined repair service');
+  state.nextServices = ['Drain cleaning'];
+  state.nextInventory = { ...inventory, pages: [{ url: `${property}services/drains`, status: 'fetched', content: { h1: 'Drain cleaning in South Bend, IN' } }] };
+  await page.getByRole('button', { name: 'Review my website' }).click();
+  await expect(page.getByRole('button', { name: 'Refresh website review' })).toBeVisible();
+  await expect(page.getByLabel('Services offered here')).toHaveValue('Owner-defined repair service');
+  await expect(page.getByRole('checkbox', { name: 'My business offers these services in this area.' })).not.toBeChecked();
+  expect(state.calls.filter(call => call.endpoint === '' && call.method === 'GET')).toHaveLength(2);
+});
+
+test('service validation identifies oversized lists and labels, clears on edit, and never submits empty services', async ({ page }) => {
+  const state = await setup(page);
+  await page.getByLabel('Services offered here').fill('');
+  await page.getByRole('checkbox', { name: 'My business offers these services in this area.' }).check();
+  await expect(page.getByRole('button', { name: 'Save this area', exact: true })).toBeDisabled();
+  await page.getByLabel('Services offered here').fill(Array.from({ length: 13 }, (_, index) => `Repair service ${index + 1}`).join('\n'));
+  await page.getByRole('checkbox', { name: 'My business offers these services in this area.' }).check();
+  await page.getByRole('button', { name: 'Save this area', exact: true }).click();
+  const error = page.getByRole('main', { name: 'New page planning workspace' }).getByRole('alert');
+  await expect(error).toContainText('Choose up to 12 services for this area.');
+  expect(state.calls.filter(call => call.endpoint === '/context')).toHaveLength(0);
+  await page.getByLabel('Services offered here').fill('A'.repeat(121));
+  await expect(error).toHaveCount(0);
+  await page.getByRole('checkbox', { name: 'My business offers these services in this area.' }).check();
+  await page.getByRole('button', { name: 'Save this area', exact: true }).click();
+  await expect(error).toContainText('Use plain service names, up to 120 characters per line.');
+  expect(state.calls.filter(call => call.endpoint === '/context')).toHaveLength(0);
+  await page.getByLabel('Services offered here').fill('Drain cleaning');
+  await expect(error).toHaveCount(0);
+  await page.getByRole('checkbox', { name: 'My business offers these services in this area.' }).check();
+  await page.getByRole('button', { name: 'Save this area', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Area saved.' })).toBeVisible();
+  expect(state.calls.filter(call => call.endpoint === '/context')).toHaveLength(1);
+});
+
+test('an actionable server validation error clears when the owner corrects the area form', async ({ page }) => {
+  const state = await setup(page);
+  state.contextError = 'Choose up to 12 services for this area. Keep one service per line.';
+  await page.getByRole('button', { name: 'Area saved', exact: true }).click();
+  const error = page.getByRole('main', { name: 'New page planning workspace' }).getByRole('alert');
+  await expect(error).toContainText('Choose up to 12 services');
+  await page.getByLabel('City or service area').fill('Mishawaka');
+  await expect(error).toHaveCount(0);
+  expect(state.calls.filter(call => call.endpoint === '/context')).toHaveLength(1);
 });

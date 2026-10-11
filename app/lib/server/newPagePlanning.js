@@ -52,6 +52,88 @@ function inventoryView(inventory) {
   return { ...inventory, pages: inventory.pages.map(page => ({ url: page.url, status: page.status, reason: page.reason || null,
     title: page.content?.htmlTitle || '', sources: page.sources || [], observedAt: page.observedAt || null })) };
 }
+const labelWords = value => (String(value || '').toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).join(' ');
+const distinctServiceLabels = values => {
+  const seen = new Set();
+  return values.filter(value => { const key = normalize(value); if (seen.has(key)) return false; seen.add(key); return true; });
+};
+function withoutLocationSuffix(label, locations) {
+  const words = [...label.matchAll(/[\p{L}\p{N}]+/gu)];
+  for (const location of locations) {
+    const parts = labelWords(location).split(' ').filter(Boolean);
+    if (!parts.length || parts.length >= words.length) continue;
+    const tail = words.slice(-parts.length);
+    if (tail.map(item => item[0].toLowerCase()).join(' ') !== parts.join(' ')) continue;
+    // Only a known location suffix is removed. A hyphen inside a service name
+    // (for example Design-build) is never itself a reason to split the label.
+    const remaining = label.slice(0, tail[0].index).replace(/[\s,|–—-]+$/g, '').replace(/\s+(?:in|near|serving)$/i, '').trim();
+    if (remaining) return remaining;
+  }
+  return label;
+}
+/** Deterministic, unconfirmed service suggestions from this website's evidence.
+ * Parent service pages are considered first. Child pages remain distinct unless
+ * their heading and URL support a location variant of the same parent service. */
+export function suggestedNewPageServices(profile, inventory) {
+  const profileServices = Array.isArray(profile.services) ? profile.services.filter(value => within(value, 120)).map(value => value.trim()) : [];
+  const location = typeof profile.businessLocation === 'string' ? profile.businessLocation.trim() : '';
+  const locationParts = location.split(',').map(value => value.trim()).filter(Boolean);
+  const locations = [...new Set([location, locationParts.slice(0, 2).join(', '), locationParts[0]].filter(Boolean))];
+  const region = locationParts.length > 1 ? labelWords(locationParts[1]) : '';
+  const fetched = (inventory?.pages || []).filter(page => page.status === 'fetched');
+  const links = fetched.flatMap(page => page.content?.internalLinks || []);
+  const siteText = fetched.flatMap(page => [page.content?.seoMetaDescription, page.content?.textContent, page.content?.h1]).filter(value => typeof value === 'string').join('\n');
+  const escaped = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // A site's own "City, Full Region" wording can substantiate a full region
+  // name when the profile uses an abbreviation; no geography is inferred merely
+  // because it follows a dash in a heading.
+  for (const page of fetched) {
+    const tail = page.content?.h1?.split(/\s+[–—|]\s+/).at(-1)?.trim();
+    if (locationParts[0] && tail && tail.length <= 80 && new RegExp(`${escaped(locationParts[0])}\\s*,\\s*${escaped(tail)}(?:[\\s.,;!?]|$)`, 'i').test(siteText)) locations.push(tail);
+  }
+  const pages = fetched.flatMap(page => {
+    try {
+      const url = new URL(page.url), segments = decodeURIComponent(url.pathname).split('/').filter(Boolean);
+      const marker = segments.findIndex(segment => /^(?:services?|what-we-do)$/i.test(segment));
+      if (marker < 0 || marker === segments.length - 1) return [];
+      return [{ page, url, segments, marker, depth: segments.length - marker - 1, path: url.pathname.replace(/\/$/, '') }];
+    } catch { return []; }
+  }).sort((a, b) => a.depth - b.depth || a.path.localeCompare(b.path));
+  const observed = [];
+  for (const item of pages) {
+    const heading = typeof item.page.content?.h1 === 'string' ? item.page.content.h1.replace(/\s+/g, ' ').trim() : '';
+    const linkedLabel = links.find(link => {
+      if (!within(link.text, 120) || labelWords(link.text) !== labelWords(item.segments.at(-1))) return false;
+      try { const target = new URL(link.url); return target.origin === item.url.origin && target.pathname.replace(/\/$/, '') === item.path; } catch { return false; }
+    })?.text;
+    const linkedLocations = links.flatMap(link => {
+      if (typeof link.text !== 'string') return [];
+      const parts = link.text.split(',').map(value => value.trim());
+      if (parts.length !== 2 || !parts[0] || !/^[A-Z]{2}$/.test(parts[1])) return [];
+      try {
+        const target = new URL(link.url);
+        const city = labelWords(parts[0]), leaf = labelWords(item.segments.at(-1));
+        return item.depth > 1 && target.origin === item.url.origin && target.pathname.replace(/\/$/, '') === item.path
+          && [city, `${city} ${labelWords(parts[1])}`].includes(leaf) ? [link.text] : [];
+      } catch { return []; }
+    });
+    let label = linkedLabel?.trim() || withoutLocationSuffix(heading, [...locations, ...linkedLocations]);
+    const parent = observed.filter(candidate => item.url.origin === candidate.origin && item.path.startsWith(`${candidate.path}/`))
+      .sort((a, b) => b.path.length - a.path.length)[0];
+    if (parent && labelWords(heading).startsWith(`${labelWords(parent.label)} `)) {
+      const headingWords = [...heading.matchAll(/[\p{L}\p{N}]+/gu)];
+      const prefixLength = labelWords(parent.label).split(' ').length;
+      const suffix = heading.slice(headingWords[prefixLength]?.index || heading.length).replace(/^(?:in|near|serving)\s+/i, '').trim();
+      const suffixParts = suffix.split(',').map(value => value.trim()).filter(Boolean);
+      const childPath = labelWords(item.path.slice(parent.path.length));
+      const knownLocation = locations.some(value => labelWords(value) === labelWords(suffix));
+      const regionalLocation = suffixParts.length === 2 && region && labelWords(suffixParts[1]) === region;
+      if ((knownLocation || regionalLocation) && [labelWords(suffix), labelWords(suffixParts[0])].includes(childPath)) label = parent.label;
+    }
+    if (within(label, 120)) observed.push({ label, path: item.path, origin: item.url.origin });
+  }
+  return distinctServiceLabels([...profileServices, ...observed.map(item => item.label)]).slice(0, 12);
+}
 function planSummary(plan, readOnly = false) {
   return { id: plan.id, revision: plan.revision, status: plan.status,
     context: { area: plan.context?.area || null, services: plan.context?.services || [] },
@@ -96,24 +178,24 @@ export async function readNewPageWorkspace(userId) {
     ...legacySkipped.docs.map(doc => ({ id: doc.id, historyType: 'legacy_skipped', topic: doc.data().keyword || doc.id, readOnly: true, unverified: true })),
   ];
   const profile = setup.data() || {};
-  const profileServices = Array.isArray(profile.services) ? profile.services.filter(value => typeof value === 'string').slice(0, 12) : [];
-  // These are visibly unconfirmed suggestions drawn from service-page headings,
-  // not an AI call or a silent assertion of the business's offerings.
-  const observedServices = (inventory?.pages || []).filter(page => page.status === 'fetched' && /\/(?:services?|what-we-do)\//i.test(page.url))
-    .map(page => page.content?.h1).filter(value => typeof value === 'string' && value.trim() && value.length <= 120).slice(0, 12);
+  const services = suggestedNewPageServices(profile, inventory);
   assertSameNewPageScope(scope, await readNewPageScope(userId));
   return { context: currentContext, contexts: workspace.data()?.contexts || [],
-    business: { name: scope.businessName, location: scope.businessLocation, websiteUrl: scope.websiteUrl, services: [...new Set([...profileServices, ...observedServices])] },
+    business: { name: scope.businessName, location: scope.businessLocation, websiteUrl: scope.websiteUrl, services },
     inventory: inventoryView(inventory), assessments: scoped(scope, currentAssessment) ? [assessmentSummary(currentAssessment)] : [],
     plans: plans.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt))), history, enabled: enabled() };
 }
 export async function saveNewPageContext(userId, input) {
-  if (input.confirmed !== true || !input.area || !Array.isArray(input.services) || !input.services.length || input.services.length > 12
-    || input.services.some(value => !within(value, 120))) throw new RequestError('Confirm the services you offer and the area you actually serve.');
+  if (input.confirmed !== true) throw new RequestError('Confirm that you offer these services in the selected area.');
+  if (!Array.isArray(input.services) || !input.services.length) throw new RequestError('Add at least one service you offer, with one service per line.');
+  if (input.services.some(value => !within(value, 120))) throw new RequestError('Each service must be a name of 1–120 characters without HTML or control characters. Use one service per line.');
+  const services = distinctServiceLabels(input.services.map(value => value.trim()));
+  if (services.length > 12) throw new RequestError('Choose up to 12 different services for this area. Remove extra service lines before saving.');
+  if (!input.area) throw new RequestError('Enter the area, region and country.');
   for (const field of ['name', 'region', 'country']) if (!within(input.area[field], 100)) throw new RequestError('Enter the area, region and country.');
   if (!within(input.facts || '', 6000, true)) throw new RequestError('Keep business facts under 6,000 characters.');
   const context = { area: Object.fromEntries(['name', 'region', 'country'].map(field => [field, input.area[field].trim()])),
-    services: [...new Set(input.services.map(value => value.trim()))], facts: (input.facts || '').trim(), confirmed: true, confirmedAt: now(), provenance: 'owner_confirmation' };
+    services, facts: (input.facts || '').trim(), confirmed: true, confirmedAt: now(), provenance: 'owner_confirmation' };
   return db.runTransaction(async tx => {
     const scope = await readNewPageScope(userId, { write: true, tx });
     const ref = workspaceRef(scope), snapshot = await tx.get(ref);

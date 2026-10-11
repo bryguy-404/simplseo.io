@@ -13,7 +13,7 @@ import { publicFetch } from '../app/lib/server/publicFetch';
 import { getGscConnection } from '../app/lib/server/gscConnection';
 import { recordPageReviewResponse } from '../app/lib/server/aiUsage';
 import { readNewPageScope, newPageScopeKey } from '../app/lib/server/newPageScope';
-import { readNewPageWorkspace, readNewPagePlan, saveNewPageContext, assessNewPageIdeas, selectNewPageIdea, editNewPagePlan, generateNewPageDraft, suggestNearbyAreas, buildNewPageBundle } from '../app/lib/server/newPagePlanning';
+import { readNewPageWorkspace, readNewPagePlan, saveNewPageContext, assessNewPageIdeas, selectNewPageIdea, editNewPagePlan, generateNewPageDraft, suggestNearbyAreas, buildNewPageBundle, suggestedNewPageServices } from '../app/lib/server/newPagePlanning';
 import { consumeNewPageQuota } from '../app/lib/server/requestQuota';
 import { contextKey } from '../app/components/new-pages/shared';
 
@@ -346,4 +346,102 @@ it.each(['expired', 'missing', 'old_fetched_page'])('rejects %s website evidence
   await expect(generateNewPageDraft('alice', { planId: plan.id, revision: plan.revision })).rejects.toMatchObject({ status: 409, message: expect.stringContaining('Refresh website review first') });
   expect(mocks.create).not.toHaveBeenCalled(); expect(getGscConnection).not.toHaveBeenCalled(); expect(usageKinds()).toEqual(allowanceBefore);
   expect((await readNewPagePlan('alice', plan.id)).plan.id).toBe(plan.id);
+});
+const servicePage = (path, h1, extra = {}) => ({ url: `https://example.test${path}`, status: 'fetched', content: { h1, ...extra } });
+it('prefills parent services once across geographic descendants while preserving distinct subservices', () => {
+  const inventory = { pages: [
+    servicePage('/services/web-design/lakeside-wy', 'Web design in Lakeside, WY'),
+    servicePage('/services/web-design/accessibility', 'Website accessibility audits'),
+    servicePage('/services/web-design', 'Web design — Riverton, WY'),
+    servicePage('/services/web-design/riverton', 'Web design in Riverton, WY'),
+  ] };
+  expect(suggestedNewPageServices({ businessLocation: 'Riverton, WY' }, inventory)).toEqual(['Web design', 'Website accessibility audits']);
+});
+it('uses site-evidenced full region names and geographic destination labels across region boundaries', () => {
+  const places = [['lakeside', 'Lakeside, WY'], ['cedar-city', 'Cedar City, UT'], ['riverton', 'Riverton, WY']];
+  const links = places.flatMap(([slug, text]) => ['web-development', 'software'].map(service => ({ url: `https://example.test/services/${service}/${slug}`, text })));
+  const inventory = { pages: [
+    servicePage('/', 'Our services', { seoMetaDescription: 'Website and software work in Riverton, Wyoming.', internalLinks: links }),
+    servicePage('/services/web-development', 'Web Design & Development — Wyoming'),
+    servicePage('/services/software', 'Custom Software Development — Wyoming'),
+    ...places.flatMap(([slug, place]) => [servicePage(`/services/software/${slug}`, `Software & App Development — ${place}`), servicePage(`/services/web-development/${slug}`, `Web Design & Development — ${place}`)]),
+  ] };
+  expect(suggestedNewPageServices({ businessLocation: 'Riverton, WY' }, inventory)).toEqual(['Custom Software Development', 'Web Design & Development', 'Software & App Development']);
+  inventory.pages[0].content.seoMetaDescription = 'Website and software work for local businesses.';
+  expect(suggestedNewPageServices({ businessLocation: 'Riverton, WY' }, inventory)).toContain('Custom Software Development — Wyoming');
+});
+it.each([
+  ['Roof replacement', 'roof-replacement'], ['Drain cleaning', 'drain-cleaning'], ['Landscape design', 'landscape-design'],
+])('generalizes service/location cleanup to %s without business-specific rules', (service, slug) => {
+  const inventory = { pages: [servicePage(`/services/${slug}`, `${service} in Riverton, WY`), servicePage(`/services/${slug}/lakeside-wy`, `${service} in Lakeside, WY`)] };
+  expect(suggestedNewPageServices({ businessLocation: 'Riverton, WY' }, inventory)).toEqual([service]);
+});
+it('uses an explicit first-party service link label when it matches the service URL', () => {
+  const inventory = { pages: [
+    servicePage('/', 'Welcome', { internalLinks: [{ url: 'https://example.test/services/web-development', text: 'Web Development' }] }),
+    servicePage('/services/web-development', 'Custom websites and software for your growing business'),
+  ] };
+  expect(suggestedNewPageServices({}, inventory)).toEqual(['Web Development']);
+  inventory.pages[0].content.internalLinks[0].text = 'Learn more';
+  expect(suggestedNewPageServices({}, inventory)).toEqual(['Custom websites and software for your growing business']);
+});
+it('does not strip arbitrary hyphens or merge distinct services merely because a parent URL exists', () => {
+  const inventory = { pages: [
+    servicePage('/services/design-build', 'Design-build — Commercial fit-outs'),
+    servicePage('/services/plumbing', 'Plumbing repairs'),
+    servicePage('/services/plumbing/older-homes', 'Plumbing repairs in older homes'),
+    servicePage('/services/plumbing/emergency', 'Emergency plumbing repairs'),
+    servicePage('/services/plumbing/lakeside-wy', 'Plumbing repairs in Lakeside, WY'),
+  ] };
+  const labels = suggestedNewPageServices({ businessLocation: 'Riverton, WY' }, inventory);
+  expect(labels).toContain('Design-build — Commercial fit-outs');
+  expect(labels).toContain('Plumbing repairs in older homes');
+  expect(labels).toContain('Emergency plumbing repairs');
+  expect(labels).not.toContain('Plumbing repairs in Lakeside, WY');
+});
+it('keeps uncertain geographic-looking headings when region or URL evidence disagrees', () => {
+  const inventory = { pages: [servicePage('/services/plumbing', 'Plumbing repairs'),
+    servicePage('/services/plumbing/lakeside-wy', 'Plumbing repairs in Lakeside, NY'),
+    servicePage('/services/plumbing/special-repairs', 'Plumbing repairs in Lakeside, WY')] };
+  expect(suggestedNewPageServices({ businessLocation: 'Riverton, WY' }, inventory)).toEqual(['Plumbing repairs', 'Plumbing repairs in Lakeside, NY', 'Plumbing repairs in Lakeside, WY']);
+});
+it('bounds combined profile and website suggestions to twelve unique names, keeping comma labels intact', () => {
+  const profile = { services: [' Heating, cooling and ventilation ', 'heating, COOLING and ventilation', ...Array.from({ length: 10 }, (_, index) => `Confirmed service ${index}`)] };
+  const inventory = { pages: Array.from({ length: 20 }, (_, index) => servicePage(`/services/service-${index}`, `Observed service ${index}`)) };
+  const labels = suggestedNewPageServices(profile, inventory);
+  expect(labels).toHaveLength(12); expect(labels[0]).toBe('Heating, cooling and ventilation');
+  expect(labels.filter(label => normalizeTest(label) === 'heating, cooling and ventilation')).toHaveLength(1);
+  expect(labels).toContain('Confirmed service 9');
+});
+function normalizeTest(value) { return value.toLowerCase().replace(/\s+/g, ' ').trim(); }
+it('preserves existing confirmed contexts exactly when new inventory suggests simpler service labels', async () => {
+  const confirmed = { ...context, services: ['Heating, cooling and ventilation', 'Custom service — Special projects'] };
+  await saveNewPageContext('alice', confirmed);
+  const before = structuredClone(records.get(`newPageWorkspaces/${newPageScopeKey(scope)}`));
+  mocks.inventory.pages = [servicePage('/services/heating', 'Heating in Mishawaka, Indiana')];
+  mocks.create.mockClear();
+  const workspace = await readNewPageWorkspace('alice');
+  expect(workspace.context.services).toEqual(confirmed.services);
+  expect(workspace.business.services).toEqual(['Heating']);
+  expect(records.get(`newPageWorkspaces/${newPageScopeKey(scope)}`)).toEqual(before);
+  expect(mocks.create).not.toHaveBeenCalled();
+});
+it('deduplicates case and whitespace before counting services and saves all twelve comma-containing names intact', async () => {
+  const labels = Array.from({ length: 12 }, (_, index) => `Service ${index}, scheduled visits`);
+  const result = await saveNewPageContext('alice', { ...context, services: [...labels, '  SERVICE 0,  scheduled visits  '] });
+  expect(result.context.services).toEqual(labels);
+  expect((await readNewPageWorkspace('alice')).context.services).toEqual(labels);
+});
+it.each([
+  [{ confirmed: false }, 'Confirm that you offer'],
+  [{ services: [] }, 'Add at least one service'],
+  [{ services: Array.from({ length: 13 }, (_, index) => `Service ${index}`) }, 'Choose up to 12 different services'],
+  [{ services: ['a'.repeat(121)] }, 'Each service must be a name'],
+  [{ services: ['<b>Plumbing</b>'] }, 'Each service must be a name'],
+  [{ services: [null] }, 'Each service must be a name'],
+  [{ area: null }, 'Enter the area, region and country'],
+])('explains service-area validation failures without changing the saved context: %j', async (changes, message) => {
+  const before = structuredClone(records.get(`newPageWorkspaces/${newPageScopeKey(scope)}`));
+  await expect(saveNewPageContext('alice', { ...context, ...changes })).rejects.toMatchObject({ status: 400, message: expect.stringContaining(message) });
+  expect(records.get(`newPageWorkspaces/${newPageScopeKey(scope)}`)).toEqual(before);
 });

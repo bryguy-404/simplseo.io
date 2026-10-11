@@ -105,7 +105,7 @@ export default function NewPageWorkspace() {
     try {
       const result = await request(path, body, current.signal, method);
       // Area switching restores its stored assessment; this read performs no research.
-      if (path === '/context') result.workspace = await request('', undefined, current.signal);
+      if (path === '/context' || path === '/inventory') result.workspace = await request('', undefined, current.signal);
       if (token !== generation.current) return null;
       apply?.(result); return result;
     } catch (reason) {
@@ -135,14 +135,28 @@ export default function NewPageWorkspace() {
   };
   const saveContext = event => {
     event.preventDefault();
-    act('Saving your area…', '/context', { area, services: services.split(/\n|,/).map(value => value.trim()).filter(Boolean), facts, confirmed }, result => {
+    // A comma is valid business wording, not another service. The textarea's
+    // visible lines are the entries the owner reviews and confirms.
+    const seen = new Set();
+    const serviceList = services.split(/\r\n?|\n/).map(value => value.trim()).filter(value => {
+      const key = value.toLowerCase();
+      if (!value || seen.has(key)) return false;
+      seen.add(key); return true;
+    });
+    if (!confirmed) { setError('Check the box to confirm you offer these services in this area.'); return; }
+    if (!serviceList.length) { setError('Add at least one service, with one service per line.'); return; }
+    if (serviceList.length > 12) { setError('Choose up to 12 services for this area. Put each service on its own line; locations belong in the fields above.'); return; }
+    if (serviceList.some(value => value.length > 120 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f<>]/.test(value))) {
+      setError('Use plain service names, up to 120 characters per line.'); return;
+    }
+    act('Saving your area…', '/context', { area, services: serviceList, facts, confirmed }, result => {
       setData(previous => ({ ...previous, ...result.workspace, context: result.context, contexts: [result.context,
         ...[...(result.workspace?.contexts || []), previous.context, ...(previous.contexts || [])].filter(context => context && areaKey(context.area) !== areaKey(result.context.area)),
       ] })); fillContext(result.context); setSelectedPlan('');
       setNotice('Area saved. Your other areas and plans are still available.');
     });
   };
-  const changeArea = next => { setArea(next); setConfirmed(false); setContextDirty(true); setNotice(''); };
+  const changeArea = next => { setArea(next); setConfirmed(false); setContextDirty(true); setNotice(''); setError(''); };
   const savedContext = data?.context;
   const currentArea = areaKey(savedContext?.area);
   const assessments = data?.assessments || [];
@@ -179,9 +193,10 @@ export default function NewPageWorkspace() {
             <label className="space-y-2 text-sm"><span>State or region</span><input required maxLength={100} className={fieldClass} value={area.region} onChange={event => changeArea({ ...area, region: event.target.value })} placeholder="Indiana" /></label>
             <label className="space-y-2 text-sm"><span>Country</span><input required maxLength={100} className={fieldClass} value={area.country} onChange={event => changeArea({ ...area, country: event.target.value })} placeholder="United States" /></label>
           </fieldset>
-          <label className="block space-y-2 text-sm"><span>Services offered here</span><textarea required disabled={disabled} className={fieldClass} rows={2} maxLength={1600} value={services} onChange={event => { setServices(event.target.value); setConfirmed(false); setContextDirty(true); }} placeholder="One service per line, such as website design" /></label>
-          <details className="text-sm"><summary className="cursor-pointer text-muted-foreground">Add helpful business facts (optional)</summary><label className="mt-3 block space-y-2"><span>What should we know about your work in this area?</span><textarea disabled={disabled} className={fieldClass} rows={3} maxLength={6000} value={facts} onChange={event => { setFacts(event.target.value); setContextDirty(true); }} placeholder="Actual service availability, projects, process or other facts we can use." /></label></details>
-          <label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1 size-4 accent-primary" checked={confirmed} disabled={disabled} onChange={event => { setConfirmed(event.target.checked); setContextDirty(true); }} /><span>My business offers these services in this area.</span></label>
+          <label className="block space-y-2 text-sm"><span>Services offered here</span><textarea required disabled={disabled} className={fieldClass} rows={3} maxLength={1600} value={services} aria-describedby="service-list-help" onChange={event => { setServices(event.target.value); setConfirmed(false); setContextDirty(true); setError(''); }} placeholder="One service per line, such as website design" /></label>
+          <p id="service-list-help" className="text-xs text-muted-foreground">Review these suggestions. Keep one service per line, up to 12. Locations go in the fields above.</p>
+          <details className="text-sm"><summary className="cursor-pointer text-muted-foreground">Add helpful business facts (optional)</summary><label className="mt-3 block space-y-2"><span>What should we know about your work in this area?</span><textarea disabled={disabled} className={fieldClass} rows={3} maxLength={6000} value={facts} onChange={event => { setFacts(event.target.value); setContextDirty(true); setError(''); }} placeholder="Actual service availability, projects, process or other facts we can use." /></label></details>
+          <label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1 size-4 accent-primary" checked={confirmed} disabled={disabled} onChange={event => { setConfirmed(event.target.checked); setContextDirty(true); setError(''); }} /><span>My business offers these services in this area.</span></label>
           <div className="flex flex-wrap gap-3"><Button type="submit" disabled={disabled || !confirmed || !services.trim()}><MapPin className="size-4" />{savedContext && !contextDirty ? 'Area saved' : 'Save this area'}</Button><Button type="button" variant="ghost" disabled={generationDisabled || !savedContext?.confirmed || contextDirty} onClick={() => act('Looking for nearby areas…', '/areas', {}, result => { setNearby(result.areas || []); if (!result.areas?.length) setNotice('No supported nearby areas found. You can enter an area you serve.'); })}>Suggest nearby areas</Button></div>
         </form>
         {nearby.length > 0 && <div className="space-y-3 border-t pt-4"><p className="text-sm text-muted-foreground">Choose only an area your business serves.</p>{nearby.map((candidate, index) => <div key={`${areaLabel(candidate)}-${index}`} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3"><div className="min-w-0 text-sm"><p className="font-medium">{areaLabel(candidate)}</p><p className="text-muted-foreground">{candidate.reason}</p>{safeLink(candidate.sourceUrl) && <a className="underline" href={safeLink(candidate.sourceUrl)} target="_blank" rel="noopener noreferrer">Source</a>}</div><Button size="sm" variant="outline" disabled={disabled} onClick={() => { changeArea({ name: candidate.name, region: candidate.region, country: candidate.country }); setNearby([]); setSelectedPlan(''); }}>Choose this area</Button></div>)}</div>}
@@ -193,9 +208,9 @@ export default function NewPageWorkspace() {
           {inventoryPages.length > 0 && <details className="mt-3"><summary className="cursor-pointer">View reviewed pages</summary><ul className="mt-3 max-h-64 space-y-2 overflow-y-auto">{inventoryPages.map((page, index) => <li className="flex flex-wrap gap-2 break-all" key={`${page.url || page.pageUrl}-${index}`}>{safeLink(page.url || page.pageUrl) ? <a className="underline" target="_blank" rel="noopener noreferrer" href={safeLink(page.url || page.pageUrl)}>{page.title || page.url || page.pageUrl}</a> : <span>{page.url || page.pageUrl}</span>}<span className="text-muted-foreground">{page.status || 'Recorded'}</span></li>)}</ul></details>}
         </div>}
         <div className="flex flex-wrap gap-3"><Button variant={inventory ? 'outline' : 'default'} disabled={disabled} onClick={() => act('Reviewing your website…', '/inventory', inventory?.canContinue ? {} : { restart: Boolean(inventory) }, result => {
-            setData(previous => ({ ...previous, inventory: result.inventory }));
+            setData(previous => ({ ...previous, inventory: result.inventory, business: result.workspace?.business || previous.business }));
             if (!services.trim() && !savedContext) {
-              const observed = (result.inventory?.pages || []).filter(page => page.status === 'fetched' && /\/(?:services?|what-we-do)\//i.test(page.url)).map(page => page.content?.h1).filter(value => typeof value === 'string' && value.trim()).slice(0, 12);
+              const observed = result.workspace?.business?.services || [];
               if (observed.length) { setServices([...new Set(observed)].join('\n')); setContextDirty(true); }
             }
           })}><Search className="size-4" />{inventory?.canContinue ? 'Continue website review' : inventory ? 'Refresh website review' : 'Review my website'}</Button>
