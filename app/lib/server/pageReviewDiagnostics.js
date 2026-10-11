@@ -22,7 +22,9 @@ function comparisonPlan(evidence, pageUrl, property) {
   const validWindow = window => window && validDay(window.startDate) && validDay(window.endDate)
     && Date.parse(window.endDate) - Date.parse(window.startDate) === 27 * 86400000;
   if (!validWindow(evidence.window) || !validWindow(evidence.previousWindow)
-    || Date.parse(evidence.window.startDate) - Date.parse(evidence.previousWindow.endDate) !== 86400000) {
+    || (evidence.comparisonKind === 'confirmed_change'
+      ? evidence.previousWindow.endDate >= evidence.window.startDate
+      : Date.parse(evidence.window.startDate) - Date.parse(evidence.previousWindow.endDate) !== 86400000)) {
     throw new RequestError('Reload this page to obtain valid search comparison dates.', 409);
   }
   const phrases = [];
@@ -200,20 +202,20 @@ function factsFor(currentPage, result) {
 }
 
 /** Authenticated callers supply their server-fetched page; never accept model URLs. */
-export async function collectPageReviewDiagnostics(userId, { pageUrl, property, currentPage, evidence }) {
+export async function collectPageReviewDiagnostics(userId, { pageUrl, property, currentPage, evidence, deadline, signal }) {
   if (typeof property !== 'string' || !scoped(property, pageUrl)) throw new RequestError('Page must belong to your connected Search Console property.', 403);
   if (!object(currentPage) || (currentPage.url && currentPage.url !== pageUrl)
     || (currentPage.finalUrl && !scoped(property, currentPage.finalUrl))) throw new RequestError('Read the current page before checking its diagnostics.', 409);
   const plan = comparisonPlan(evidence, pageUrl, property);
   let connection;
-  try { connection = await getGscConnection(userId); } catch { connection = null; }
+  try { connection = await getGscConnection(userId, { deadline, signal }); } catch { connection = null; }
   if (connection && connection.siteUrl !== property) throw new RequestError('Your website setup changed. Reload the page before reviewing it.', 409);
   const selected = candidates(currentPage, pageUrl, property);
   const [inspection, relatedPages] = await Promise.all([
     inspect(connection, pageUrl, property),
     Promise.all(selected.map(async candidate => {
       const [html, inspection, comparison] = await Promise.all([
-        Promise.resolve().then(() => fetchCurrentPageContent(candidate.pageUrl, { property }))
+        Promise.resolve().then(() => fetchCurrentPageContent(candidate.pageUrl, { property, ...(deadline !== undefined ? { deadline } : {}), ...(signal ? { signal } : {}) }))
           .then(page => ({ status: 'available', currentPage: contentSubset(page), httpStatus: page.technical?.httpStatus || null }))
           .catch(error => ({ status: 'unavailable', currentPage: null, httpStatus: Number.isInteger(error?.httpStatus) ? error.httpStatus : null })),
         inspect(connection, candidate.pageUrl, property),

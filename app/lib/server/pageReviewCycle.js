@@ -23,10 +23,11 @@ export async function reviewPageCycle(userId, { pageUrl, implementedAt }, now = 
       tx.get(ref), tx.get(archiveRef),
     ]);
     const setup = setupDoc.data(), user = userDoc.data() || {}, legacy = legacyDoc.data() || {}, record = recordDoc.data();
+    if (record?.ongoingCycleId) throw new RequestError('Use this page’s ongoing review controls. Its monitoring continues until you confirm another published edit.', 409);
     const property = setup?.gscProperty || user.gscSiteUrl || legacy.siteUrl;
     const connected = (user.gscSiteUrl === property && (user.gscAccessToken || user.gscRefreshToken)) ||
       (legacy.siteUrl === property && (legacy.accessToken || legacy.refreshToken));
-    if (!setup?.isComplete || progressIsPaused(setup) || setup.revampArchivePending || !connected || (user.gscSiteUrl && user.gscSiteUrl !== property)
+    if (!userDoc.exists || user.deletionInProgress || !setup?.isComplete || progressIsPaused(setup) || setup.revampArchivePending || !connected || (user.gscSiteUrl && user.gscSiteUrl !== property)
       || !propertyContainsUrl(property, pageUrl)) throw new RequestError('Your website setup or connection changed. Reload before reviewing this comparison.', 409);
     if (!record || record.userId !== userId || record.pageUrl !== pageUrl || cycleTimestamp(record.implementedAt) !== implementedAt
       || record.preRevampArchived || (record.websiteRunId || null) !== (setup.revampRunId || null) || (record.gscProperty && record.gscProperty !== property)) {

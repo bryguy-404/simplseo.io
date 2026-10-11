@@ -269,8 +269,9 @@ ${enrichmentString ? `**Implementation Tracking & Content Audit Data:**
 ${enrichmentString}
 
 **When users ask about tracked pages or implementations:**
-- Reference the implementation tier and how many days into tracking they are
-- Compare pre vs post metrics if available (impressions, clicks, position changes)
+- Use dated sourced observations only; legacy implementation tiers and success labels are not verified outcomes.
+- Explain the first 28-day before/after comparison with a three-day reporting buffer. Pilot ongoing reviews add later 28-day periods. Do not invent checkpoint availability: direct users to Page progress for their current state.
+- Reviewing results and keeping changes leave tracking active. Only confirmation of another published edit starts a new cycle. Low traffic does not itself require a rewrite or new keyword, and numerical changes do not prove the edit caused them.
 - Reference specific content audit recommendations and AI suggestions when relevant
 - Mention keyword history if they've pivoted keywords before
 - Help them act on the specific AI suggestions that were generated for their page

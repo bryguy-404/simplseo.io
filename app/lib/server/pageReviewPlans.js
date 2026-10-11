@@ -3,6 +3,7 @@ import { db } from '../firebaseAdmin';
 import { propertyContainsUrl } from '../revampState';
 import { seoImplementationId } from '../pageTaskFlow';
 import { RequestError } from './requestAuth';
+import { ongoingCycleRef, readOngoingScope, assertOngoingCycleScope, publicOngoingCycle } from './ongoingProgress';
 
 const COLLECTION = 'pageReviewPlans';
 const MAX_TASKS = 60;
@@ -27,7 +28,7 @@ async function readScope(transaction, userId, pageUrl, { write = false } = {}) {
   validatePageUrl(pageUrl);
   const refs = ['onboarding', 'users', 'gscTokens'].map(name => db.collection(name).doc(userId));
   const [setupDoc, userDoc, legacyDoc] = await Promise.all(refs.map(ref => transaction.get(ref)));
-  if (!setupDoc.exists) throw new RequestError('Complete your website setup before reviewing a page.', 409);
+  if (!setupDoc.exists || !userDoc.exists || userDoc.data()?.deletionInProgress) throw new RequestError('Your account changed. Reload before reviewing a page.', 409);
   const setup = setupDoc.data(), user = userDoc.data() || {}, legacy = legacyDoc.data() || {};
   if (write && (!setup.isComplete || setup.revampArchivePending || setup.revampStatus === 'in-progress')) {
     throw new RequestError('Your website setup is being updated. Reload it before changing the saved page plan.', 409);
@@ -277,4 +278,94 @@ export async function updatePageReviewTask(userId, pageUrl, taskId, status, revi
     transaction.set(ref, updated);
     return publicPlan(updated);
   });
+}
+
+// Follow-up analysis is saved separately. Accepting it changes the checklist,
+// never the publication date or the measurement lifecycle.
+export function prepareFollowUpPlan(existing, review, { cycleId, decisionId, now = new Date().toISOString() }) {
+  if (!existing || !review?.provenance?.contentFingerprint || !Array.isArray(review.analysis?.recommendations)) {
+    throw new RequestError('Reload the saved page plan before accepting these tasks.', 409);
+  }
+  const savedReview = reviewSnapshot(review);
+  const reconciled = reconcileTasks(existing.tasks || [], savedReview, now, existing.id);
+  // Resolved actions are safely retained in the immutable preceding-plan
+  // snapshot, rather than growing the active document for every future cycle.
+  const tasks = reconciled.filter(task => !terminal(task.status)).map(task => {
+    const previous = existing.tasks.find(item => item.id === task.id);
+    if (!previous || terminal(previous.status)) return task;
+    // Preserve user-controlled fields and wording on unfinished work. The new
+    // review is available separately; it must not silently overwrite the draft.
+    const changed = previous.contentFingerprint !== review.provenance.contentFingerprint;
+    return { ...previous, retained: true, ...(changed ? { status: 'needs_review', needsReviewReason: 'page_changed' } : {}),
+      priority: task.priority };
+  });
+  const plan = { ...existing, revision: existing.revision + 1, updatedAt: now, generationStartedAt: Date.parse(now),
+    review: savedReview, tasks, followUp: { cycleId, decisionId }, archivedTasksAvailable: true };
+  withinBounds(plan);
+  return plan;
+}
+
+export async function activateFollowUpPlan(userId, { cycleId, decisionId, expectedRevision, expectedPlanRevision }) {
+  if (typeof decisionId !== 'string' || !/^[a-f0-9]{64}$/.test(decisionId) || !Number.isSafeInteger(expectedRevision) || expectedRevision < 1) {
+    throw new RequestError('Choose the current saved review before accepting tasks.');
+  }
+  return db.runTransaction(async tx => {
+    const scope = await readOngoingScope(userId, { tx, write: true });
+    const ref = ongoingCycleRef(cycleId), cycle = (await tx.get(ref)).data();
+    assertOngoingCycleScope(cycle, scope);
+    const decisionRef = ref.collection('decisions').doc(decisionId);
+    const decision = (await tx.get(decisionRef)).data();
+    const saved = await pageReviewPlanInTransaction(tx, userId, { ...scope, pageUrl: cycle.pageUrl });
+    if (!decision || decision.cycleId !== cycleId || cycle.latestDecisionId !== decisionId || cycle.lifecycle !== 'active') {
+      throw new RequestError('This review changed. Reload the current result before accepting tasks.', 409);
+    }
+    if (decision.acceptedAt && saved.plan?.followUp?.decisionId === decisionId) {
+      return { cycle: publicOngoingCycle(cycle), decision: cycle.latestDecision, plan: publicPlan(saved.plan), alreadyAccepted: true };
+    }
+    if (!cycle.latestCheckpointId || decision.checkpointId !== cycle.latestCheckpointId
+      || (decision.checkpointRevision ?? decision.review?.evidence?.evidenceRevision) !== cycle.latestCheckpoint?.evidenceRevision) {
+      throw new RequestError('Newer search evidence is available. Review your results again before accepting these tasks.', 409);
+    }
+    if (cycle.revision !== expectedRevision || !saved.plan || saved.plan.revision !== decision.sourcePlanRevision
+      || (expectedPlanRevision !== undefined && saved.plan.revision !== expectedPlanRevision)) {
+      throw new RequestError('Your page or task list changed. Reload before accepting these suggestions.', 409);
+    }
+    const provenance = decision.review?.provenance;
+    if (decision.outcome !== 'improve_page' || !provenance || provenance.property !== scope.property
+      || (provenance.websiteRunId || null) !== scope.websiteRunId || provenance.pageUrl !== cycle.pageUrl
+      || !decision.review.analysis?.recommendations?.some(item => item.type !== 'check')) {
+      throw new RequestError('This review has no new edit tasks to activate.', 409);
+    }
+    const now = new Date().toISOString();
+    const plan = prepareFollowUpPlan(saved.plan, decision.review, { cycleId, decisionId, now });
+    if (!plan.tasks.some(task => !saved.plan.tasks.some(previous => previous.id === task.id))) {
+      throw new RequestError('These actions are already in your saved work. Keep your existing tasks and review the evidence before making another edit.', 409);
+    }
+    const snapshotRef = saved.ref.collection('history').doc(`revision-${saved.plan.revision}`);
+    const existingSnapshot = await tx.get(snapshotRef);
+    if (existingSnapshot.exists) throw new RequestError('This plan revision was already preserved. Reload before continuing.', 409);
+    const accepted = Object.fromEntries(['id', 'cycleId', 'pageUrl', 'outcome', 'summary', 'whatChanged', 'meaning',
+      'nextStep', 'reviewedAt', 'evidenceIds', 'proposedTasks', 'sourcePlanRevision', 'checkpointId', 'checkpointRevision'].filter(key => decision[key] !== undefined)
+      .map(key => [key, decision[key]]));
+    accepted.acceptedAt = now;
+    accepted.canAcceptTasks = false;
+    const updatedCycle = { ...cycle, revision: cycle.revision + 1, latestDecision: accepted, reviewChangesAllowed: true };
+    tx.create(snapshotRef, { ...saved.plan, archivedAt: now, archiveReason: 'accepted_follow_up', cycleId, decisionId });
+    tx.set(saved.ref, plan);
+    tx.update(decisionRef, { acceptedAt: now });
+    tx.update(ref, { revision: updatedCycle.revision, latestDecision: accepted, reviewChangesAllowed: true });
+    return { cycle: publicOngoingCycle(updatedCycle), decision: accepted, plan: publicPlan(plan) };
+  });
+}
+
+export async function readPageReviewPlanHistory(userId, pageUrl, beforeRevision) {
+  if (beforeRevision !== undefined && (!Number.isSafeInteger(beforeRevision) || beforeRevision < 1)) throw new RequestError('Choose a valid saved plan revision.');
+  const scope = await db.runTransaction(tx => readScope(tx, userId, pageUrl));
+  let query = planRef(userId, scope).collection('history').orderBy('revision', 'desc');
+  if (beforeRevision !== undefined) query = query.startAfter(beforeRevision);
+  const snapshot = await query.limit(6).get();
+  const history = snapshot.docs.slice(0, 5).map(document => {
+    const value = document.data(); assertStoredScope(value, userId, scope); return publicPlan(value);
+  });
+  return { history, nextCursor: snapshot.size > 5 ? history.at(-1).revision : null };
 }

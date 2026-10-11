@@ -34,9 +34,36 @@ beforeEach(() => {
 });
 
 describe('exact-page evidence scope and dates', () => {
+  it('uses a confirmed checkpoint including the excluded edit day and forwards its absolute deadline', async () => {
+    const baseline = { startDate: '2026-08-12', endDate: '2026-09-08' };
+    const post = { startDate: '2026-09-10', endDate: '2026-10-07' };
+    const deadline = Date.now() + 15000;
+    const result = await collect({ comparisonWindows: { baseline, post }, deadline, focusKeywords: [phrase] });
+    expect(getGscConnection).toHaveBeenCalledWith('alice', { deadline, signal: undefined });
+    expect(query).toHaveBeenCalledTimes(5);
+    expect(result).toMatchObject({ comparisonKind: 'confirmed_change', window: post, previousWindow: baseline, status: 'available' });
+    expect(result.history).toHaveLength(2);
+    expect(result.history[1].window).toEqual(baseline);
+    expect(result.relatedPages).toHaveLength(1);
+    expect(query.mock.calls.slice(0, 4).map(([body]) => body.startDate)).toEqual([post.startDate, post.startDate, baseline.startDate, baseline.startDate]);
+  });
+  it('rejects incomplete, overlapping or unequal checkpoint periods before Google work', async () => {
+    const baseline = { startDate: '2026-09-10', endDate: '2026-10-07' };
+    for (const post of [baseline, { startDate: '2026-10-08', endDate: '2026-11-04' }, { startDate: '2026-09-10', endDate: '2026-10-06' }]) {
+      await expect(collect({ comparisonWindows: { baseline, post } })).rejects.toMatchObject({ status: 409 });
+    }
+    expect(query).not.toHaveBeenCalled();
+  });
+  it('keeps an aged-out checkpoint unavailable rather than turning it into zero activity', async () => {
+    const result = await collect({ comparisonWindows: { baseline: { startDate: '2024-01-01', endDate: '2024-01-28' }, post: window } });
+    expect(result.current.totalsStatus).toBe('available');
+    expect(result.previous.totalsStatus).toBe('unavailable');
+    expect(result.previous.totals).toBeNull();
+    expect(query).toHaveBeenCalledTimes(2);
+  });
   it('requests separate exact-page totals and bounded query rows in adjacent finalized windows', async () => {
     const result = await collect();
-    expect(getGscConnection).toHaveBeenCalledExactlyOnceWith('alice');
+    expect(getGscConnection).toHaveBeenCalledExactlyOnceWith('alice', { deadline: undefined, signal: undefined });
     expect(query).toHaveBeenCalledTimes(8);
     const requests = query.mock.calls.map(([body]) => body);
     for (const [index, body] of requests.slice(0, 4).entries()) {

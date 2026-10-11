@@ -16,7 +16,7 @@ export async function readNewPageScope(userId, { write = false, tx } = {}) {
   if (typeof userId !== 'string' || !userId || userId.includes('/')) throw new RequestError('Sign in to continue.', 401);
   const refs = ['users', 'onboarding', 'gscTokens'].map(name => db.collection(name).doc(userId));
   const [userDoc, setupDoc, legacyDoc] = await Promise.all(refs.map(ref => tx ? tx.get(ref) : ref.get()));
-  if (!userDoc.exists || !setupDoc.exists) throw new RequestError('Complete your website setup before planning a page.', 409);
+  if (!userDoc.exists || userDoc.data()?.deletionInProgress || !setupDoc.exists) throw new RequestError('Complete your website setup before planning a page.', 409);
   const user = userDoc.data(), setup = setupDoc.data(), legacy = legacyDoc.data() || {};
   if (write && (!setup.isComplete || setup.revampArchivePending || setup.revampStatus === 'in-progress')) {
     throw new RequestError('Your website setup is being updated. Finish it before changing page plans.', 409);

@@ -1,0 +1,2573 @@
+{
+  "summary": {
+    "completedAt": "2026-10-11T04:58:27.121Z",
+    "requests": 16,
+    "maxRequests": 16,
+    "failed": 4,
+    "passed": 12,
+    "model": "gpt-6.1-sol",
+    "usage": {
+      "inputTokens": 124460,
+      "outputTokens": 24434,
+      "totalTokens": 148894,
+      "unreportedRequests": 0
+    },
+    "syntheticInputs": true,
+    "researchCalls": 0,
+    "websiteReads": 0,
+    "googleReads": 0,
+    "productionWrites": 0,
+    "websiteWrites": 0,
+    "automaticRetries": 0,
+    "limitation": "These synthetic assessments require human review of usefulness and factual entailment. No SEO result is proven. Provider usage is not a final dollar bill, and unknown usage is not zero."
+  },
+  "results": [
+    {
+      "case": "roofing-positive-observations",
+      "repeat": 1,
+      "pass": true,
+      "outcome": "keep_monitoring",
+      "elapsedMs": 21313,
+      "model": "gpt-6.1-sol",
+      "usage": {
+        "input_tokens": 7744,
+        "input_tokens_details": {
+          "cache_write_tokens": 7741,
+          "cached_tokens": 0
+        },
+        "output_tokens": 1219,
+        "output_tokens_details": {
+          "reasoning_tokens": 116
+        },
+        "total_tokens": 8963
+      },
+      "raw": {
+        "outcome": "keep_monitoring",
+        "summary": "Keep the clearer description and review the same service searches at the next checkpoint.",
+        "whatChanged": "The current description matches the owner's confirmed edit. The later comparison block shows more clicks and appearances, with a better average position. The reported search remains relevant to roof repairs in Madison.",
+        "meaning": "These are encouraging observations, not proof that the description caused the change. Google reports the page indexed with the expected canonical, but its stored inspection does not verify processing of this particular edit.",
+        "nextStep": "At the 8–12 week checkpoint, compare the same roof-repair searches and any recorded customer inquiries. Reassess if relevant exposure falls across successive complete periods or visitors report missing information.",
+        "evidenceIds": [
+          "P2",
+          "S1",
+          "S2",
+          "Q1",
+          "I1"
+        ],
+        "assessment": {
+          "action": "keep_current",
+          "metadataVerdict": "keep",
+          "metadataReason": "The title identifies the service, location and business. The description accurately explains leak inspection, repair options and the quote process. No supported wording problem warrants another edit.",
+          "summary": "Keep the confirmed metadata; the current evidence does not support another immediate edit.",
+          "reason": "The reported search matches the page's service and location, and the comparison is encouraging. The supplied content explains the basic inspection and quote process. No technical blocker or specific unmet visitor question is established.",
+          "nextStep": "At the 8–12 week checkpoint, compare the same relevant searches and recorded inquiries. Review the page sooner if customers identify a missing answer or relevant exposure declines across successive complete periods.",
+          "evidenceIds": [
+            "P1",
+            "P2",
+            "Q1",
+            "S1",
+            "S2"
+          ],
+          "title": null,
+          "description": null,
+          "fieldReasons": {
+            "title": "",
+            "description": ""
+          },
+          "supportingQuotes": {
+            "title": "",
+            "description": ""
+          },
+          "targetPageUrl": null,
+          "pageGoal": "Help people seeking roof repairs in Madison understand Cedar Roofing's inspection and quote process.",
+          "searchFocus": {
+            "phrase": "roof repairs madison",
+            "relatedPhrases": [
+              "roof repair in Madison",
+              "roof leak repairs Madison"
+            ],
+            "intent": "Find a roof repair provider in Madison and understand how leaks are assessed before receiving a quote.",
+            "reason": "This service page explicitly offers roof repairs in Madison. The reported phrase fits that discovery intent rather than relying on business-name navigation.",
+            "source": "observed",
+            "evidenceIds": [
+              "P3",
+              "Q1"
+            ],
+            "supportingQuote": "Cedar Roofing provides roof repairs in Madison. We inspect roof leaks and explain repair options before providing a quote.",
+            "question": null
+          },
+          "strategy": {
+            "searchGoal": "Help people looking for roof repairs in Madison identify a relevant provider and understand the next steps toward a repair quote.",
+            "focusArea": "none",
+            "finding": "limited_findings",
+            "priorityReason": "The confirmed description is accurate, the heading matches the service intent, and relevant search observations are encouraging. No specific supported improvement takes priority over evaluating the existing change.",
+            "limitation": "The comparison cannot establish edit causation. Query coverage is incomplete, inspection is a stored view, and rendered layout and public research are unavailable.",
+            "checks": [
+              {
+                "area": "indexing",
+                "status": "suitable",
+                "finding": "Stored inspection reports the page indexed with the expected canonical. Current directives allow indexing; no access blocker is established.",
+                "evidenceIds": [
+                  "P4",
+                  "I1"
+                ]
+              },
+              {
+                "area": "search_intent",
+                "status": "suitable",
+                "finding": "The reported roof-repair search matches the page's stated service and Madison location.",
+                "evidenceIds": [
+                  "P3",
+                  "Q1"
+                ]
+              },
+              {
+                "area": "content",
+                "status": "suitable",
+                "finding": "The supplied copy identifies the service and explains leak inspection, repair options and quoting. It is brief, but no specific missing customer answer is established.",
+                "evidenceIds": [
+                  "P3"
+                ]
+              },
+              {
+                "area": "headings",
+                "status": "suitable",
+                "finding": "The supplied main heading clearly identifies roof repairs in Madison and matches the page's purpose.",
+                "evidenceIds": [
+                  "P5"
+                ]
+              },
+              {
+                "area": "metadata",
+                "status": "suitable",
+                "finding": "The title and confirmed description accurately describe the business's service, location and inspection-to-quote process.",
+                "evidenceIds": [
+                  "P1",
+                  "P2"
+                ]
+              },
+              {
+                "area": "internal_links",
+                "status": "unknown",
+                "finding": "The supplied link sample contains no destinations. It does not establish a sitewide navigation problem or provide a supported link target.",
+                "evidenceIds": [
+                  "P6"
+                ]
+              }
+            ]
+          },
+          "recommendations": []
+        }
+      },
+      "rubric": "Preserve accurate wording. Report direction tentatively without edit causality or converting average position to a page number."
+    },
+    {
+      "case": "roofing-positive-observations",
+      "repeat": 2,
+      "pass": true,
+      "outcome": "keep_monitoring",
+      "elapsedMs": 21484,
+      "model": "gpt-6.1-sol",
+      "usage": {
+        "input_tokens": 7744,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 7741
+        },
+        "output_tokens": 1267,
+        "output_tokens_details": {
+          "reasoning_tokens": 138
+        },
+        "total_tokens": 9011
+      },
+      "raw": {
+        "outcome": "keep_monitoring",
+        "summary": "Keep the clearer description and review the same service searches at the next checkpoint.",
+        "whatChanged": "The current description matches the owner-confirmed wording. The later comparison period shows more clicks and search appearances, with a better average position. The reported service query also improved.",
+        "meaning": "These are encouraging observations, not proof that the description caused the change. Google reports the page as indexed with the expected canonical, but the inspection does not verify which description Google processed.",
+        "nextStep": "At the 8–12 week checkpoint, compare the same service query and customer inquiries. Investigate visibility if relevant exposure or clicks decline across successive complete periods.",
+        "evidenceIds": [
+          "P2",
+          "S1",
+          "S2",
+          "Q1",
+          "I1"
+        ],
+        "assessment": {
+          "action": "keep_current",
+          "metadataVerdict": "keep",
+          "metadataReason": "The title identifies the service, location and business. The description explains leak inspection and repair options before a quote, matching the supplied page.",
+          "summary": "The confirmed description remains suitable; no further edit is supported at this checkpoint.",
+          "reason": "The wording matches the service, the reported search fits the page, and inspection shows the expected indexed canonical. The comparison is encouraging but does not establish edit causation. No specific further page change is supported by the supplied evidence.",
+          "nextStep": "Review the same service query and customer inquiries at the 8–12 week checkpoint. Investigate if relevant exposure or clicks decline across successive complete periods.",
+          "evidenceIds": [
+            "P1",
+            "P2",
+            "Q1",
+            "S1",
+            "S2"
+          ],
+          "title": null,
+          "description": null,
+          "fieldReasons": {
+            "title": "",
+            "description": ""
+          },
+          "supportingQuotes": {
+            "title": "",
+            "description": ""
+          },
+          "targetPageUrl": null,
+          "pageGoal": "Help people seeking roof repairs in Madison understand the inspection and repair-options process before requesting a quote.",
+          "searchFocus": {
+            "phrase": "roof repairs madison",
+            "relatedPhrases": [
+              "roof repair in Madison",
+              "roof leak repair Madison"
+            ],
+            "intent": "Find a business providing roof repairs in Madison and understand what happens before receiving a quote.",
+            "reason": "This service-and-location search matches the page's stated offering and appears in the reported queries. It is a useful discovery topic rather than a business-name-only search.",
+            "source": "observed",
+            "evidenceIds": [
+              "P2",
+              "Q1"
+            ],
+            "supportingQuote": "Cedar Roofing provides roof repairs in Madison. We inspect roof leaks and explain repair options before providing a quote.",
+            "question": null
+          },
+          "strategy": {
+            "searchGoal": "Help people looking for roof repairs in Madison find this service page, understand the inspection process and decide whether to request a quote.",
+            "focusArea": "none",
+            "finding": "limited_findings",
+            "priorityReason": "The confirmed metadata edit is present, the heading and content describe the relevant service, and the reported search matches that purpose. No verified blocker or specific consequential content gap justifies another edit now.",
+            "limitation": "One comparison cannot establish causation or a lasting trend. Query rows may be incomplete. Inspection does not verify the processed description; rendered layout, the full site and public research are unavailable.",
+            "checks": [
+              {
+                "area": "indexing",
+                "status": "suitable",
+                "finding": "Stored inspection reports the page indexed with the expected canonical, and supplied directives allow indexing. There is no verified indexing blocker.",
+                "evidenceIds": [
+                  "I1",
+                  "P4"
+                ]
+              },
+              {
+                "area": "search_intent",
+                "status": "suitable",
+                "finding": "The reported roof-repair search matches the page's service and location. The partial query list does not establish the full search mix.",
+                "evidenceIds": [
+                  "P2",
+                  "Q1"
+                ]
+              },
+              {
+                "area": "content",
+                "status": "suitable",
+                "finding": "The brief content identifies the service and explains leak inspection and repair options before a quote. No specific missing business fact is established as a priority.",
+                "evidenceIds": [
+                  "P3"
+                ]
+              },
+              {
+                "area": "headings",
+                "status": "suitable",
+                "finding": "The supplied main heading clearly names roof repairs in Madison and fits the selected service topic.",
+                "evidenceIds": [
+                  "P5"
+                ]
+              },
+              {
+                "area": "metadata",
+                "status": "suitable",
+                "finding": "The title names the service, location and business. The current description explains the service process and matches the confirmed wording.",
+                "evidenceIds": [
+                  "P1",
+                  "P2"
+                ]
+              },
+              {
+                "area": "internal_links",
+                "status": "unknown",
+                "finding": "The supplied link sample does not establish sitewide navigation or incoming links. No supported destination is available for a useful link recommendation.",
+                "evidenceIds": [
+                  "P6"
+                ]
+              }
+            ]
+          },
+          "recommendations": []
+        }
+      },
+      "rubric": "Preserve accurate wording. Report direction tentatively without edit causality or converting average position to a page number."
+    },
+    {
+      "case": "roofing-decline-without-content-defect",
+      "repeat": 1,
+      "pass": false,
+      "elapsedMs": 25878,
+      "outcome": "improve_page",
+      "raw": {
+        "outcome": "improve_page",
+        "summary": "Keep the updated description; explain what customers can expect from a roof leak inspection.",
+        "whatChanged": "The published description matches the confirmed edit. The later comparison block shows fewer clicks and appearances, with a lower click-through rate and a worse average position.",
+        "meaning": "The comparison does not show that the description caused the decline. Google reports the page indexed, and the reported search fits its service. The supplied content gives only a brief overview of the inspection and quote process.",
+        "nextStep": "Keep the title and description. Check whether the page explains the inspection and quote process; if not, add a short section using the business’s actual steps.",
+        "evidenceIds": [
+          "P2",
+          "P3",
+          "S1",
+          "S2",
+          "I1"
+        ],
+        "assessment": {
+          "action": "improve_content",
+          "metadataVerdict": "keep",
+          "metadataReason": "The title identifies the service, location and business. The updated description accurately explains leak inspections and repair options before a quote. The comparison does not establish a wording problem.",
+          "summary": "Keep the metadata and add useful detail about the inspection and quote process.",
+          "reason": "The supplied content names the service but does not explain what customers should expect during an inspection or when receiving repair options. That is a useful content opportunity independent of the search decline; another metadata edit is not supported.",
+          "nextStep": "Verify the current page, then add a short inspection-and-quote section if missing. At the later review checkpoint, compare the same relevant searches and customer inquiries without attributing changes to one edit.",
+          "evidenceIds": [
+            "P2",
+            "P3",
+            "S1",
+            "S2",
+            "I1"
+          ],
+          "title": null,
+          "description": null,
+          "fieldReasons": {
+            "title": "",
+            "description": ""
+          },
+          "supportingQuotes": {
+            "title": "",
+            "description": ""
+          },
+          "targetPageUrl": null,
+          "pageGoal": "Help people seeking roof repairs in Madison understand the service and what to expect before receiving a quote.",
+          "searchFocus": {
+            "phrase": "roof repairs madison",
+            "relatedPhrases": [
+              "roof repairs in Madison",
+              "roof leak repairs Madison"
+            ],
+            "intent": "Find a business offering roof repairs in Madison and understand its inspection and quote process.",
+            "reason": "This reported service-and-location search matches the page’s stated offering. It is a useful discovery topic rather than a business-name query.",
+            "source": "observed",
+            "evidenceIds": [
+              "P3",
+              "Q1"
+            ],
+            "supportingQuote": "Cedar Roofing provides roof repairs in Madison. We inspect roof leaks and explain repair options before providing a quote.",
+            "question": null
+          },
+          "strategy": {
+            "searchGoal": "Help people looking for roof repairs in Madison understand Cedar Roofing’s inspection and repair-option process before seeking a quote.",
+            "focusArea": "content",
+            "finding": "opportunity_to_test",
+            "priorityReason": "The service, heading and metadata are clear, and inspection reports the expected indexed URL. More detail about the inspection and quote process could help visitors evaluate the service without undoing the confirmed description edit.",
+            "limitation": "The cause of weaker search performance is unidentified. Query rows may be incomplete, stored inspection does not prove Google processed the edit, and public research and rendered-page evidence are unavailable.",
+            "checks": [
+              {
+                "area": "indexing",
+                "status": "suitable",
+                "finding": "Stored inspection reports the page indexed with the expected canonical. Current directives allow indexing; no verified access blocker is supplied.",
+                "evidenceIds": [
+                  "P4",
+                  "I1"
+                ]
+              },
+              {
+                "area": "search_intent",
+                "status": "suitable",
+                "finding": "The reported roof-repair search matches the page’s service and Madison location. The available rows do not suggest a topic mismatch.",
+                "evidenceIds": [
+                  "P3",
+                  "Q1"
+                ]
+              },
+              {
+                "area": "content",
+                "status": "opportunity",
+                "finding": "The supplied content says leaks are inspected and repair options explained, but gives no further process detail. Check the live page and consider answering what customers should expect.",
+                "evidenceIds": [
+                  "P3"
+                ]
+              },
+              {
+                "area": "headings",
+                "status": "suitable",
+                "finding": "The supplied main heading clearly names roof repairs and Madison. No heading rewrite is supported by this evidence.",
+                "evidenceIds": [
+                  "P5"
+                ]
+              },
+              {
+                "area": "metadata",
+                "status": "suitable",
+                "finding": "The title and confirmed description clearly describe the actual service. Lower results in one comparison do not establish that these fields need another edit.",
+                "evidenceIds": [
+                  "P1",
+                  "P2",
+                  "S1",
+                  "S2"
+                ]
+              },
+              {
+                "area": "internal_links",
+                "status": "unknown",
+                "finding": "No links appear in the supplied sample, but its absence does not establish a site-wide link gap. No known destination supports a specific link recommendation.",
+                "evidenceIds": [
+                  "P6"
+                ]
+              }
+            ]
+          },
+          "recommendations": [
+            {
+              "type": "content",
+              "basis": "opportunity",
+              "significance": "primary",
+              "benefit": "visitor_decision",
+              "label": "Explain what happens during the inspection and quote process",
+              "location": "Main service content, after the current introductory paragraph",
+              "reason": "Customers can see that inspections and repair options are offered, but the supplied content does not explain the process. Accurate detail would help them understand what to expect before requesting a quote.",
+              "instruction": "Check the live page for an existing explanation. If missing, add a short section answering what happens during a roof leak inspection and how repair options and the quote are presented. Use only the business’s actual process, confirmed by the owner. Keep the completed metadata edit unchanged.",
+              "currentQuote": "We inspect roof leaks and explain repair options before providing a quote.",
+              "proposedText": null,
+              "supportingQuote": "We inspect roof leaks and explain repair options before providing a quote.",
+              "targetUrl": null,
+              "evidenceIds": [
+                "P3"
+              ]
+            }
+          ]
+        }
+      },
+      "rubric": "A decline alone cannot justify an automatic title reversal. Identify a precise missing observation or keep monitoring; do not invent seasonality or penalties.",
+      "usage": {
+        "input_tokens": 7744,
+        "input_tokens_details": {
+          "cache_write_tokens": 2497,
+          "cached_tokens": 5244
+        },
+        "output_tokens": 1636,
+        "output_tokens_details": {
+          "reasoning_tokens": 194
+        },
+        "total_tokens": 9380
+      },
+      "failureStage": "validation",
+      "status": null
+    },
+    {
+      "case": "roofing-decline-without-content-defect",
+      "repeat": 2,
+      "pass": false,
+      "elapsedMs": 24455,
+      "outcome": "improve_page",
+      "raw": {
+        "outcome": "improve_page",
+        "summary": "Keep the updated description and add useful detail about the roof leak inspection process.",
+        "whatChanged": "The current description matches the owner-confirmed edit. The later comparison shows fewer clicks and appearances, with a weaker average position. The reported search still matches the service.",
+        "meaning": "The comparison does not establish that the description caused the decline. Google reports the page indexed, but that does not verify processing of this particular edit. The supplied content offers little detail beyond the service summary.",
+        "nextStep": "Keep the title and description. Review whether the page explains what happens during a roof leak inspection and how repair options lead to a quote; add accurate details if missing.",
+        "evidenceIds": [
+          "P2",
+          "P3",
+          "S1",
+          "S2",
+          "I1"
+        ],
+        "assessment": {
+          "action": "improve_content",
+          "metadataVerdict": "keep",
+          "metadataReason": "The title identifies the service, location and business. The updated description accurately explains leak inspections, repair options and quotes. The comparison does not establish a metadata problem.",
+          "summary": "Keep the metadata; explain the inspection and quote process more clearly on the page.",
+          "reason": "The supplied page names the service but gives little detail about what a homeowner can expect from an inspection. A short, factual process section is a useful visitor improvement independent of the search decline.",
+          "nextStep": "Check for an existing inspection-process section. If missing, explain what the inspection covers, how repair options are discussed and what happens before a quote, using only actual business practices.",
+          "evidenceIds": [
+            "P2",
+            "P3",
+            "S1",
+            "S2",
+            "I1"
+          ],
+          "title": null,
+          "description": null,
+          "fieldReasons": {
+            "title": "",
+            "description": ""
+          },
+          "supportingQuotes": {
+            "title": "",
+            "description": ""
+          },
+          "targetPageUrl": null,
+          "pageGoal": "Help homeowners seeking roof repairs in Madison understand the service and what to expect before receiving a quote.",
+          "searchFocus": {
+            "phrase": "roof repairs madison",
+            "relatedPhrases": [
+              "roof repairs in Madison",
+              "roof leak inspection Madison"
+            ],
+            "intent": "Find a roof repair provider in Madison and understand how a leak inspection leads to repair options and a quote.",
+            "reason": "This discovery phrase matches the page's stated service and location and appears in the reported searches. It fits the service page better than a business-name navigation topic.",
+            "source": "observed",
+            "evidenceIds": [
+              "P3",
+              "Q1"
+            ],
+            "supportingQuote": "Cedar Roofing provides roof repairs in Madison. We inspect roof leaks and explain repair options before providing a quote.",
+            "question": null
+          },
+          "strategy": {
+            "searchGoal": "Help homeowners looking for roof repairs in Madison understand the inspection process and decide whether to pursue a quote.",
+            "focusArea": "content",
+            "finding": "opportunity_to_test",
+            "priorityReason": "The service topic, heading and metadata are clear, and inspection reports no indexing blocker. More detail about the inspection and quote process would answer a practical customer question without undoing the confirmed edit.",
+            "limitation": "The cause of weaker search performance is unidentified. Query rows may be incomplete, supplied diagnostics have bounded coverage, and public research was unavailable.",
+            "checks": [
+              {
+                "area": "indexing",
+                "status": "suitable",
+                "finding": "Stored inspection reports the page indexed with the expected canonical, and current directives permit indexing. This does not verify Google's processing of the description edit.",
+                "evidenceIds": [
+                  "P4",
+                  "I1"
+                ]
+              },
+              {
+                "area": "search_intent",
+                "status": "suitable",
+                "finding": "The reported roof repair search matches the page's service and Madison location. The supplied rows do not establish the complete search mix.",
+                "evidenceIds": [
+                  "P3",
+                  "Q1"
+                ]
+              },
+              {
+                "area": "content",
+                "status": "opportunity",
+                "finding": "The supplied content states that leaks are inspected and options explained, but offers little process detail. Check whether a fuller explanation exists before adding one.",
+                "evidenceIds": [
+                  "P3"
+                ]
+              },
+              {
+                "area": "headings",
+                "status": "suitable",
+                "finding": "The supplied main heading directly identifies roof repairs in Madison. No heading rewrite is supported by the available evidence.",
+                "evidenceIds": [
+                  "P5"
+                ]
+              },
+              {
+                "area": "metadata",
+                "status": "suitable",
+                "finding": "The title and confirmed description accurately identify the service and location. Lower search performance alone does not justify another rewrite.",
+                "evidenceIds": [
+                  "P1",
+                  "P2",
+                  "S1",
+                  "S2"
+                ]
+              },
+              {
+                "area": "internal_links",
+                "status": "unknown",
+                "finding": "The supplied sample contains no internal links, but its absence does not establish a site-wide link problem. No relevant destination is supplied.",
+                "evidenceIds": [
+                  "P6"
+                ]
+              }
+            ]
+          },
+          "recommendations": [
+            {
+              "type": "content",
+              "basis": "opportunity",
+              "significance": "primary",
+              "benefit": "visitor_decision",
+              "label": "Explain what happens during a roof leak inspection",
+              "location": "Main service content, after the introductory paragraph",
+              "reason": "Homeowners can see that inspections and quotes are offered, but the supplied text gives little detail about the process. An accurate explanation can help them understand what to expect before contacting the business.",
+              "instruction": "Check whether the full page already explains the inspection process. If not, add a short section answering what the inspection covers, how findings and repair options are explained, and what happens before a quote. Confirm these details with the business and publish only actual practices. Keep the completed description edit unchanged.",
+              "currentQuote": "We inspect roof leaks and explain repair options before providing a quote.",
+              "proposedText": null,
+              "supportingQuote": "We inspect roof leaks and explain repair options before providing a quote.",
+              "targetUrl": null,
+              "evidenceIds": [
+                "P3"
+              ]
+            }
+          ]
+        }
+      },
+      "rubric": "A decline alone cannot justify an automatic title reversal. Identify a precise missing observation or keep monitoring; do not invent seasonality or penalties.",
+      "usage": {
+        "input_tokens": 7744,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 7741
+        },
+        "output_tokens": 1507,
+        "output_tokens_details": {
+          "reasoning_tokens": 130
+        },
+        "total_tokens": 9251
+      },
+      "failureStage": "validation",
+      "status": null
+    },
+    {
+      "case": "plumbing-live-noindex-precedes-copy",
+      "repeat": 1,
+      "pass": true,
+      "outcome": "fix_technical",
+      "elapsedMs": 23793,
+      "model": "gpt-6.1-sol",
+      "usage": {
+        "input_tokens": 7780,
+        "input_tokens_details": {
+          "cache_write_tokens": 2533,
+          "cached_tokens": 5244
+        },
+        "output_tokens": 1487,
+        "output_tokens_details": {
+          "reasoning_tokens": 181
+        },
+        "total_tokens": 9267
+      },
+      "raw": {
+        "outcome": "fix_technical",
+        "summary": "Keep the updated description, but remove the confirmed indexing block.",
+        "whatChanged": "The current description matches the owner-confirmed edit. The later comparison shows more clicks and search appearances, but current page directives and Google's stored inspection both report a noindex block.",
+        "meaning": "The search comparison does not prove the description caused the improvement. Historical search activity does not override the confirmed indexing block, which needs attention before further wording changes.",
+        "nextStep": "If this service page should appear in search, remove its noindex directive. Verify the live setting, request indexing, and check Google's next crawl at the supplied checkpoint.",
+        "evidenceIds": [
+          "P2",
+          "P4",
+          "I1",
+          "S1",
+          "S2"
+        ],
+        "assessment": {
+          "action": "investigate_visibility",
+          "metadataVerdict": "keep",
+          "metadataReason": "The title clearly identifies the service, location and business. The updated description explains the inspection and booking process; no further metadata edit is supported.",
+          "summary": "Resolve the confirmed noindex block before making more page edits.",
+          "reason": "Both current directives and Google's stored inspection identify an indexing block. This takes priority over suitable metadata and tentative search improvements. Preserve the completed description change.",
+          "nextStep": "If search visibility is intended, remove noindex from this page, verify the live directive, then request indexing and check Google's next crawl at the supplied checkpoint.",
+          "evidenceIds": [
+            "P2",
+            "P4",
+            "I1",
+            "S1",
+            "S2"
+          ],
+          "title": null,
+          "description": null,
+          "fieldReasons": {
+            "title": "",
+            "description": ""
+          },
+          "supportingQuotes": {
+            "title": "",
+            "description": ""
+          },
+          "targetPageUrl": null,
+          "pageGoal": "Help people seeking household drain cleaning in Portland understand the service and the process before booking.",
+          "searchFocus": {
+            "phrase": "drain cleaning portland",
+            "relatedPhrases": [
+              "drain cleaning in Portland",
+              "household drain cleaning Portland"
+            ],
+            "intent": "Find a Portland business that handles household drain blockages and understand what happens before booking.",
+            "reason": "The page explicitly offers drain cleaning in Portland, and the reported query matches that service and location rather than relying on business-name navigation.",
+            "source": "observed",
+            "evidenceIds": [
+              "P3",
+              "Q1"
+            ],
+            "supportingQuote": "Harbor Plumbing provides drain cleaning in Portland. We inspect household drain blockages and explain the proposed cleaning work before booking.",
+            "question": null
+          },
+          "strategy": {
+            "searchGoal": "Help Portland residents seeking household drain cleaning find the service page and understand the inspection and proposed work before booking.",
+            "focusArea": "indexing",
+            "finding": "supported_issue",
+            "priorityReason": "The current noindex directive and stored inspection establish an access-to-search problem. Removing that block matters more than changing already descriptive headings or metadata.",
+            "limitation": "Google's inspection is a stored view, not a live test. The comparison does not establish the cause of search changes or confirm Google processed the description edit. Public research was unavailable.",
+            "checks": [
+              {
+                "area": "indexing",
+                "status": "issue",
+                "finding": "Current directives include noindex, and Google's stored inspection reports exclusion by that tag. Resolve this if the page is intended to appear in search.",
+                "evidenceIds": [
+                  "P4",
+                  "I1"
+                ]
+              },
+              {
+                "area": "search_intent",
+                "status": "suitable",
+                "finding": "The reported drain-cleaning query matches the page's stated service and Portland location.",
+                "evidenceIds": [
+                  "P3",
+                  "Q1"
+                ]
+              },
+              {
+                "area": "content",
+                "status": "suitable",
+                "finding": "The supplied content explains the household blockage inspection and proposed work before booking. No content change takes priority over the confirmed indexing block.",
+                "evidenceIds": [
+                  "P3"
+                ]
+              },
+              {
+                "area": "headings",
+                "status": "suitable",
+                "finding": "The main heading clearly states drain cleaning in Portland. A heading rewrite is not needed for this follow-up.",
+                "evidenceIds": [
+                  "P5"
+                ]
+              },
+              {
+                "area": "metadata",
+                "status": "suitable",
+                "finding": "The title identifies the service and location, and the current description retains the owner-confirmed explanation of the service.",
+                "evidenceIds": [
+                  "P1",
+                  "P2"
+                ]
+              },
+              {
+                "area": "internal_links",
+                "status": "unknown",
+                "finding": "The supplied link sample does not establish how other pages link to this service page. No known destination supports a specific link edit.",
+                "evidenceIds": [
+                  "P6"
+                ]
+              }
+            ]
+          },
+          "recommendations": [
+            {
+              "type": "technical",
+              "basis": "observed_issue",
+              "significance": "primary",
+              "benefit": "index_access",
+              "label": "Remove the noindex block if this page should appear in search",
+              "location": "This service page's indexing setting and robots directive",
+              "reason": "The live directives block indexing, and Google's stored inspection confirms exclusion by the tag. Resolving this allows Google to consider the page for indexing without undoing the completed description edit.",
+              "instruction": "Confirm this service page is intended to appear in search. If so, disable its noindex setting and publish. Verify that the live robots directive no longer blocks indexing, then request indexing in Search Console. At the supplied next-visit checkpoint, check for a fresh crawl and updated indexing status. Keep the current title and description.",
+              "currentQuote": "",
+              "proposedText": null,
+              "supportingQuote": "",
+              "targetUrl": null,
+              "evidenceIds": [
+                "P4",
+                "I1"
+              ]
+            }
+          ]
+        }
+      },
+      "rubric": "Verified live noindex takes precedence. No content optimization or promise that removing the directive guarantees indexing."
+    },
+    {
+      "case": "plumbing-live-noindex-precedes-copy",
+      "repeat": 2,
+      "pass": true,
+      "outcome": "fix_technical",
+      "elapsedMs": 23700,
+      "model": "gpt-6.1-sol",
+      "usage": {
+        "input_tokens": 7780,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 7777
+        },
+        "output_tokens": 1472,
+        "output_tokens_details": {
+          "reasoning_tokens": 145
+        },
+        "total_tokens": 9252
+      },
+      "raw": {
+        "outcome": "fix_technical",
+        "summary": "Keep the updated description, but fix the confirmed noindex blocker first.",
+        "whatChanged": "The current description matches the owner-confirmed edit. The later comparison block shows more clicks and appearances and a better aggregate position. Live directives and Google's stored inspection also show a noindex blocker.",
+        "meaning": "The search comparison does not prove the description caused the improvement. Historical search activity does not override the confirmed indexing blocker. The title and description remain suitable; indexing access takes priority.",
+        "nextStep": "If this service page should appear in search, remove its noindex setting. Verify the live directive, request indexing, and check Google's next visit after one to two weeks.",
+        "evidenceIds": [
+          "P2",
+          "P4",
+          "I1",
+          "S1",
+          "S2"
+        ],
+        "assessment": {
+          "action": "investigate_visibility",
+          "metadataVerdict": "keep",
+          "metadataReason": "The title identifies the service, location and business. The description accurately explains the service and booking process. Neither needs another edit to address the confirmed indexing blocker.",
+          "summary": "Resolve the confirmed indexing blocker without repeating the completed description edit.",
+          "reason": "The live page carries noindex, and Google's stored inspection reports exclusion by that tag. This is a verified access issue, not an inference from traffic. The improved comparison does not establish that Google processed or benefited from the description edit.",
+          "nextStep": "Remove noindex if the page is intended for search. Verify the live page allows indexing, request indexing, and review Google's next crawl after one to two weeks.",
+          "evidenceIds": [
+            "P2",
+            "P4",
+            "I1",
+            "S1",
+            "S2"
+          ],
+          "title": null,
+          "description": null,
+          "fieldReasons": {
+            "title": "",
+            "description": ""
+          },
+          "supportingQuotes": {
+            "title": "",
+            "description": ""
+          },
+          "targetPageUrl": null,
+          "pageGoal": "Help people seeking drain cleaning in Portland understand Harbor Plumbing's service and what happens before booking.",
+          "searchFocus": {
+            "phrase": "drain cleaning portland",
+            "relatedPhrases": [
+              "drain cleaning in Portland",
+              "household drain cleaning Portland"
+            ],
+            "intent": "Find a provider for household drain cleaning in Portland and understand the service before booking.",
+            "reason": "The page explicitly offers drain cleaning in Portland, and the reported query matches that discovery intent rather than requiring prior knowledge of the business.",
+            "source": "observed",
+            "evidenceIds": [
+              "P3",
+              "Q1"
+            ],
+            "supportingQuote": "Harbor Plumbing provides drain cleaning in Portland. We inspect household drain blockages and explain the proposed cleaning work before booking.",
+            "question": null
+          },
+          "strategy": {
+            "searchGoal": "Help people looking for household drain cleaning in Portland find this service page and understand the proposed work before booking.",
+            "focusArea": "indexing",
+            "finding": "supported_issue",
+            "priorityReason": "A confirmed noindex directive blocks indexing access and takes precedence over further wording changes. The completed description already communicates the service, and the reported query fits the page.",
+            "limitation": "Google's inspection is a stored view, not a live test. The comparison does not establish edit causation or explain the overall search trend. Public research was unavailable.",
+            "checks": [
+              {
+                "area": "indexing",
+                "status": "issue",
+                "finding": "The live page contains noindex, and Google's stored inspection reports exclusion by that tag. Resolve this blocker if the page is intended to appear in search.",
+                "evidenceIds": [
+                  "P4",
+                  "I1"
+                ]
+              },
+              {
+                "area": "search_intent",
+                "status": "suitable",
+                "finding": "The reported drain-cleaning query matches the service and Portland location stated on this page.",
+                "evidenceIds": [
+                  "P3",
+                  "Q1"
+                ]
+              },
+              {
+                "area": "content",
+                "status": "suitable",
+                "finding": "The supplied content explains the service and what happens before booking. It supports the basic visitor question; further content edits are not needed to address the confirmed blocker.",
+                "evidenceIds": [
+                  "P3"
+                ]
+              },
+              {
+                "area": "headings",
+                "status": "suitable",
+                "finding": "The supplied main heading clearly names drain cleaning and Portland. No heading rewrite is supported as the next priority.",
+                "evidenceIds": [
+                  "P5"
+                ]
+              },
+              {
+                "area": "metadata",
+                "status": "suitable",
+                "finding": "The title and updated description accurately identify the offering. Preserve the completed description edit.",
+                "evidenceIds": [
+                  "P1",
+                  "P2"
+                ]
+              },
+              {
+                "area": "internal_links",
+                "status": "unknown",
+                "finding": "The supplied sample contains no internal links, but does not establish the site's incoming links to this page or provide a supported link destination.",
+                "evidenceIds": [
+                  "P6"
+                ]
+              }
+            ]
+          },
+          "recommendations": [
+            {
+              "type": "technical",
+              "basis": "observed_issue",
+              "significance": "primary",
+              "benefit": "index_access",
+              "label": "Remove the confirmed noindex blocker",
+              "location": "Selected service page's indexing setting and robots meta directive",
+              "reason": "The live directive and stored Google inspection both identify an indexing restriction. Resolving it allows this intended service page to be considered for indexing without changing the completed metadata.",
+              "instruction": "Confirm this service page is intended to appear in search, then disable its noindex setting. Verify the published page no longer sends noindex to general crawlers or Googlebot. Request indexing through URL Inspection and check Google's next crawl after one to two weeks. Leave the title and description unchanged.",
+              "currentQuote": "",
+              "proposedText": null,
+              "supportingQuote": "",
+              "targetUrl": null,
+              "evidenceIds": [
+                "P4",
+                "I1"
+              ]
+            }
+          ]
+        }
+      },
+      "rubric": "Verified live noindex takes precedence. No content optimization or promise that removing the directive guarantees indexing."
+    },
+    {
+      "case": "plumbing-missing-query-evidence",
+      "repeat": 1,
+      "pass": true,
+      "outcome": "gather_evidence",
+      "elapsedMs": 27708,
+      "model": "gpt-6.1-sol",
+      "usage": {
+        "input_tokens": 7666,
+        "input_tokens_details": {
+          "cache_write_tokens": 2419,
+          "cached_tokens": 5244
+        },
+        "output_tokens": 1592,
+        "output_tokens_details": {
+          "reasoning_tokens": 222
+        },
+        "total_tokens": 9258
+      },
+      "raw": {
+        "outcome": "gather_evidence",
+        "summary": "Keep the published description and check which searches account for the change.",
+        "whatChanged": "The current description matches the owner-confirmed edit. The later comparison block shows more clicks and appearances, with an improved aggregate average position.",
+        "meaning": "These are encouraging observations, not proof that the description caused the change. Query rows are unavailable, so the comparison cannot show whether relevant drain-cleaning searches improved. Google reports the page indexed, but that does not verify it processed the description.",
+        "nextStep": "Obtain this page’s query reports for the supplied baseline and post-change periods. Compare drain-cleaning searches separately from clear business-name searches before deciding on another edit.",
+        "evidenceIds": [
+          "P2",
+          "P3",
+          "S1",
+          "S2",
+          "I1"
+        ],
+        "assessment": {
+          "action": "collect_data",
+          "metadataVerdict": "keep",
+          "metadataReason": "The title identifies the service, location and business. The description accurately explains household blockage inspection and the proposed cleaning work. No supported metadata problem warrants another edit.",
+          "summary": "Keep the metadata while checking whether relevant service searches improved.",
+          "reason": "Page totals improved, but unavailable query rows prevent assessing the intended search audience. The supplied page clearly names the service and location, and inspection reports it indexed. Another metadata edit is not supported by this comparison.",
+          "nextStep": "In Search Console, filter to this exact page and obtain query rows for both supplied comparison periods. Compare relevant drain-cleaning searches, noting that anonymized searches may remain unavailable.",
+          "evidenceIds": [
+            "P2",
+            "P3",
+            "S1",
+            "S2",
+            "I1"
+          ],
+          "title": null,
+          "description": null,
+          "fieldReasons": {
+            "title": "",
+            "description": ""
+          },
+          "supportingQuotes": {
+            "title": "",
+            "description": ""
+          },
+          "targetPageUrl": null,
+          "pageGoal": "Help Portland visitors understand Harbor Plumbing’s household drain-cleaning service and what is explained before booking.",
+          "searchFocus": {
+            "phrase": "drain cleaning portland",
+            "relatedPhrases": [
+              "household drain cleaning Portland",
+              "drain blockage inspection Portland"
+            ],
+            "intent": "Find a Portland provider for household drain blockages and understand the proposed cleaning process before booking.",
+            "reason": "This service page explicitly supports drain cleaning in Portland. The topic fits discovery searches, but unavailable query rows mean it remains a proposed focus rather than a verified observed phrase.",
+            "source": "proposed",
+            "evidenceIds": [
+              "P3"
+            ],
+            "supportingQuote": "Harbor Plumbing provides drain cleaning in Portland. We inspect household drain blockages and explain the proposed cleaning work before booking.",
+            "question": null
+          },
+          "strategy": {
+            "searchGoal": "Help people seeking household drain cleaning in Portland understand the service and decide whether to contact Harbor Plumbing.",
+            "focusArea": "search_intent",
+            "finding": "insufficient_evidence",
+            "priorityReason": "The immediate follow-up question is whether the changed search exposure fits this service. Missing query rows prevent that assessment; the metadata and heading already communicate the offering, and no indexing blocker is reported.",
+            "limitation": "Page totals cannot identify which searches changed or establish edit causation. Stored inspection does not verify the description Google processed. Public research is unavailable, and no rendered or complete-site audit was supplied.",
+            "checks": [
+              {
+                "area": "indexing",
+                "status": "suitable",
+                "finding": "Stored inspection reports the page indexed with the expected canonical, and current directives allow indexing. There is no supplied indexing blocker to fix.",
+                "evidenceIds": [
+                  "P4",
+                  "I1"
+                ]
+              },
+              {
+                "area": "search_intent",
+                "status": "unknown",
+                "finding": "The page supports Portland drain-cleaning intent, but query rows are unavailable in both comparison periods. Improved totals do not establish that relevant discovery searches improved.",
+                "evidenceIds": [
+                  "P3",
+                  "S1",
+                  "S2"
+                ]
+              },
+              {
+                "area": "content",
+                "status": "suitable",
+                "finding": "The supplied content identifies the service and explains inspection and discussion before booking. It is brief, but the follow-up evidence does not establish a specific content defect requiring another edit.",
+                "evidenceIds": [
+                  "P3"
+                ]
+              },
+              {
+                "area": "headings",
+                "status": "suitable",
+                "finding": "The supplied main heading clearly names drain cleaning and Portland. No heading rewrite is supported.",
+                "evidenceIds": [
+                  "P5"
+                ]
+              },
+              {
+                "area": "metadata",
+                "status": "suitable",
+                "finding": "The title identifies the service, location and business. The current description matches the confirmed edit and explains the actual service.",
+                "evidenceIds": [
+                  "P1",
+                  "P2"
+                ]
+              },
+              {
+                "area": "internal_links",
+                "status": "unknown",
+                "finding": "No internal links appear in the supplied sample. This does not establish site-wide link absence, and no known destination supports a specific link recommendation.",
+                "evidenceIds": [
+                  "P6"
+                ]
+              }
+            ]
+          },
+          "recommendations": [
+            {
+              "type": "check",
+              "basis": "needs_check",
+              "significance": "primary",
+              "benefit": "diagnosis",
+              "label": "Check the searches behind the comparison",
+              "location": "Search Console query report filtered to the selected page",
+              "reason": "The totals cannot show whether visitors increasingly found the page through relevant drain-cleaning searches. Query-level evidence helps assess the completed edit without generating unnecessary new changes.",
+              "instruction": "Obtain the query report for this exact page for each supplied baseline and post-change period, keeping the same property and filters. Compare relevant drain-cleaning searches separately from clear business-name searches, leaving ambiguous names unclassified. If rows remain unavailable, record that limitation rather than treating them as zero.",
+              "currentQuote": "",
+              "proposedText": null,
+              "supportingQuote": "",
+              "targetUrl": null,
+              "evidenceIds": [
+                "P3",
+                "S1",
+                "S2"
+              ]
+            }
+          ]
+        }
+      },
+      "rubric": "Page totals remain available but queries do not. Never invent query performance or infer no demand. Leave the clear page intact."
+    },
+    {
+      "case": "plumbing-missing-query-evidence",
+      "repeat": 2,
+      "pass": true,
+      "outcome": "gather_evidence",
+      "elapsedMs": 24243,
+      "model": "gpt-6.1-sol",
+      "usage": {
+        "input_tokens": 7666,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 7663
+        },
+        "output_tokens": 1481,
+        "output_tokens_details": {
+          "reasoning_tokens": 115
+        },
+        "total_tokens": 9147
+      },
+      "raw": {
+        "outcome": "gather_evidence",
+        "summary": "Keep the published description and check which searches changed.",
+        "whatChanged": "The current description matches the owner-confirmed edit. The later comparison period recorded more clicks and appearances, with a better aggregate average position.",
+        "meaning": "These are encouraging page-level observations, not proof that the description caused the change. Query rows are unavailable, so we cannot tell whether relevant drain-cleaning searches improved. Google reports the page indexed, but that does not verify processing of this edit.",
+        "nextStep": "Obtain this page’s query reports for the supplied baseline and post-change periods. Compare drain-cleaning searches separately from business-name searches before deciding on another edit.",
+        "evidenceIds": [
+          "P2",
+          "P3",
+          "S1",
+          "S2",
+          "I1"
+        ],
+        "assessment": {
+          "action": "collect_data",
+          "metadataVerdict": "keep",
+          "metadataReason": "The title identifies the service, location and business. The published description clearly explains household drain inspection and the proposed cleaning work. Neither field has a supported problem requiring another edit.",
+          "summary": "Keep the metadata while checking the searches behind the page-level improvement.",
+          "reason": "The comparison is encouraging, but unavailable query rows prevent assessing whether the page gained relevant service searches. The confirmed description is present and indexing is reported as allowed. Another metadata edit is not justified by these totals.",
+          "nextStep": "Export query reports filtered to this exact page for both supplied comparison periods. If rows remain unavailable, record that limitation and check relevant searches at the next review checkpoint.",
+          "evidenceIds": [
+            "P2",
+            "P3",
+            "S1",
+            "S2",
+            "I1"
+          ],
+          "title": null,
+          "description": null,
+          "fieldReasons": {
+            "title": "",
+            "description": ""
+          },
+          "supportingQuotes": {
+            "title": "",
+            "description": ""
+          },
+          "targetPageUrl": null,
+          "pageGoal": "Help Portland residents understand Harbor Plumbing’s household drain-cleaning service and its pre-booking inspection process.",
+          "searchFocus": {
+            "phrase": "drain cleaning portland",
+            "relatedPhrases": [
+              "household drain cleaning in Portland",
+              "drain blockage inspection in Portland"
+            ],
+            "intent": "Find a Portland provider who can inspect a household drain blockage and explain the proposed cleaning work.",
+            "reason": "This service page explicitly supports drain cleaning in Portland. The phrase is a grounded discovery topic to test, not a verified query observation because the comparison query rows are unavailable.",
+            "source": "proposed",
+            "evidenceIds": [
+              "P3"
+            ],
+            "supportingQuote": "Harbor Plumbing provides drain cleaning in Portland. We inspect household drain blockages and explain the proposed cleaning work before booking.",
+            "question": null
+          },
+          "strategy": {
+            "searchGoal": "Help people seeking household drain cleaning in Portland find the service and understand what happens before booking.",
+            "focusArea": "search_intent",
+            "finding": "insufficient_evidence",
+            "priorityReason": "The useful next step is to identify whether relevant service searches account for the observed change. Suitable metadata and a passing stored inspection do not resolve that question, and the evidence does not justify repeating the completed edit.",
+            "limitation": "Query rows are unavailable for both periods. Aggregate changes cannot establish edit causation or the reason for search performance. Public research and rendered-page evidence are unavailable.",
+            "checks": [
+              {
+                "area": "indexing",
+                "status": "suitable",
+                "finding": "Stored inspection reports the page indexed with the expected canonical, and current directives allow indexing. This does not prove Google processed the description edit.",
+                "evidenceIds": [
+                  "P4",
+                  "I1"
+                ]
+              },
+              {
+                "area": "search_intent",
+                "status": "unknown",
+                "finding": "The page fits a Portland drain-cleaning discovery topic, but unavailable query rows prevent checking whether actual searches match that purpose.",
+                "evidenceIds": [
+                  "P3",
+                  "S1",
+                  "S2"
+                ]
+              },
+              {
+                "area": "content",
+                "status": "unknown",
+                "finding": "The supplied text explains the service and pre-booking process briefly. It does not establish which further customer questions or booking details need attention in this follow-up.",
+                "evidenceIds": [
+                  "P3"
+                ]
+              },
+              {
+                "area": "headings",
+                "status": "suitable",
+                "finding": "The supplied main heading clearly names drain cleaning and Portland. No heading change is supported by this comparison.",
+                "evidenceIds": [
+                  "P5"
+                ]
+              },
+              {
+                "area": "metadata",
+                "status": "suitable",
+                "finding": "The title names the service, location and business. The description matches the confirmed change and explains the actual service.",
+                "evidenceIds": [
+                  "P1",
+                  "P2"
+                ]
+              },
+              {
+                "area": "internal_links",
+                "status": "unknown",
+                "finding": "The supplied link sample contains no internal links, but its absence does not establish a site-wide link problem. No verified destination supports a link recommendation.",
+                "evidenceIds": [
+                  "P6"
+                ]
+              }
+            ]
+          },
+          "recommendations": [
+            {
+              "type": "check",
+              "basis": "needs_check",
+              "significance": "primary",
+              "benefit": "diagnosis",
+              "label": "Identify the searches behind the comparison",
+              "location": "Search Console query report filtered to the selected page",
+              "reason": "Relevant service searches and business-name searches can move differently. Query-level evidence will help assess whether this service page is reaching its intended audience without attributing aggregate changes to the description.",
+              "instruction": "Obtain query exports for this exact page using the supplied baseline and post-change dates and matching filters. Compare drain-cleaning and Portland service queries across the two periods. Treat missing rows as unavailable, not zero. If exports remain unavailable, retain the description and revisit query evidence at the next review checkpoint.",
+              "currentQuote": "",
+              "proposedText": null,
+              "supportingQuote": "",
+              "targetUrl": null,
+              "evidenceIds": [
+                "P3",
+                "S1",
+                "S2"
+              ]
+            }
+          ]
+        }
+      },
+      "rubric": "Page totals remain available but queries do not. Never invent query performance or infer no demand. Leave the clear page intact."
+    },
+    {
+      "case": "landscaping-sparse-clicks",
+      "repeat": 1,
+      "pass": false,
+      "elapsedMs": 24472,
+      "outcome": "improve_page",
+      "raw": {
+        "outcome": "improve_page",
+        "summary": "Keep the confirmed description; explain what the maintenance service includes.",
+        "whatChanged": "The current description matches the owner-confirmed wording. The later period shows fewer search appearances and clicks, with a slightly better average position.",
+        "meaning": "The sparse comparison does not establish whether the description helped or hurt. Google reports the page indexed, but that does not verify processing of this edit. The page names services without explaining their scope.",
+        "nextStep": "Keep the title and description. Add a short service-scope section using real details about mowing, pruning and seasonal maintenance, then review the same searches at the later checkpoint.",
+        "evidenceIds": [
+          "P2",
+          "P3",
+          "S1",
+          "S2",
+          "I1"
+        ],
+        "assessment": {
+          "action": "improve_content",
+          "metadataVerdict": "keep",
+          "metadataReason": "The title identifies the service, location and business. The confirmed description names the actual services and invites a quote request. Sparse search results do not justify another rewrite.",
+          "summary": "Explain the maintenance scope while preserving the completed metadata change.",
+          "reason": "The supplied content lists mowing, pruning and seasonal maintenance but gives little detail to help visitors judge suitability. This is a useful content opportunity independent of the inconclusive search comparison.",
+          "nextStep": "Add a service-scope section explaining what the named services include, using only confirmed business details. Keep the metadata and compare the same relevant searches at the later review checkpoint.",
+          "evidenceIds": [
+            "P1",
+            "P2",
+            "P3",
+            "S1",
+            "S2"
+          ],
+          "title": null,
+          "description": null,
+          "fieldReasons": {
+            "title": "",
+            "description": ""
+          },
+          "supportingQuotes": {
+            "title": "",
+            "description": ""
+          },
+          "targetPageUrl": null,
+          "pageGoal": "Help people seeking garden maintenance in South Bend understand the service and request a quote.",
+          "searchFocus": {
+            "phrase": "garden maintenance south bend",
+            "relatedPhrases": [
+              "garden maintenance in South Bend",
+              "seasonal garden maintenance South Bend"
+            ],
+            "intent": "Find a garden maintenance provider in South Bend and understand what work is available before requesting a quote.",
+            "reason": "The page explicitly offers this service in South Bend, and the reported query matches its purpose. It is a relevant discovery topic rather than a business-name search.",
+            "source": "observed",
+            "evidenceIds": [
+              "P3",
+              "Q1"
+            ],
+            "supportingQuote": "Willow Gardens provides garden maintenance in South Bend. We provide mowing, pruning and seasonal garden maintenance.",
+            "question": null
+          },
+          "strategy": {
+            "searchGoal": "Help people looking for garden maintenance in South Bend understand the available work and decide whether to request a quote.",
+            "focusArea": "content",
+            "finding": "opportunity_to_test",
+            "priorityReason": "Useful service detail can help visitors decide whether the offering fits their garden. The heading and metadata already communicate the topic, and inspection does not show an indexing blocker.",
+            "limitation": "The cause of weak search exposure is unidentified. The comparison is sparse, query rows may be incomplete, and public research is unavailable. No rendered-page or complete-site audit was supplied.",
+            "checks": [
+              {
+                "area": "indexing",
+                "status": "suitable",
+                "finding": "Stored inspection reports the page indexed with the expected canonical, and current directives allow indexing. This does not prove Google processed the confirmed description.",
+                "evidenceIds": [
+                  "I1",
+                  "P4"
+                ]
+              },
+              {
+                "area": "search_intent",
+                "status": "suitable",
+                "finding": "The reported garden-maintenance query matches the service and location stated on this page. Sparse observations do not establish a stable performance trend.",
+                "evidenceIds": [
+                  "P3",
+                  "Q1",
+                  "S1",
+                  "S2"
+                ]
+              },
+              {
+                "area": "content",
+                "status": "opportunity",
+                "finding": "The supplied content names mowing, pruning and seasonal maintenance but does not explain their scope. A short factual explanation could help visitors judge suitability.",
+                "evidenceIds": [
+                  "P3"
+                ]
+              },
+              {
+                "area": "headings",
+                "status": "suitable",
+                "finding": "The supplied main heading clearly identifies garden maintenance and South Bend. No heading rewrite is warranted from this evidence.",
+                "evidenceIds": [
+                  "P5"
+                ]
+              },
+              {
+                "area": "metadata",
+                "status": "suitable",
+                "finding": "The title and confirmed description accurately describe the service, location and next step. Keep the completed description edit.",
+                "evidenceIds": [
+                  "P1",
+                  "P2"
+                ]
+              },
+              {
+                "area": "internal_links",
+                "status": "unknown",
+                "finding": "No links appear in the supplied sample, but no suitable internal destination is provided. This does not establish a site-wide navigation problem.",
+                "evidenceIds": [
+                  "P6"
+                ]
+              }
+            ]
+          },
+          "recommendations": [
+            {
+              "type": "content",
+              "basis": "opportunity",
+              "significance": "primary",
+              "benefit": "visitor_decision",
+              "label": "Explain what garden maintenance includes",
+              "location": "Main service content, after the mowing, pruning and seasonal maintenance sentence",
+              "reason": "Visitors can see the service names but have little information about the work involved. Explaining the actual scope helps them decide whether to enquire without changing the completed metadata.",
+              "instruction": "Check the rendered page for an existing service-scope section. If absent, add a short section explaining what mowing, pruning and seasonal maintenance include and any important exclusions. Use real business details only; do not imply every task is included in every quote.",
+              "currentQuote": "We provide mowing, pruning and seasonal garden maintenance.",
+              "proposedText": null,
+              "supportingQuote": "We provide mowing, pruning and seasonal garden maintenance.",
+              "targetUrl": null,
+              "evidenceIds": [
+                "P3"
+              ]
+            }
+          ]
+        }
+      },
+      "rubric": "A tiny difference is inconclusive. Do not invent a CTR benchmark or blame the confirmed description. Continue monitoring without new cosmetic tasks.",
+      "usage": {
+        "input_tokens": 7793,
+        "input_tokens_details": {
+          "cache_write_tokens": 2546,
+          "cached_tokens": 5244
+        },
+        "output_tokens": 1531,
+        "output_tokens_details": {
+          "reasoning_tokens": 187
+        },
+        "total_tokens": 9324
+      },
+      "failureStage": "validation",
+      "status": null
+    },
+    {
+      "case": "landscaping-sparse-clicks",
+      "repeat": 2,
+      "pass": false,
+      "elapsedMs": 24993,
+      "outcome": "improve_page",
+      "raw": {
+        "outcome": "improve_page",
+        "summary": "Keep the confirmed description; help visitors understand what garden maintenance includes.",
+        "whatChanged": "The current description matches the owner-confirmed edit. The later period shows fewer search appearances and clicks, with a slightly better aggregate position.",
+        "meaning": "The small comparison does not establish whether the description helped or hurt. Google reports the page indexed, but that does not verify processing of this edit. The supplied content names services without explaining their scope.",
+        "nextStep": "Keep the title and description. Add accurate details about what mowing, pruning and seasonal maintenance include, then review the same service searches at the next checkpoint.",
+        "evidenceIds": [
+          "P2",
+          "P3",
+          "S1",
+          "S2",
+          "I1"
+        ],
+        "assessment": {
+          "action": "improve_content",
+          "metadataVerdict": "keep",
+          "metadataReason": "The title identifies the service, location and business. The confirmed description accurately names the services and invites a quote request; the sparse comparison does not justify another rewrite.",
+          "summary": "Explain the maintenance services before making another metadata change.",
+          "reason": "The supplied page tells visitors which services are offered but gives little help understanding what each includes. Adding accurate scope details is useful independently of the uncertain search comparison.",
+          "nextStep": "Review the service paragraph and add a short section explaining the actual scope of mowing, pruning and seasonal maintenance, if those details are not already present.",
+          "evidenceIds": [
+            "P1",
+            "P2",
+            "P3",
+            "S1",
+            "S2"
+          ],
+          "title": null,
+          "description": null,
+          "fieldReasons": {
+            "title": "",
+            "description": ""
+          },
+          "supportingQuotes": {
+            "title": "",
+            "description": ""
+          },
+          "targetPageUrl": null,
+          "pageGoal": "Help people seeking garden maintenance in South Bend understand the services and request a quote.",
+          "searchFocus": {
+            "phrase": "garden maintenance south bend",
+            "relatedPhrases": [
+              "garden maintenance services in South Bend",
+              "seasonal garden maintenance in South Bend"
+            ],
+            "intent": "Find a garden maintenance provider in South Bend and understand the work available before requesting a quote.",
+            "reason": "This service page explicitly offers garden maintenance in South Bend, and the reported query matches that purpose rather than requiring prior knowledge of the business.",
+            "source": "observed",
+            "evidenceIds": [
+              "P3",
+              "Q1"
+            ],
+            "supportingQuote": "Willow Gardens provides garden maintenance in South Bend. We provide mowing, pruning and seasonal garden maintenance.",
+            "question": null
+          },
+          "strategy": {
+            "searchGoal": "Help people looking for garden maintenance in South Bend understand the available work and decide whether to request a quote.",
+            "focusArea": "content",
+            "finding": "opportunity_to_test",
+            "priorityReason": "Service-scope information would help visitors make a decision. The headings and metadata already communicate the topic, and the supplied inspection does not show an indexing blocker.",
+            "limitation": "The main cause of weak search performance is unidentified. Search observations are sparse, public research is unavailable, and no rendered page or complete website audit was supplied.",
+            "checks": [
+              {
+                "area": "indexing",
+                "status": "suitable",
+                "finding": "Stored inspection reports the page indexed with the expected canonical. Live directives allow indexing; neither establishes that Google processed the confirmed description.",
+                "evidenceIds": [
+                  "P4",
+                  "I1"
+                ]
+              },
+              {
+                "area": "search_intent",
+                "status": "suitable",
+                "finding": "The reported garden-maintenance query fits the page's service and location. Partial query rows do not establish the complete search mix.",
+                "evidenceIds": [
+                  "P3",
+                  "Q1"
+                ]
+              },
+              {
+                "area": "content",
+                "status": "opportunity",
+                "finding": "The supplied content names mowing, pruning and seasonal maintenance but does not explain their scope. Accurate details could help visitors decide whether to enquire.",
+                "evidenceIds": [
+                  "P3"
+                ]
+              },
+              {
+                "area": "headings",
+                "status": "suitable",
+                "finding": "The supplied main heading clearly identifies garden maintenance in South Bend. No heading rewrite is supported.",
+                "evidenceIds": [
+                  "P5"
+                ]
+              },
+              {
+                "area": "metadata",
+                "status": "suitable",
+                "finding": "The title and confirmed description clearly describe the service and location. The comparison does not establish a metadata problem.",
+                "evidenceIds": [
+                  "P1",
+                  "P2",
+                  "S1",
+                  "S2"
+                ]
+              },
+              {
+                "area": "internal_links",
+                "status": "unknown",
+                "finding": "The supplied sample contains no internal links, but no suitable destination or complete site-link evidence is available.",
+                "evidenceIds": [
+                  "P6"
+                ]
+              }
+            ]
+          },
+          "recommendations": [
+            {
+              "type": "content",
+              "basis": "opportunity",
+              "significance": "primary",
+              "benefit": "visitor_decision",
+              "label": "Explain what the maintenance services include",
+              "location": "Main service paragraph, before the quote invitation",
+              "reason": "Visitors can see the service names but cannot tell what work is included. Clear scope details would help them judge whether the service meets their garden's needs.",
+              "instruction": "Check the published page for existing service details. If absent, add a short section explaining what your mowing, pruning and seasonal maintenance actually include, including any important exclusions. Use only confirmed business facts and explain what information customers should provide when requesting a quote. Keep the confirmed metadata unchanged.",
+              "currentQuote": "We provide mowing, pruning and seasonal garden maintenance.",
+              "proposedText": null,
+              "supportingQuote": "We provide mowing, pruning and seasonal garden maintenance. Contact us to discuss your garden and request a quote.",
+              "targetUrl": null,
+              "evidenceIds": [
+                "P3"
+              ]
+            }
+          ]
+        }
+      },
+      "rubric": "A tiny difference is inconclusive. Do not invent a CTR benchmark or blame the confirmed description. Continue monitoring without new cosmetic tasks.",
+      "usage": {
+        "input_tokens": 7793,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 7790
+        },
+        "output_tokens": 1541,
+        "output_tokens_details": {
+          "reasoning_tokens": 218
+        },
+        "total_tokens": 9334
+      },
+      "failureStage": "validation",
+      "status": null
+    },
+    {
+      "case": "landscaping-current-heading-defect",
+      "repeat": 1,
+      "pass": true,
+      "outcome": "improve_page",
+      "elapsedMs": 29551,
+      "model": "gpt-6.1-sol",
+      "usage": {
+        "input_tokens": 7779,
+        "input_tokens_details": {
+          "cache_write_tokens": 2532,
+          "cached_tokens": 5244
+        },
+        "output_tokens": 1796,
+        "output_tokens_details": {
+          "reasoning_tokens": 242
+        },
+        "total_tokens": 9575
+      },
+      "raw": {
+        "outcome": "improve_page",
+        "summary": "Keep the updated description; make the service page more useful to prospective customers.",
+        "whatChanged": "The current description matches the owner-confirmed edit. Search appearances and clicks were lower in the later comparison block, while aggregate position improved slightly.",
+        "meaning": "The small sample does not establish whether the description helped or hurt. Google reports the page indexed with the expected canonical, but that does not verify processing of this edit. The page still offers little detail beyond a service list.",
+        "nextStep": "Keep the metadata. Explain what the listed maintenance services include, using verified business details, and replace the generic heading with a clear service heading.",
+        "evidenceIds": [
+          "P2",
+          "P3",
+          "S1",
+          "S2",
+          "I1"
+        ],
+        "assessment": {
+          "action": "improve_content",
+          "metadataVerdict": "keep",
+          "metadataReason": "The title identifies the service, location and business. The updated description accurately names the services and invites a quote request. Sparse search data does not justify another metadata edit.",
+          "summary": "Add useful service detail rather than rewriting the completed description.",
+          "reason": "The supplied page names mowing, pruning and seasonal maintenance but does not explain their scope. Helping visitors understand what they can request is more useful than another snippet edit. The comparison does not establish the effect of the confirmed change.",
+          "nextStep": "Review the service paragraph and add accurate details about what mowing, pruning and seasonal maintenance include. Then make the main heading identify the service and location.",
+          "evidenceIds": [
+            "P2",
+            "P3",
+            "P5",
+            "S1",
+            "S2"
+          ],
+          "title": null,
+          "description": null,
+          "fieldReasons": {
+            "title": "",
+            "description": ""
+          },
+          "supportingQuotes": {
+            "title": "",
+            "description": ""
+          },
+          "targetPageUrl": null,
+          "pageGoal": "Help people seeking garden maintenance in South Bend understand the available services and request a quote.",
+          "searchFocus": {
+            "phrase": "garden maintenance south bend",
+            "relatedPhrases": [
+              "garden maintenance in South Bend",
+              "South Bend mowing and pruning",
+              "seasonal garden maintenance South Bend"
+            ],
+            "intent": "Find a garden maintenance provider in South Bend, understand the work available and ask for a quote.",
+            "reason": "This service page explicitly supports garden maintenance in South Bend. The reported query matches that purpose and is a relevant discovery topic rather than a clear business-name search.",
+            "source": "observed",
+            "evidenceIds": [
+              "P3",
+              "Q1"
+            ],
+            "supportingQuote": "Willow Gardens provides garden maintenance in South Bend. We provide mowing, pruning and seasonal garden maintenance.",
+            "question": null
+          },
+          "strategy": {
+            "searchGoal": "Help South Bend garden owners understand the listed maintenance services and decide whether to request a quote.",
+            "focusArea": "content",
+            "finding": "opportunity_to_test",
+            "priorityReason": "The metadata already communicates the offering, and inspection supports indexing. The brief service list leaves visitors with little information about what the work includes, making useful service detail the stronger next improvement.",
+            "limitation": "The cause of sparse search exposure is unidentified. The comparison cannot isolate the edit's effect. No rendered review or public research is available, and inspection does not verify Google's processing of the description.",
+            "checks": [
+              {
+                "area": "indexing",
+                "status": "suitable",
+                "finding": "Stored inspection reports the page indexed with the expected canonical. Current directives allow indexing; no supplied access blocker needs fixing.",
+                "evidenceIds": [
+                  "P4",
+                  "I1"
+                ]
+              },
+              {
+                "area": "search_intent",
+                "status": "suitable",
+                "finding": "The reported garden maintenance query matches the page's service and location. Sparse observations do not establish the effect of the metadata change.",
+                "evidenceIds": [
+                  "P3",
+                  "Q1",
+                  "S1",
+                  "S2"
+                ]
+              },
+              {
+                "area": "content",
+                "status": "opportunity",
+                "finding": "The supplied content lists services and invites a quote, but offers no explanation of what those services include. Accurate detail could help visitors assess fit.",
+                "evidenceIds": [
+                  "P3"
+                ]
+              },
+              {
+                "area": "headings",
+                "status": "opportunity",
+                "finding": "The main heading, Solutions for you, does not identify the service. A service-and-location heading would make the page's purpose clearer; verify its rendered placement.",
+                "evidenceIds": [
+                  "P5",
+                  "P3"
+                ]
+              },
+              {
+                "area": "metadata",
+                "status": "suitable",
+                "finding": "The title and confirmed description accurately identify garden maintenance in South Bend. Preserve the completed metadata task.",
+                "evidenceIds": [
+                  "P1",
+                  "P2"
+                ]
+              },
+              {
+                "area": "internal_links",
+                "status": "unknown",
+                "finding": "No internal links or suitable destinations are supplied. The sample does not establish a sitewide navigation problem.",
+                "evidenceIds": [
+                  "P6"
+                ]
+              }
+            ]
+          },
+          "recommendations": [
+            {
+              "type": "content",
+              "basis": "opportunity",
+              "significance": "primary",
+              "benefit": "visitor_decision",
+              "label": "Explain what the maintenance services include",
+              "location": "Service paragraph beneath the main heading",
+              "reason": "Visitors can see the service names but have little detail to judge whether the work suits their garden. A short, factual explanation would support a more informed quote request.",
+              "instruction": "Check whether service details appear elsewhere on the rendered page. If not, add a short section explaining what mowing, pruning and seasonal garden maintenance include. Use only work the business actually provides, and explain what garden details customers should share when requesting a quote.",
+              "currentQuote": "We provide mowing, pruning and seasonal garden maintenance.",
+              "proposedText": null,
+              "supportingQuote": "",
+              "targetUrl": null,
+              "evidenceIds": [
+                "P3"
+              ]
+            },
+            {
+              "type": "heading",
+              "basis": "opportunity",
+              "significance": "supporting",
+              "benefit": "page_clarity",
+              "label": "Make the main heading describe the service",
+              "location": "Main heading: Solutions for you",
+              "reason": "A descriptive heading would immediately tell visitors which service and location this page covers without changing the completed metadata.",
+              "instruction": "Replace the generic main heading with the suggested wording. Verify on the rendered page that it appears as the main service heading. At the supplied checkpoints, check recrawl and compare the same relevant searches without attributing small fluctuations to this edit.",
+              "currentQuote": "Solutions for you",
+              "proposedText": "Garden maintenance in South Bend",
+              "supportingQuote": "Willow Gardens provides garden maintenance in South Bend.",
+              "targetUrl": null,
+              "evidenceIds": [
+                "P5",
+                "P3"
+              ]
+            }
+          ]
+        }
+      },
+      "rubric": "Sparse measurements do not forbid correcting the current generic H1. Justify a precise heading task from current content without blaming the earlier description."
+    },
+    {
+      "case": "landscaping-current-heading-defect",
+      "repeat": 2,
+      "pass": true,
+      "outcome": "improve_page",
+      "elapsedMs": 26833,
+      "model": "gpt-6.1-sol",
+      "usage": {
+        "input_tokens": 7779,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 7776
+        },
+        "output_tokens": 1750,
+        "output_tokens_details": {
+          "reasoning_tokens": 195
+        },
+        "total_tokens": 9529
+      },
+      "raw": {
+        "outcome": "improve_page",
+        "summary": "Keep the updated description; help visitors understand what the garden maintenance service includes.",
+        "whatChanged": "The current description matches the owner-confirmed edit. Search appearances and clicks were lower in the later comparison block, while average position improved slightly.",
+        "meaning": "The sparse results do not establish whether the description helped or hurt. Google reports the page indexed, but that does not verify processing of this edit. The page still gives visitors little detail beyond a service list.",
+        "nextStep": "Keep the metadata. Add accurate detail about the maintenance work and clarify the main heading, then review the same service searches at the next scheduled checkpoint.",
+        "evidenceIds": [
+          "P2",
+          "P3",
+          "S1",
+          "S2",
+          "I1"
+        ],
+        "assessment": {
+          "action": "improve_content",
+          "metadataVerdict": "keep",
+          "metadataReason": "The title identifies garden maintenance, South Bend and Willow Gardens. The updated description explains the supported services and invites a quote request; no further metadata problem is established.",
+          "summary": "Explain the maintenance service more fully before making another metadata change.",
+          "reason": "The page lists mowing, pruning and seasonal maintenance but does not explain their scope. Accurate service detail would help visitors decide whether to request a quote. Sparse search results do not prove that the confirmed description change failed.",
+          "nextStep": "Add a short service-scope section using verified business details, and replace the generic heading with a clear service heading. Review relevant searches at the next scheduled checkpoint.",
+          "evidenceIds": [
+            "P3",
+            "P5",
+            "P2",
+            "S1",
+            "S2"
+          ],
+          "title": null,
+          "description": null,
+          "fieldReasons": {
+            "title": "",
+            "description": ""
+          },
+          "supportingQuotes": {
+            "title": "",
+            "description": ""
+          },
+          "targetPageUrl": null,
+          "pageGoal": "Help people seeking garden maintenance in South Bend understand the service and request a quote.",
+          "searchFocus": {
+            "phrase": "garden maintenance south bend",
+            "relatedPhrases": [
+              "garden maintenance in South Bend",
+              "seasonal garden maintenance South Bend"
+            ],
+            "intent": "Find a garden maintenance provider in South Bend and understand the work available before requesting a quote.",
+            "reason": "The page explicitly offers garden maintenance in South Bend, and the reported search matches that service and location rather than clear business-name navigation.",
+            "source": "observed",
+            "evidenceIds": [
+              "P3",
+              "Q1"
+            ],
+            "supportingQuote": "Willow Gardens provides garden maintenance in South Bend. We provide mowing, pruning and seasonal garden maintenance.",
+            "question": null
+          },
+          "strategy": {
+            "searchGoal": "Help South Bend residents seeking garden maintenance understand Willow Gardens' mowing, pruning and seasonal maintenance and decide whether to request a quote.",
+            "focusArea": "content",
+            "finding": "opportunity_to_test",
+            "priorityReason": "Service-scope detail would answer a visitor's decision question that the current short service list leaves open. This is more useful than rewriting suitable metadata; the generic heading is a supporting clarity improvement.",
+            "limitation": "The main cause of weak search exposure is unidentified. Query rows are partial, the comparison is sparse, and inspection does not verify processing of the edit. Public research and rendered-page evidence are unavailable.",
+            "checks": [
+              {
+                "area": "indexing",
+                "status": "suitable",
+                "finding": "Stored inspection reports the page indexed with the expected canonical, and live directives allow indexing. No access or indexing blocker is established.",
+                "evidenceIds": [
+                  "P4",
+                  "I1"
+                ]
+              },
+              {
+                "area": "search_intent",
+                "status": "suitable",
+                "finding": "The reported garden maintenance search matches the page's stated service and location. Partial query rows do not establish the full mix of searches.",
+                "evidenceIds": [
+                  "P3",
+                  "Q1"
+                ]
+              },
+              {
+                "area": "content",
+                "status": "opportunity",
+                "finding": "The supplied main content names three maintenance services but does not explain what they include. Accurate scope detail could help visitors assess fit before requesting a quote.",
+                "evidenceIds": [
+                  "P3"
+                ]
+              },
+              {
+                "area": "headings",
+                "status": "opportunity",
+                "finding": "The main heading says only 'Solutions for you'. A service-specific heading could communicate the page's purpose more directly, subject to checking its rendered presentation.",
+                "evidenceIds": [
+                  "P5",
+                  "P3"
+                ]
+              },
+              {
+                "area": "metadata",
+                "status": "suitable",
+                "finding": "The title and confirmed description accurately identify the service, location and business. The search comparison does not support another metadata rewrite.",
+                "evidenceIds": [
+                  "P1",
+                  "P2",
+                  "S1",
+                  "S2"
+                ]
+              },
+              {
+                "area": "internal_links",
+                "status": "unknown",
+                "finding": "No internal links are shown in the supplied sample, but this does not establish their absence across the site. No verified destination supports a specific link recommendation.",
+                "evidenceIds": [
+                  "P6"
+                ]
+              }
+            ]
+          },
+          "recommendations": [
+            {
+              "type": "content",
+              "basis": "opportunity",
+              "significance": "primary",
+              "benefit": "visitor_decision",
+              "label": "Explain what the maintenance work includes",
+              "location": "Main service content, after the maintenance service list",
+              "reason": "Visitors can see the service names but have little information to judge whether the work suits their garden. Verified scope details would make a quote request better informed.",
+              "instruction": "Review the full live page. If not already present, add a short section explaining what the business actually includes in mowing, pruning and seasonal garden maintenance, and what must be discussed to prepare a quote. Confirm each detail with the owner; do not add unverified schedules, prices or promises.",
+              "currentQuote": "We provide mowing, pruning and seasonal garden maintenance.",
+              "proposedText": null,
+              "supportingQuote": "",
+              "targetUrl": null,
+              "evidenceIds": [
+                "P3"
+              ]
+            },
+            {
+              "type": "heading",
+              "basis": "opportunity",
+              "significance": "supporting",
+              "benefit": "page_clarity",
+              "label": "Make the main heading describe the service",
+              "location": "Main heading: Solutions for you",
+              "reason": "The generic heading does not identify the service or location. A descriptive heading would help visitors recognize the page's purpose immediately.",
+              "instruction": "Check the heading on the rendered page and replace the generic wording with the suggested service heading. Preserve the completed description edit.",
+              "currentQuote": "Solutions for you",
+              "proposedText": "Garden maintenance in South Bend",
+              "supportingQuote": "Willow Gardens provides garden maintenance in South Bend.",
+              "targetUrl": null,
+              "evidenceIds": [
+                "P5",
+                "P3"
+              ]
+            }
+          ]
+        }
+      },
+      "rubric": "Sparse measurements do not forbid correcting the current generic H1. Justify a precise heading task from current content without blaming the earlier description."
+    },
+    {
+      "case": "web-ambiguous-brand-query",
+      "repeat": 1,
+      "pass": true,
+      "outcome": "gather_evidence",
+      "elapsedMs": 25442,
+      "model": "gpt-6.1-sol",
+      "usage": {
+        "input_tokens": 7867,
+        "input_tokens_details": {
+          "cache_write_tokens": 2620,
+          "cached_tokens": 5244
+        },
+        "output_tokens": 1596,
+        "output_tokens_details": {
+          "reasoning_tokens": 224
+        },
+        "total_tokens": 9463
+      },
+      "raw": {
+        "outcome": "gather_evidence",
+        "summary": "Keep the published wording and check service-specific search evidence before judging the change.",
+        "whatChanged": "The current description matches the owner-confirmed edit. Page clicks and appearances increased, and average position moved closer to the top. The only reported query is the business name.",
+        "meaning": "The comparison is encouraging but does not show whether more people discovered the website-design service. Query rows are incomplete, and neither the totals nor Google's stored inspection prove the description caused the change.",
+        "nextStep": "Obtain a search-query report filtered to this exact page and website-design phrases for both comparison periods. Use it at the next review checkpoint to assess discovery searches separately from the business name.",
+        "evidenceIds": [
+          "P2",
+          "S1",
+          "S2",
+          "Q1",
+          "I1"
+        ],
+        "assessment": {
+          "action": "collect_data",
+          "metadataVerdict": "keep",
+          "metadataReason": "The title identifies the service, location and business. The published description explains the actual planning and build process; the available searches do not support another rewrite.",
+          "summary": "Keep the metadata; obtain service-specific query evidence to assess the confirmed change.",
+          "reason": "The page clearly describes website design in South Bend, but the only reported search is the business name. Incomplete query rows prevent judging discovery searches, and the aggregate improvement does not establish that the edit caused it.",
+          "nextStep": "Obtain this page's query report filtered to website-design phrases for both comparison periods. Review the same phrases at the next checkpoint without treating missing rows as zero traffic.",
+          "evidenceIds": [
+            "P2",
+            "P3",
+            "S1",
+            "S2",
+            "Q1"
+          ],
+          "title": null,
+          "description": null,
+          "fieldReasons": {
+            "title": "",
+            "description": ""
+          },
+          "supportingQuotes": {
+            "title": "",
+            "description": ""
+          },
+          "targetPageUrl": null,
+          "pageGoal": "Help businesses seeking website design in South Bend understand Maple Studio's process and discuss a project.",
+          "searchFocus": {
+            "phrase": "website design in South Bend",
+            "relatedPhrases": [
+              "South Bend website design",
+              "business website design in South Bend"
+            ],
+            "intent": "Find a provider who plans and builds business websites in South Bend and understand how to start a project.",
+            "reason": "The service and location are explicit on this page. This discovery topic fits its purpose better than the business-name query alone, but it remains a topic to test rather than evidence of demand.",
+            "source": "proposed",
+            "evidenceIds": [
+              "P3",
+              "Q1"
+            ],
+            "supportingQuote": "Maple Studio provides website design in South Bend. We plan and build business websites.",
+            "question": null
+          },
+          "strategy": {
+            "searchGoal": "Help businesses looking for website design in South Bend find the service, understand the planning and build process, and discuss a project.",
+            "focusArea": "search_intent",
+            "finding": "insufficient_evidence",
+            "priorityReason": "The confirmed metadata edit is present and appropriate, and inspection reports the expected indexed URL. The useful next step is separating service discovery from business-name searches before deciding whether another page change is warranted.",
+            "limitation": "Query rows are incomplete, public research is unavailable, and inspection does not verify processing of this edit. The cause of the observed performance change is unidentified.",
+            "checks": [
+              {
+                "area": "indexing",
+                "status": "suitable",
+                "finding": "Stored inspection reports the page indexed with the expected canonical, and current directives allow indexing. No indexing blocker is established.",
+                "evidenceIds": [
+                  "P4",
+                  "I1"
+                ]
+              },
+              {
+                "area": "search_intent",
+                "status": "unknown",
+                "finding": "The page fits local website-design intent, but the only reported query is the business name. Incomplete rows leave service-specific exposure unresolved.",
+                "evidenceIds": [
+                  "P3",
+                  "Q1"
+                ]
+              },
+              {
+                "area": "content",
+                "status": "suitable",
+                "finding": "The supplied content identifies the service, describes the planning and build process, and invites project discussions. It does not establish a specific content problem requiring another edit.",
+                "evidenceIds": [
+                  "P3"
+                ]
+              },
+              {
+                "area": "headings",
+                "status": "suitable",
+                "finding": "The main heading clearly identifies website design and South Bend, matching the page's offering and proposed discovery topic.",
+                "evidenceIds": [
+                  "P5"
+                ]
+              },
+              {
+                "area": "metadata",
+                "status": "suitable",
+                "finding": "The title names the service, location and business. The description now explains the actual service and process, so the completed task should not be repeated.",
+                "evidenceIds": [
+                  "P1",
+                  "P2"
+                ]
+              },
+              {
+                "area": "internal_links",
+                "status": "unknown",
+                "finding": "No internal links appear in the supplied sample, but its absence does not establish a site-wide navigation problem. No supported destination is available for a link recommendation.",
+                "evidenceIds": [
+                  "P6"
+                ]
+              }
+            ]
+          },
+          "recommendations": [
+            {
+              "type": "check",
+              "basis": "needs_check",
+              "significance": "primary",
+              "benefit": "diagnosis",
+              "label": "Check service-specific searches for this page",
+              "location": "Search Console performance report, selected-page and query filters",
+              "reason": "Separating website-design searches from the business name will show whether the available comparison addresses the page's discovery goal. It avoids judging the completed metadata task from aggregate totals alone.",
+              "instruction": "Filter the performance report to this exact page and queries containing website design or web design. Compare the supplied baseline and post-change periods, then revisit the same phrases at the next review checkpoint. Record unavailable or omitted rows as unknown, not zero.",
+              "currentQuote": "",
+              "proposedText": null,
+              "supportingQuote": "",
+              "targetUrl": null,
+              "evidenceIds": [
+                "P3",
+                "Q1",
+                "S1",
+                "S2"
+              ]
+            }
+          ]
+        }
+      },
+      "rubric": "Visible brand-like query does not establish a complete branded/nonbranded split. No unsupported nonbrand success, new service facts or claim that all clicks came from a known brand."
+    },
+    {
+      "case": "web-ambiguous-brand-query",
+      "repeat": 2,
+      "pass": true,
+      "outcome": "gather_evidence",
+      "elapsedMs": 27644,
+      "model": "gpt-6.1-sol",
+      "usage": {
+        "input_tokens": 7867,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 7864
+        },
+        "output_tokens": 1638,
+        "output_tokens_details": {
+          "reasoning_tokens": 307
+        },
+        "total_tokens": 9505
+      },
+      "raw": {
+        "outcome": "gather_evidence",
+        "summary": "Keep the clearer description; check service searches before judging the change.",
+        "whatChanged": "The current description matches the owner's confirmed edit. Page totals increased in the later comparison block, but the supplied query rows show only the business name.",
+        "meaning": "The comparison does not prove the description caused the increase or helped people discover the website design service. The query list is incomplete, and Google's stored inspection does not verify that it processed this particular edit.",
+        "nextStep": "Check this page's service-related query rows for both comparison periods, especially website design and South Bend searches. Keep the current metadata while gathering that evidence.",
+        "evidenceIds": [
+          "P2",
+          "S1",
+          "S2",
+          "Q1",
+          "I1"
+        ],
+        "assessment": {
+          "action": "collect_data",
+          "metadataVerdict": "keep",
+          "metadataReason": "The title identifies the service, location and business. The confirmed description accurately explains the service and process; no meaningful metadata problem is supported.",
+          "summary": "Service-query evidence is needed to assess discovery beyond business-name searches.",
+          "reason": "The reported page totals improved, but the available query rows show only the business name. Because those rows are incomplete, they cannot establish whether relevant service searches improved or were absent. Another metadata edit is not justified.",
+          "nextStep": "Obtain this page's service-related query rows for the baseline and later comparison periods. Compare the same phrases, keeping unavailable rows separate from confirmed observations.",
+          "evidenceIds": [
+            "P2",
+            "P3",
+            "S1",
+            "S2",
+            "Q1"
+          ],
+          "title": null,
+          "description": null,
+          "fieldReasons": {
+            "title": "",
+            "description": ""
+          },
+          "supportingQuotes": {
+            "title": "",
+            "description": ""
+          },
+          "targetPageUrl": null,
+          "pageGoal": "Explain Maple Studio's website design service in South Bend and help business visitors decide whether to discuss a project.",
+          "searchFocus": {
+            "phrase": "website design in South Bend",
+            "relatedPhrases": [
+              "South Bend website design",
+              "business website design in South Bend"
+            ],
+            "intent": "Find a business website designer serving South Bend and understand the design and build process.",
+            "reason": "The page explicitly offers business website design in South Bend. This discovery topic fits the service better than using the reported business-name query as the focus.",
+            "source": "proposed",
+            "evidenceIds": [
+              "P3",
+              "Q1"
+            ],
+            "supportingQuote": "Maple Studio provides website design in South Bend. We plan and build business websites.",
+            "question": null
+          },
+          "strategy": {
+            "searchGoal": "Help businesses seeking website design in South Bend understand Maple Studio's process and decide whether to discuss a project.",
+            "focusArea": "search_intent",
+            "finding": "insufficient_evidence",
+            "priorityReason": "The completed description remains suitable, and inspection reports the expected indexed URL. The most useful missing observation is exposure for relevant service searches, rather than another wording change.",
+            "limitation": "Query rows are incomplete, public research is unavailable, and the comparison cannot establish edit causation. No cause of weak service-search visibility has been identified.",
+            "checks": [
+              {
+                "area": "indexing",
+                "status": "suitable",
+                "finding": "Stored inspection reports the page indexed with the expected canonical. Live directives allow indexing; neither establishes that Google processed the description edit.",
+                "evidenceIds": [
+                  "P4",
+                  "I1"
+                ]
+              },
+              {
+                "area": "search_intent",
+                "status": "unknown",
+                "finding": "The page fits local website design intent, but supplied query rows show only the business name. Incomplete rows leave service-search exposure unresolved.",
+                "evidenceIds": [
+                  "P3",
+                  "Q1"
+                ]
+              },
+              {
+                "area": "content",
+                "status": "suitable",
+                "finding": "The supplied content explains the audience, design and build process, and invitation to discuss a project. It does not establish a specific new content problem requiring an edit.",
+                "evidenceIds": [
+                  "P3"
+                ]
+              },
+              {
+                "area": "headings",
+                "status": "suitable",
+                "finding": "The supplied main heading names the service and location clearly. No heading rewrite is supported.",
+                "evidenceIds": [
+                  "P5"
+                ]
+              },
+              {
+                "area": "metadata",
+                "status": "suitable",
+                "finding": "The title identifies the offering and business, and the current description matches the confirmed service explanation. Preserve the completed edit.",
+                "evidenceIds": [
+                  "P1",
+                  "P2"
+                ]
+              },
+              {
+                "area": "internal_links",
+                "status": "unknown",
+                "finding": "No links appear in the supplied sample, but the diagnostic limitation prevents treating that as a confirmed absence. No supported destination is supplied.",
+                "evidenceIds": [
+                  "P6"
+                ]
+              }
+            ]
+          },
+          "recommendations": [
+            {
+              "type": "check",
+              "basis": "needs_check",
+              "significance": "primary",
+              "benefit": "diagnosis",
+              "label": "Check exposure for website design searches",
+              "location": "Search Console query report filtered to the selected page",
+              "reason": "Business-name observations do not show whether people discovered this service without already knowing Maple Studio. Relevant query evidence would make the follow-up more useful without repeating the completed edit.",
+              "instruction": "For the selected page, inspect or export query rows for both supplied comparison periods, filtering for website design, web design and South Bend terms. Compare identical relevant phrases where available. If rows remain unavailable, record that limitation rather than treating missing rows as zero exposure. Use this evidence at the next review checkpoint.",
+              "currentQuote": "",
+              "proposedText": null,
+              "supportingQuote": "",
+              "targetUrl": null,
+              "evidenceIds": [
+                "P3",
+                "Q1",
+                "S1",
+                "S2"
+              ]
+            }
+          ]
+        }
+      },
+      "rubric": "Visible brand-like query does not establish a complete branded/nonbranded split. No unsupported nonbrand success, new service facts or claim that all clicks came from a known brand."
+    },
+    {
+      "case": "web-current-heading-defect",
+      "repeat": 1,
+      "pass": true,
+      "outcome": "improve_page",
+      "elapsedMs": 22937,
+      "model": "gpt-6.1-sol",
+      "usage": {
+        "input_tokens": 7857,
+        "input_tokens_details": {
+          "cache_write_tokens": 2610,
+          "cached_tokens": 5244
+        },
+        "output_tokens": 1489,
+        "output_tokens_details": {
+          "reasoning_tokens": 134
+        },
+        "total_tokens": 9346
+      },
+      "raw": {
+        "outcome": "improve_page",
+        "summary": "Keep the updated description; make the main heading describe the service.",
+        "whatChanged": "The current description matches the owner-confirmed wording. Clicks and appearances increased in the later comparison period, and average position improved. The main heading remains generic.",
+        "meaning": "The search observations are encouraging, but they do not prove the description caused the improvement. The reported search fits the service. A clearer main heading is a useful page improvement independent of those results.",
+        "nextStep": "Keep the title and description. Verify the displayed main heading, then replace “Solutions for you” with “Website design in South Bend.” Review the same search at the next checkpoint.",
+        "evidenceIds": [
+          "P2",
+          "P5",
+          "S1",
+          "S2",
+          "Q1"
+        ],
+        "assessment": {
+          "action": "improve_content",
+          "metadataVerdict": "keep",
+          "metadataReason": "The title identifies the service, location and business. The updated description explains the service and process accurately; the comparison does not establish a reason to rewrite either field.",
+          "summary": "Make the service clear in the main heading while preserving the completed description edit.",
+          "reason": "“Solutions for you” does not identify the service. The page supports a specific service-and-location heading that helps visitors recognize its purpose. This opportunity is separate from the encouraging search comparison.",
+          "nextStep": "Check the displayed main heading and change it to “Website design in South Bend.” Keep the existing metadata and review the same relevant search at the next checkpoint.",
+          "evidenceIds": [
+            "P1",
+            "P2",
+            "P3",
+            "P5",
+            "Q1"
+          ],
+          "title": null,
+          "description": null,
+          "fieldReasons": {
+            "title": "",
+            "description": ""
+          },
+          "supportingQuotes": {
+            "title": "",
+            "description": ""
+          },
+          "targetPageUrl": null,
+          "pageGoal": "Help businesses seeking website design in South Bend understand Maple Studio’s process and contact the studio about a project.",
+          "searchFocus": {
+            "phrase": "website design south bend",
+            "relatedPhrases": [
+              "business website design in South Bend",
+              "South Bend website design services"
+            ],
+            "intent": "Find a provider that plans and builds business websites in South Bend and understand how to start a project.",
+            "reason": "This reported discovery phrase matches the service and location stated on the page, rather than requiring visitors to know the business name.",
+            "source": "observed",
+            "evidenceIds": [
+              "P3",
+              "Q1"
+            ],
+            "supportingQuote": "Maple Studio provides website design in South Bend. We plan and build business websites.",
+            "question": null
+          },
+          "strategy": {
+            "searchGoal": "Help businesses looking for website design in South Bend recognize the service, understand the planning and build process, and discuss a project.",
+            "focusArea": "headings",
+            "finding": "opportunity_to_test",
+            "priorityReason": "The generic main heading is the clearest current improvement opportunity. The service explanation and metadata already fit the reported search, and stored inspection does not indicate an indexing blocker.",
+            "limitation": "No rendered view or public research is available. The comparison does not establish the cause of improved search results or prove Google processed the description edit.",
+            "checks": [
+              {
+                "area": "indexing",
+                "status": "suitable",
+                "finding": "Stored inspection reports the page indexed with the expected canonical, and current directives allow indexing. This does not verify Google's processing of the metadata edit.",
+                "evidenceIds": [
+                  "P4",
+                  "I1"
+                ]
+              },
+              {
+                "area": "search_intent",
+                "status": "suitable",
+                "finding": "The reported website-design search matches the page’s stated service and location. Query rows are partial, so this is not a complete account of visitor searches.",
+                "evidenceIds": [
+                  "P3",
+                  "Q1"
+                ]
+              },
+              {
+                "area": "content",
+                "status": "suitable",
+                "finding": "The supplied content identifies the service, outlines planning, design, building and testing, and invites project inquiries. No specific additional content gap is established.",
+                "evidenceIds": [
+                  "P3"
+                ]
+              },
+              {
+                "area": "headings",
+                "status": "opportunity",
+                "finding": "The supplied main heading says only “Solutions for you.” Testing a service-and-location heading would make the page’s purpose clearer; verify the displayed heading before editing.",
+                "evidenceIds": [
+                  "P5",
+                  "P3"
+                ]
+              },
+              {
+                "area": "metadata",
+                "status": "suitable",
+                "finding": "The title names the service, location and business. The confirmed description now explains the offering and process, so preserve the completed edit.",
+                "evidenceIds": [
+                  "P1",
+                  "P2"
+                ]
+              },
+              {
+                "area": "internal_links",
+                "status": "unknown",
+                "finding": "The supplied sample contains no internal links, but its absence does not establish a navigation problem. No verified destination is supplied for a link recommendation.",
+                "evidenceIds": [
+                  "P6"
+                ]
+              }
+            ]
+          },
+          "recommendations": [
+            {
+              "type": "heading",
+              "basis": "opportunity",
+              "significance": "primary",
+              "benefit": "page_clarity",
+              "label": "Make the main heading describe the service",
+              "location": "Main heading: Solutions for you",
+              "reason": "A specific heading helps visitors immediately recognize the service and location. This is a clarity improvement, not evidence that the existing heading caused search performance.",
+              "instruction": "Verify that “Solutions for you” is the displayed main heading. Replace it with the suggested wording, preserving the current title, description and service explanation. Check the heading on desktop and mobile after publishing.",
+              "currentQuote": "Solutions for you",
+              "proposedText": "Website design in South Bend",
+              "supportingQuote": "Maple Studio provides website design in South Bend.",
+              "targetUrl": null,
+              "evidenceIds": [
+                "P5",
+                "P3"
+              ]
+            }
+          ]
+        }
+      },
+      "rubric": "Find the current vague H1 independently of an improving comparison. Keep the useful metadata and confirmed description, with source-supported replacement wording."
+    },
+    {
+      "case": "web-current-heading-defect",
+      "repeat": 2,
+      "pass": true,
+      "outcome": "improve_page",
+      "elapsedMs": 21336,
+      "model": "gpt-6.1-sol",
+      "usage": {
+        "input_tokens": 7857,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 7854
+        },
+        "output_tokens": 1432,
+        "output_tokens_details": {
+          "reasoning_tokens": 134
+        },
+        "total_tokens": 9289
+      },
+      "raw": {
+        "outcome": "improve_page",
+        "summary": "Keep the published description and make the main heading more specific.",
+        "whatChanged": "The current description matches the owner-confirmed edit. Clicks and search appearances increased in the later comparison block, and average position improved.",
+        "meaning": "The comparison is encouraging but does not prove the description caused the change. The reported service query fits the page. A separate opportunity remains: the main heading does not identify the service.",
+        "nextStep": "Keep the title and description. Check the displayed main heading and replace “Solutions for you” with “Website design in South Bend.”",
+        "evidenceIds": [
+          "P2",
+          "P5",
+          "S1",
+          "S2",
+          "Q1"
+        ],
+        "assessment": {
+          "action": "improve_content",
+          "metadataVerdict": "keep",
+          "metadataReason": "The title identifies the service, location and business. The published description explains the website planning and build process; no supported metadata problem warrants another edit.",
+          "summary": "Clarify the main heading while preserving the completed description edit.",
+          "reason": "The page explains its service and process, but “Solutions for you” gives visitors little context. A service-specific heading is a useful clarity improvement independent of the search comparison.",
+          "nextStep": "Check the rendered main heading, then change it to “Website design in South Bend.” At the next review checkpoint, compare the same service query and customer inquiries.",
+          "evidenceIds": [
+            "P1",
+            "P2",
+            "P3",
+            "P5",
+            "Q1"
+          ],
+          "title": null,
+          "description": null,
+          "fieldReasons": {
+            "title": "",
+            "description": ""
+          },
+          "supportingQuotes": {
+            "title": "",
+            "description": ""
+          },
+          "targetPageUrl": null,
+          "pageGoal": "Help businesses seeking website design in South Bend understand Maple Studio’s process and contact the studio about a project.",
+          "searchFocus": {
+            "phrase": "website design south bend",
+            "relatedPhrases": [
+              "website design in South Bend",
+              "business website design South Bend"
+            ],
+            "intent": "Find a provider that plans and builds business websites in South Bend and understand how to discuss a project.",
+            "reason": "This service discovery phrase matches the page’s stated offering and location, and it appears in the reported searches.",
+            "source": "observed",
+            "evidenceIds": [
+              "P3",
+              "Q1"
+            ],
+            "supportingQuote": "Maple Studio provides website design in South Bend. We plan and build business websites.",
+            "question": null
+          },
+          "strategy": {
+            "searchGoal": "Help businesses looking for website design in South Bend recognize the service, understand the planning and build process, and discuss a project.",
+            "focusArea": "headings",
+            "finding": "opportunity_to_test",
+            "priorityReason": "The main heading is generic despite a clearly stated service. Clarifying it helps visitors identify the page’s purpose without repeating the completed metadata task or assuming the edit caused the search changes.",
+            "limitation": "Rendered appearance was not checked. The comparison does not establish causation, and inspection does not prove Google processed the description edit. Public research was unavailable.",
+            "checks": [
+              {
+                "area": "indexing",
+                "status": "suitable",
+                "finding": "Stored inspection reports the page indexed with the expected canonical. No supplied evidence supports an indexing blocker.",
+                "evidenceIds": [
+                  "P4",
+                  "I1"
+                ]
+              },
+              {
+                "area": "search_intent",
+                "status": "suitable",
+                "finding": "The reported website-design query matches the service and location described on this page. Partial query rows do not establish the full search mix.",
+                "evidenceIds": [
+                  "P3",
+                  "Q1"
+                ]
+              },
+              {
+                "area": "content",
+                "status": "suitable",
+                "finding": "The supplied content identifies the service, outlines planning, design, building and testing, and invites project contact. No specific missing customer answer is established.",
+                "evidenceIds": [
+                  "P3"
+                ]
+              },
+              {
+                "area": "headings",
+                "status": "opportunity",
+                "finding": "The main heading says “Solutions for you” rather than identifying website design. Testing a clearer service heading could improve immediate page understanding.",
+                "evidenceIds": [
+                  "P5",
+                  "P3"
+                ]
+              },
+              {
+                "area": "metadata",
+                "status": "suitable",
+                "finding": "The title names the service and location, and the confirmed description explains the actual process. Preserve both fields.",
+                "evidenceIds": [
+                  "P1",
+                  "P2"
+                ]
+              },
+              {
+                "area": "internal_links",
+                "status": "unknown",
+                "finding": "No internal links appear in the supplied sample, but no suitable destination is supplied and sample absence does not establish a navigation defect.",
+                "evidenceIds": [
+                  "P6"
+                ]
+              }
+            ]
+          },
+          "recommendations": [
+            {
+              "type": "heading",
+              "basis": "opportunity",
+              "significance": "primary",
+              "benefit": "page_clarity",
+              "label": "Name the service in the main heading",
+              "location": "Main heading: Solutions for you",
+              "reason": "A specific heading helps visitors immediately recognize the service and location. This is a clarity opportunity, not an explanation for the observed search changes.",
+              "instruction": "Check how the main heading appears on the live page. Replace “Solutions for you” with the suggested heading, keeping the published title and description unchanged. Verify the heading displays correctly on desktop and mobile.",
+              "currentQuote": "Solutions for you",
+              "proposedText": "Website design in South Bend",
+              "supportingQuote": "Maple Studio provides website design in South Bend.",
+              "targetUrl": null,
+              "evidenceIds": [
+                "P5",
+                "P3"
+              ]
+            }
+          ]
+        }
+      },
+      "rubric": "Find the current vague H1 independently of an improving comparison. Keep the useful metadata and confirmed description, with source-supported replacement wording."
+    }
+  ]
+}

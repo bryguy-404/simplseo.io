@@ -8,6 +8,7 @@ import { useOnboarding } from '../../contexts/OnboardingContext';
 import { authenticatedFetch } from '../../lib/authenticatedFetch';
 import { comparisonWindows, pacificDay, shiftDay } from '../../lib/progressAssessment';
 import { pageIdentity } from './PageSearchActivity';
+import OngoingPageProgress, { CycleChanges, CycleObservations, reviewDate } from './OngoingPageProgress';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -41,7 +42,7 @@ function ObservedMetrics({ assessment }) {
   </div>;
 }
 
-export default function PageProgress({ pageUrl, hideEmpty = true, onResult, onLoadState, onCycleStarted }) {
+export default function PageProgress({ pageUrl, hideEmpty = true, onResult, onLoadState, onCycleStarted, onFollowupPlan, onRecordEdit, planRevision }) {
   const { user } = useAuth();
   const { data } = useOnboarding();
   const [result, setResult] = useState(null);
@@ -49,26 +50,34 @@ export default function PageProgress({ pageUrl, hideEmpty = true, onResult, onLo
   const [busy, setBusy] = useState(true);
   const [cycleBusy, setCycleBusy] = useState(null);
   const [cycleError, setCycleError] = useState(null);
+  const [followupBusy, setFollowupBusy] = useState(false);
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const [historyError, setHistoryError] = useState('');
   const sequence = useRef(0);
   const scope = useRef(0);
   const invalidateRequests = useCallback(() => { sequence.current++; scope.current++; }, []);
-  const load = useCallback(async (refresh = false) => {
+  const load = useCallback(async (refresh = false, cycle = null) => {
     if (!user?.id) return;
     const attempt = ++sequence.current;
     setBusy(true); setError(null);
     try {
-      const response = await authenticatedFetch('/api/progress', { method: refresh ? 'POST' : 'GET' });
-      const body = await response.json();
+      const path = `/api/progress${!refresh && pageUrl ? `?pageUrl=${encodeURIComponent(pageUrl)}` : ''}`;
+      let response = await authenticatedFetch(path, { method: refresh ? 'POST' : 'GET', ...(refresh && cycle ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cycleId: cycle.id, revision: cycle.revision }) } : {}) });
+      let body = await response.json();
+      if (refresh && response.ok && pageUrl) {
+        response = await authenticatedFetch(`/api/progress?pageUrl=${encodeURIComponent(pageUrl)}`);
+        body = await response.json();
+      }
       if (attempt !== sequence.current) return;
       if (!response.ok) throw new Error(body.error || 'Unable to load progress. Please try again.');
       if (!Array.isArray(body.records)) throw new Error('Progress could not be verified. Please retry.');
       setResult(body);
     } catch (failure) { if (attempt === sequence.current) setError(failure.message); }
     finally { if (attempt === sequence.current) setBusy(false); }
-  }, [user?.id]);
-  useEffect(() => { setResult(null); setCycleError(null); setCycleBusy(null); load(); return invalidateRequests; }, [load, invalidateRequests, data.gscProperty, data.revampRunId, pageUrl]);
+  }, [user?.id, pageUrl]);
+  useEffect(() => { setResult(null); setCycleError(null); setCycleBusy(null); setHistoryError(''); setHistoryBusy(false); load(); return invalidateRequests; }, [load, invalidateRequests, data.gscProperty, data.revampRunId, pageUrl]);
   useEffect(() => { onResult?.(result); }, [result, onResult]);
-  useEffect(() => { onLoadState?.({ loading: busy, error }); }, [busy, error, onLoadState]);
+  useEffect(() => { onLoadState?.({ loading: busy || followupBusy, error }); }, [busy, followupBusy, error, onLoadState]);
   useEffect(() => {
     const reload = () => load();
     window.addEventListener('seo-implementation-changed', reload);
@@ -92,16 +101,39 @@ export default function PageProgress({ pageUrl, hideEmpty = true, onResult, onLo
     finally { if (attempt === scope.current) setCycleBusy(null); }
   };
 
-  const records = (result?.records || []).filter(record => !pageUrl || record.pageUrl === pageUrl);
+  const updateOngoingCycle = useCallback(cycle => {
+    setResult(previous => previous?.ongoing ? { ...previous, ongoing: { ...previous.ongoing, records: previous.ongoing.records.map(item => item.id === cycle.id ? cycle : item) } } : previous);
+  }, []);
+  const ongoing = result?.ongoing?.enabled ? (result.ongoing.records || []).filter(record => !pageUrl || record.pageUrl === pageUrl) : [];
+  const ongoingHistory = (result?.ongoing?.history || []).filter(record => !pageUrl || record.pageUrl === pageUrl);
+  const loadMoreHistory = async () => {
+    if (historyBusy || !result?.ongoing?.nextCursor) return;
+    const attempt = scope.current;
+    setHistoryBusy(true); setHistoryError('');
+    try {
+      const response = await authenticatedFetch(`/api/progress?cursor=${encodeURIComponent(result.ongoing.nextCursor)}${pageUrl ? `&pageUrl=${encodeURIComponent(pageUrl)}` : ''}`);
+      const body = await response.json();
+      if (attempt !== scope.current) return;
+      if (!response.ok || !Array.isArray(body.ongoing?.history) || !Array.isArray(body.ongoing?.records)) throw new Error(body.error || 'Earlier tracking records could not be loaded.');
+      setResult(previous => ({ ...previous, ongoing: { ...previous.ongoing, nextCursor: body.ongoing.nextCursor, history: [...previous.ongoing.history, ...body.ongoing.history.filter(item => !previous.ongoing.history.some(prior => prior.id === item.id))], records: [...previous.ongoing.records, ...body.ongoing.records.filter(item => !previous.ongoing.records.some(prior => prior.id === item.id))] } }));
+    } catch (failure) { if (attempt === scope.current) setHistoryError(failure.message); }
+    finally { if (attempt === scope.current) setHistoryBusy(false); }
+  };
+  const records = (result?.records || []).filter(record => (!pageUrl || record.pageUrl === pageUrl) && !ongoing.some(cycle => cycle.pageUrl === record.pageUrl));
   const history = (Array.isArray(result?.history) ? result.history : []).filter(record => !pageUrl || record.pageUrl === pageUrl);
-  if (hideEmpty && !error && result && !records.length && !history.length && !result.historyUnavailable) return null;
+  if (hideEmpty && !error && result && !records.length && !ongoing.length && !history.length && !ongoingHistory.length && !result.ongoing?.nextCursor && !result.historyUnavailable) return null;
   return <Card id="page-progress" className="mb-6 scroll-mt-6" aria-label="Page progress">
-    <CardHeader className="pb-3"><div className="flex flex-wrap items-center justify-between gap-3"><CardTitle role="heading" aria-level={2}>Page progress</CardTitle><Button size="sm" variant="outline" onClick={() => load(Boolean(result))} disabled={busy || Boolean(cycleBusy) || result?.paused || (!error && !records.length)}>{busy ? 'Checking…' : error ? 'Retry progress' : 'Check progress'}</Button></div></CardHeader>
+    <CardHeader className="pb-3"><div className="flex flex-wrap items-center justify-between gap-3"><CardTitle role="heading" aria-level={2}>Page progress</CardTitle><Button size="sm" variant="outline" onClick={() => load(Boolean(result), ongoing[0] || null)} disabled={busy || followupBusy || Boolean(cycleBusy) || result?.paused || (!error && !records.length && !ongoing.length)}>{busy ? 'Checking…' : error ? 'Retry progress' : 'Check progress'}</Button></div></CardHeader>
     <CardContent className="space-y-4">
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {result?.historyUnavailable && <div className="space-y-2"><p role="status" className="text-xs text-muted-foreground">Some previous comparisons could not be loaded.</p><Button size="sm" variant="outline" disabled={busy} onClick={() => load(false)}>Reload previous comparisons</Button></div>}
       {!result && !error && <p role="status" className="text-sm text-muted-foreground">Checking saved progress…</p>}
-      {result && !records.length && !hideEmpty && <div className="space-y-2 rounded-lg border border-dashed p-4"><p className="font-medium">Ready for your first change</p><p className="text-sm text-muted-foreground">Publish an edit, then confirm it to start tracking.</p><Link className="text-sm underline" href="/low-ctr">Choose a page to review</Link></div>}
+      {result && !records.length && !ongoing.length && !hideEmpty && <div className="space-y-2 rounded-lg border border-dashed p-4"><p className="font-medium">Ready for your first change</p><p className="text-sm text-muted-foreground">Publish an edit, then confirm it to start tracking.</p><Link className="text-sm underline" href="/low-ctr">Choose a page to review</Link></div>}
+      {result?.ongoing?.activeRecordsLimited && !pageUrl && <p className="text-sm text-muted-foreground">More pages are being tracked. <Link className="underline" href="/low-ctr">Choose a page to see its saved progress</Link>.</p>}
+      {ongoing.map(cycle => <OngoingPageProgress key={cycle.id} cycle={cycle} selected={Boolean(pageUrl)} disabled={busy || Boolean(cycleBusy) || result?.paused} onCycle={updateOngoingCycle} onPlan={onFollowupPlan} onBusy={pageUrl ? setFollowupBusy : undefined} onRecordEdit={onRecordEdit} planRevision={planRevision} />)}
+      {ongoingHistory.length > 0 && <details className="border-t pt-3 text-sm"><summary className="cursor-pointer font-medium">Previous published changes ({ongoingHistory.length})</summary><div className="mt-4 space-y-4">{ongoingHistory.map(cycle => <article key={cycle.id} className="space-y-3 rounded-lg border p-4"><h3 className="font-semibold">{pageIdentity(cycle.pageUrl)} · {reviewDate(cycle.confirmedAt)}</h3><p className="text-xs text-muted-foreground">Saved history. Later edits are tracked separately.</p><CycleChanges cycle={cycle} /><CycleObservations checkpoint={cycle.latestCheckpoint} /></article>)}</div></details>}
+      {result?.ongoing?.nextCursor && <Button size="sm" variant="link" className="px-0" disabled={historyBusy || busy} onClick={loadMoreHistory}>{historyBusy ? 'Loading earlier tracking…' : 'Load earlier tracking records'}</Button>}
+      {historyError && <p role="alert" className="text-sm text-destructive">{historyError}</p>}
       {records.map(record => {
         const assessment = record.assessment || {};
         const windows = assessment.windows || comparisonWindows(record.implementedAt);
@@ -127,7 +159,7 @@ export default function PageProgress({ pageUrl, hideEmpty = true, onResult, onLo
         {reasons[record.assessment?.reason] && <p className="text-xs text-muted-foreground">{reasons[record.assessment.reason]}</p>}
         <ObservedMetrics assessment={record.assessment || {}} />
       </article>)}</div></details>}
-      {(records.length > 0 || history.length > 0) && <details className="border-t pt-3 text-xs text-muted-foreground"><summary className="cursor-pointer font-medium">How progress is measured</summary><div className="mt-3 space-y-2"><p>We compare 28 days before and after confirmation, excluding the confirmation day. Dates use Pacific time; the latest three reporting days are excluded.</p><p>A comparison needs at least {result.policy?.minImpressionsPerWindow || 100} impressions in each period and {result.policy?.minCombinedClicks || 10} clicks combined. Low activity can leave this fixed comparison inconclusive even after more time passes.</p><p>These thresholds are not a statistical test. Traffic changes do not prove that your edits caused them.</p><Link className="underline" href="/revamp/history">Previous website work</Link></div></details>}
+      {(records.length > 0 || history.length > 0 || ongoing.length > 0) && <details className="border-t pt-3 text-xs text-muted-foreground"><summary className="cursor-pointer font-medium">How progress is measured</summary><div className="mt-3 space-y-2"><p>{ongoing.length > 0 ? "We keep the original comparison and collect later 28-day periods while your page remains tracked. We exclude the confirmation day." : "We compare 28 days before and after confirmation, excluding the confirmation day."} Dates use Pacific time; the latest three reporting days are excluded.</p><p>A comparison needs at least {result.policy?.minImpressionsPerWindow || 100} impressions in each period and {result.policy?.minCombinedClicks || 10} clicks combined. Low activity can leave this fixed comparison inconclusive even after more time passes.</p><p>These thresholds are not a statistical test. Traffic changes do not prove that your edits caused them.</p><Link className="underline" href="/revamp/history">Previous website work</Link></div></details>}
     </CardContent>
   </Card>;
 }

@@ -75,7 +75,7 @@ function LegacyPageContentChangeConfirmation({ pageUrl, provenance, onConfirmed,
 }
 
 
-function SelectedTaskConfirmation({ pageUrl, provenance, plan, selectedTaskIds = [], onConfirmed, tracking = false, loading = false, error: statusError = '' }) {
+function SelectedTaskConfirmation({ pageUrl, provenance, plan, selectedTaskIds = [], onConfirmed, tracking = false, loading = false, error: statusError = '', previousCycle = null }) {
   const { user } = useAuth();
   const id = useId();
   const active = useRef(true);
@@ -93,14 +93,16 @@ function SelectedTaskConfirmation({ pageUrl, provenance, plan, selectedTaskIds =
     setSummary(selected.map(([, label]) => label).join('; ').slice(0, 600));
     setPublished(false); setConfirmOpen(false); setError('');
   }, [selectionKey, pageUrl]);
+  useEffect(() => { setConfirmOpen(false); setPublished(false); }, [previousCycle?.id, previousCycle?.revision]);
+  const cycleReady = !previousCycle || (previousCycle.pageUrl === pageUrl && previousCycle.canRecordInterveningChange && !previousCycle.readOnly && Number.isInteger(previousCycle.revision));
   const selectionReady = selectedTasks.length > 0 && selectedTasks.length === selectedTaskIds.length && new Set(selectedTaskIds).size === selectedTaskIds.length;
-  const canOpen = Boolean(user?.id && provenance && selectionReady && !loading && !statusError && !busy && !saved && !tracking);
+  const canOpen = Boolean(user?.id && provenance && cycleReady && selectionReady && !loading && !statusError && !busy && !saved && !tracking);
   const ready = canOpen && published && Boolean(summary.trim()) && summary.trim().length <= 600;
   const confirm = async () => {
     if (!ready) return;
     setBusy(true); setError('');
     try {
-      const response = await authenticatedFetch('/api/page-review/confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pageUrl, provenance, changeType: 'page_content', changeSummary: summary.trim(), published: true, taskIds: selectedTaskIds, planRevision: plan.revision }) });
+      const response = await authenticatedFetch('/api/page-review/confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pageUrl, provenance, changeType: 'page_content', changeSummary: summary.trim(), published: true, taskIds: selectedTaskIds, planRevision: plan.revision, ...(previousCycle ? { previousCycleId: previousCycle.id, previousCycleRevision: previousCycle.revision, interveningChange: true } : {}) }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Please try saving again.');
       const record = result.record;
@@ -124,7 +126,7 @@ function SelectedTaskConfirmation({ pageUrl, provenance, plan, selectedTaskIds =
     {loading && <p role="status" className="mt-3 text-xs text-muted-foreground">Checking existing progress…</p>}
     {statusError && <p role="alert" className="mt-3 text-sm text-destructive">Progress status is unavailable. Retry the progress check before confirming.</p>}
     {error && !confirmOpen && <p role="alert" className="mt-3 text-sm text-destructive">{error}</p>}
-    <Dialog open={confirmOpen} onOpenChange={value => { if (!busy) setConfirmOpen(value); }}><DialogContent className="max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>Are these changes live on your website?</DialogTitle><DialogDescription>Confirming edits you haven’t published would make the comparison misleading. Only continue when these edits are live; today starts tracking.</DialogDescription></DialogHeader>
+    <Dialog open={confirmOpen} onOpenChange={value => { if (!busy) setConfirmOpen(value); }}><DialogContent className="max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>Are these changes live on your website?</DialogTitle><DialogDescription>{previousCycle ? "Another published edit starts a new tracking cycle today. Your earlier edits and results stay saved, but this new edit can affect how their results are interpreted. Confirm only changes that are already live." : "Confirming edits you haven’t published would make the comparison misleading. Only continue when these edits are live; today starts tracking."}</DialogDescription></DialogHeader>
       <a href={pageUrl} target="_blank" rel="noopener noreferrer" className="break-all text-sm underline">{pageUrl}<span className="sr-only"> (opens in a new tab)</span></a>
       <ul className="list-disc space-y-1 pl-5 text-sm">{selectedTasks.map(task => <li key={task.id}>{task.recommendation.label}</li>)}</ul>
       <div className="space-y-2"><Label htmlFor={`${id}-summary`}>What did you publish?</Label><Textarea id={`${id}-summary`} value={summary} maxLength={600} disabled={busy} onChange={event => { setSummary(event.target.value); setPublished(false); }} /><p className="text-xs text-muted-foreground">Adjust this summary to describe your actual edits.</p></div>

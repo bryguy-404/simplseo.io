@@ -77,3 +77,30 @@ export function assessObservations(baseline, post) {
     comparison: enough ? compareObservations(baseline, post) : null,
   };
 }
+
+// Ongoing reviews keep the original experiment dates. Later checkpoints compare
+// adjacent equal-length blocks, never a 56/84-day total against a 28-day total.
+export function ongoingCheckpointWindows(confirmedAt, day = 28, now = new Date()) {
+  const original = comparisonWindows(confirmedAt, now);
+  if (!original || !Number.isSafeInteger(day) || day < 28 || day % 28 !== 0) return null;
+  const start = original.implementationDay;
+  return {
+    implementationDay: start, originalBaseline: original.baseline,
+    baseline: day === 28 ? original.baseline : { startDate: shiftDay(start, day - 55), endDate: shiftDay(start, day - 28) },
+    post: { startDate: shiftDay(start, day - 27), endDate: shiftDay(start, day) },
+    completeThrough: original.completeThrough,
+    ready: shiftDay(start, day) <= original.completeThrough,
+  };
+}
+
+export function latestEligibleCheckpointDay(confirmedAt, now = new Date()) {
+  const windows = comparisonWindows(confirmedAt, now);
+  if (!windows) return 0;
+  const elapsed = Math.floor((Date.parse(windows.completeThrough) - Date.parse(windows.implementationDay)) / 86400000);
+  return Math.max(0, Math.floor(elapsed / 28) * 28);
+}
+
+export function nextOngoingReviewDay(confirmedAt, completedDay = 0) {
+  const windows = comparisonWindows(confirmedAt);
+  return windows ? shiftDay(windows.implementationDay, completedDay + 28 + PROGRESS_POLICY.reportingDelayDays) : null;
+}

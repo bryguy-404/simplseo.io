@@ -4,6 +4,8 @@ import { propertyContainsUrl } from '../revampState';
 import { getGscConnection } from './gscConnection';
 import { fetchPageObservation } from './pageObservation';
 import { RequestError } from './requestAuth';
+import { ongoingReviewEnabled } from './ongoingReviewFeature';
+import { migrateOngoingRecord, readOngoingProgress, refreshOngoingProgress, runOngoingProgressCollection } from './ongoingProgress';
 
 const MAX_CONCURRENCY = 4;
 const MAX_RECORDS = 40;
@@ -76,7 +78,7 @@ function assessmentForDisplay(data, onboarding, property, now) {
   return { ...base, property, state: 'collecting', reason: 'awaiting_verified_observations' };
 }
 
-export async function readProgress(uid, now = new Date()) {
+export async function readProgress(uid, now = new Date(), { pageUrl } = {}) {
   const [account, user, snapshot] = await Promise.all([
     db.collection('onboarding').doc(uid).get(), db.collection('users').doc(uid).get(),
     db.collection('implementedSeoTips').where('userId', '==', uid).get(),
@@ -84,12 +86,15 @@ export async function readProgress(uid, now = new Date()) {
   const onboarding = account.data();
   const property = expectedProperty(onboarding, user.data());
   const previousComparisons = await readPreviousComparisons(snapshot.docs, uid, onboarding, property, now);
+  let ongoing;
+  try { ongoing = await readOngoingProgress(uid, { pageUrl }); }
+  catch { ongoing = { enabled: ongoingReviewEnabled(uid), records: [], history: [], nextCursor: null, error: 'Saved ongoing reviews could not be loaded.' }; }
   return {
     schemaVersion: PROGRESS_SCHEMA_VERSION, source: PROGRESS_SOURCE, property,
     paused: progressIsPaused(onboarding), pauseReason: progressIsPaused(onboarding) ? 'account_review_required' : null,
     policy: PROGRESS_POLICY, notificationsEnabled: false, automaticOutcomesEnabled: false,
     websiteRunId: onboarding?.revampRunId || null,
-    ...previousComparisons,
+    ...previousComparisons, ongoing,
     records: snapshot.docs.filter(doc => currentRecord(doc.data(), onboarding, property)).map(doc => {
       const data = doc.data();
       return { ...displayRecord(doc.id, data, property),
@@ -118,9 +123,13 @@ async function persistAssessment(doc, original, assessment, onboardingAtStart) {
   });
 }
 
-export async function collectProgressRecord(doc, { now = new Date(), connectionCache = new Map() } = {}) {
+export async function collectProgressRecord(doc, { now = new Date(), connectionCache = new Map(), deadline = Date.now() + 90000 } = {}) {
   const original = doc.data();
   if (original.preRevampArchived || original.status !== 'implemented' || !original.userId) return 'skipped';
+  if (ongoingReviewEnabled(original.userId) && original.source === 'manual-page-review' && original.confirmationMethod === 'user-confirmed') {
+    const migrated = await migrateOngoingRecord(doc, { now, deadline });
+    if (migrated) return 'skipped';
+  }
   const [account, user] = await Promise.all([db.collection('onboarding').doc(original.userId).get(), db.collection('users').doc(original.userId).get()]);
   const onboarding = account.data();
   let assessment = { ...baseAssessment(original, now), property: expectedProperty(onboarding, user.data()) };
@@ -140,7 +149,7 @@ export async function collectProgressRecord(doc, { now = new Date(), connectionC
     assessment = { ...assessment, state: 'collecting', reason: 'waiting_for_complete_post_window' };
   } else {
     try {
-      if (!connectionCache.has(original.userId)) connectionCache.set(original.userId, getGscConnection(original.userId));
+      if (!connectionCache.has(original.userId)) connectionCache.set(original.userId, getGscConnection(original.userId, { deadline }));
       const connection = await connectionCache.get(original.userId);
       if (connection.siteUrl !== assessment.property) throw new RequestError('reconnect_required', 409);
       // Search Analytics retains a limited history. Do not interpret expired data
@@ -166,14 +175,14 @@ export async function collectProgressRecord(doc, { now = new Date(), connectionC
   return saved ? assessment.state : 'superseded';
 }
 
-async function collectBatch(docs, now, startedAt) {
+async function collectBatch(docs, now, startedAt, deadline = startedAt + 90000) {
   let next = 0;
   const results = [];
   const connectionCache = new Map();
   await Promise.all(Array.from({ length: Math.min(MAX_CONCURRENCY, docs.length) }, async () => {
-    while (next < docs.length && Date.now() - startedAt < 90000) {
+    while (next < docs.length && deadline - Date.now() >= 3000) {
       const index = next++;
-      try { results[index] = await collectProgressRecord(docs[index], { now, connectionCache }); }
+      try { results[index] = await collectProgressRecord(docs[index], { now, connectionCache, deadline }); }
       catch { results[index] = 'error'; }
     }
   }));
@@ -201,6 +210,10 @@ async function finishJob(job, patch) {
 export async function refreshUserProgress(uid, now = new Date()) {
   const account = (await db.collection('onboarding').doc(uid).get()).data();
   if (progressIsPaused(account)) return { ...(await readProgress(uid, now)), checked: 0 };
+  if (ongoingReviewEnabled(uid)) {
+    const result = await refreshOngoingProgress(uid, { now });
+    return { ...(await readProgress(uid, now)), checked: result.checked, moreRecords: result.moreRecords };
+  }
   const startedAt = Date.now();
   const job = await acquireJob(`user-${uid}`, now, COOLDOWN_MS);
   try {
@@ -218,16 +231,22 @@ export async function refreshUserProgress(uid, now = new Date()) {
 
 export async function runProgressCollection(now = new Date()) {
   const startedAt = Date.now();
+  const deadline = startedAt + 220000;
+  const ongoingOn = process.env.ONGOING_PAGE_REVIEWS_ENABLED === 'true';
   const job = await acquireJob('daily-progress', now, 60000);
   try {
     let query = db.collection('implementedSeoTips').orderBy('__name__').limit(MAX_RECORDS);
     if (job.previous.cursor) query = query.startAfter(job.previous.cursor);
     let snapshot = await query.get();
     if (snapshot.empty && job.previous.cursor) snapshot = await db.collection('implementedSeoTips').orderBy('__name__').limit(MAX_RECORDS).get();
-    const batch = await collectBatch(snapshot.docs, now, startedAt);
+    // Reserve work and time for both queues while the pilot coexists with older
+    // accounts. Neither queue can consume the entire invocation indefinitely.
+    const batch = await collectBatch(ongoingOn ? snapshot.docs.slice(0, 20) : snapshot.docs, now, startedAt, Math.min(deadline, startedAt + 90000));
     const counts = batch.results.reduce((all, state) => ({ ...all, [state]: (all[state] || 0) + 1 }), {});
+    const ongoing = ongoingOn ? await runOngoingProgressCollection({ now, deadline, maxRecords: 20 }) : { checked: 0, counts: {}, moreRecords: false };
+    for (const [state, count] of Object.entries(ongoing.counts)) counts[state] = (counts[state] || 0) + count;
     await finishJob(job, { cursor: snapshot.docs[batch.processed - 1]?.id || null, lastFinishedAt: new Date().toISOString(), counts });
-    return { checked: batch.processed, counts, moreRecords: batch.processed < snapshot.size || snapshot.size === MAX_RECORDS,
+    return { checked: batch.processed + ongoing.checked, counts, moreRecords: batch.processed < snapshot.size || snapshot.size === MAX_RECORDS || ongoing.moreRecords,
       notificationsSent: 0, strategiesSaved: 0, automaticOutcomesEnabled: false };
   } catch (error) { await finishJob(job, { lastErrorAt: new Date().toISOString() }); throw error; }
 }

@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { propertyContainsUrl } from '../../lib/revampState';
 import { ActionBody } from './PageReviewActions';
 import { usablePageAssessment } from './PageReviewAssessment';
-import { usablePageActivity } from './PageSearchActivity';
+import { usablePageActivity, usableConfirmedChangeActivity } from './PageSearchActivity';
 
 const priorities = { first: 'Do first', next: 'Do next', optional: 'Optional' };
 const statuses = ['todo', 'needs_review', 'done', 'dismissed'];
@@ -20,7 +20,7 @@ const safeUrl = value => { try { const url = new URL(value); return ['http:', 'h
 // Fail closed if the saved response belongs to a different page or website version.
 export function usableSavedPagePlan(plan, scope) {
   if (!plan || !isText(plan.id) || !plan.id || !Number.isInteger(plan.revision) || plan.revision < 1 || !isText(plan.updatedAt) || !Number.isFinite(Date.parse(plan.updatedAt)) ||
-    !usablePageAssessment(plan.review) || !usablePageActivity({ success: true, evidence: plan.review.evidence, provenance: plan.review.provenance }, scope) ||
+    !usablePageAssessment(plan.review) || !(plan.review.provenance?.reviewVersion === 'follow_up_1' ? typeof plan.followUp?.cycleId === 'string' && typeof plan.followUp?.decisionId === 'string' && usableConfirmedChangeActivity(plan.review, scope) : usablePageActivity({ success: true, evidence: plan.review.evidence, provenance: plan.review.provenance }, scope)) ||
     plan.review.currentPage?.url !== scope.pageUrl || !Array.isArray(plan.tasks) || new Set(plan.tasks.map(task => task?.id)).size !== plan.tasks.length) return false;
   return plan.tasks.every(task => {
     const item = task?.recommendation;
@@ -100,7 +100,7 @@ export default function SavedPagePlan({ plan, busy, savingStatus, error, onStatu
     {earlier.length > 0 && <div className="space-y-3"><h3 className="text-sm font-semibold">Earlier suggestions to review</h3>{earlier.map((task, index) => renderTask(task, current.length + index + 1))}</div>}
   </>;
   return <section aria-label="Saved page tasks" className="mb-6 space-y-4 rounded-xl border bg-card p-5 md:p-6">
-    <div className="flex flex-wrap items-start justify-between gap-3"><h2 className="flex items-center gap-2 text-xl font-semibold"><ListChecks className="h-5 w-5" aria-hidden="true" />{tracking ? current.length + earlier.length > 0 ? 'Saved ideas' : 'Your saved changes' : 'Your next changes'}</h2><span className="text-xs text-muted-foreground">{current.length + earlier.length} remaining · Saved</span></div>
+    <div className="flex flex-wrap items-start justify-between gap-3"><h2 id="page-tasks-heading" tabIndex={-1} className="flex items-center gap-2 text-xl font-semibold"><ListChecks className="h-5 w-5" aria-hidden="true" />{tracking ? current.length + earlier.length > 0 ? 'Saved ideas' : 'Your saved changes' : 'Your next changes'}</h2><span className="text-xs text-muted-foreground">{current.length + earlier.length} remaining · Saved</span></div>
     {!tracking && current.length > 0 && <p className="text-sm text-muted-foreground">Make the edits on your website, then select the ones you published.</p>}
     {error && <div role="alert" className="space-y-2 text-sm text-destructive"><p>{error}</p><Button size="sm" variant="outline" disabled={busy} onClick={onReload}>Reload saved tasks</Button></div>}
     {savingStatus && <p role="status" className="text-xs text-muted-foreground">Saving task status…</p>}

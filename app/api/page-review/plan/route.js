@@ -1,5 +1,5 @@
 import { authenticatedRoute } from '../../../lib/server/authenticatedRoute';
-import { readPageReviewPlan, updatePageReviewTask } from '../../../lib/server/pageReviewPlans';
+import { readPageReviewPlan, readPageReviewPlanHistory, updatePageReviewTask } from '../../../lib/server/pageReviewPlans';
 
 const headers = { 'Cache-Control': 'private, no-store' };
 const privateRoute = handler => {
@@ -12,6 +12,8 @@ const privateRoute = handler => {
 };
 export const GET = privateRoute(async request => {
   const params = new URL(request.url).searchParams;
+  if (params.get('history') === '1') return Response.json(await readPageReviewPlanHistory(params.get('userId'), params.get('pageUrl'),
+    params.has('beforeRevision') ? Number(params.get('beforeRevision')) : undefined), { headers });
   const plan = await readPageReviewPlan(params.get('userId'), params.get('pageUrl'));
   return Response.json({ plan }, { headers });
 });

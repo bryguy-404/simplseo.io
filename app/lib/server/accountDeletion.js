@@ -13,6 +13,7 @@ export const ACCOUNT_OWNED_COLLECTIONS = [
   'internalLinkSuggestions', 'intentMismatches', 'pageContentCache',
   'seoMetaTitles', 'seoMetaDescriptions', 'genericKeywordsCache',
   'conversations', 'contactMessages', 'requestLimits', 'pageReviewPlans', 'aiUsageEvents',
+  'pageProgressCycles',
   'newPageWorkspaces', 'newPageInventories', 'newPageAssessments', 'newPagePlans', 'newPagePublications', 'newPageJobs',
 ];
 const PREFIXED_COLLECTIONS = [
@@ -38,6 +39,13 @@ async function deleteMatching(db, query) {
 
 export async function deleteAccountFirestore(db, uid, verifiedEmail) {
   if (typeof uid !== 'string' || !uid || uid.includes('/')) throw new Error('Invalid account identity');
+  // Participate in every new publication/review write transaction. A failed
+  // deletion can be retried; it must not allow fresh work to appear mid-sweep.
+  await db.runTransaction(async tx => {
+    const ref = db.collection('users').doc(uid);
+    const user = await tx.get(ref);
+    if (user.exists) tx.update(ref, { deletionInProgress: true });
+  });
   let deletedRoots = 0;
   const remove = async ref => { await db.recursiveDelete(ref); deletedRoots += 1; };
   for (const name of ACCOUNT_OWNED_COLLECTIONS) {
@@ -86,7 +94,7 @@ export async function deleteAccountFirestore(db, uid, verifiedEmail) {
   deletedRoots += await deleteMatching(db, db.collection('aiUsageEvents').where('userId', '==', uid));
   // In-flight new-page work saves only while account roots still exist. Sweep
   // anything committed between the first collection pass and root removal.
-  for (const name of ACCOUNT_OWNED_COLLECTIONS.filter(name => name.startsWith('newPage'))) {
+  for (const name of ACCOUNT_OWNED_COLLECTIONS.filter(name => name.startsWith('newPage') || ['pageProgressCycles', 'pageReviewPlans', 'implementedSeoTips', 'requestLimits'].includes(name))) {
     deletedRoots += await deleteMatching(db, db.collection(name).where('userId', '==', uid));
   }
   return { deletedRoots };

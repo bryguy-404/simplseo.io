@@ -14,6 +14,8 @@ import PageProgress from '../components/dashboard/PageProgress';
 import PageReviewAssessment, { SearchFocus, recommendedReviewPage, usablePageAssessment } from '../components/dashboard/PageReviewAssessment';
 import PageSearchActivity, { pageOptionLabel, usablePageActivity } from '../components/dashboard/PageSearchActivity';
 import PageContentChangeConfirmation from '../components/dashboard/PageContentChangeConfirmation';
+import AdditionalPageChange from '../components/dashboard/AdditionalPageChange';
+import ArchivedPageTasks from '../components/dashboard/ArchivedPageTasks';
 import SavedPagePlan, { isSelectableEdit, usableSavedPagePlan } from '../components/dashboard/SavedPagePlan';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -62,6 +64,8 @@ function LowCtrWorkspace() {
   const [generationError, setGenerationError] = useState('');
   const [updateCheck, setUpdateCheck] = useState(null);
   const [taskConfirmed, setTaskConfirmed] = useState(false);
+  const [ongoingCycle, setOngoingCycle] = useState(null);
+  const [interveningMode, setInterveningMode] = useState(null);
   const [contentConfirmed, setContentConfirmed] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState([]);
   const [trackingStatus, setTrackingStatus] = useState({ loading: true, error: '' });
@@ -70,15 +74,21 @@ function LowCtrWorkspace() {
   const planController = useRef(null);
   const taskController = useRef(null);
   const loadedPlanScope = useRef('');
+  const loadedCycleId = useRef(null);
   const markConfirmed = useCallback(() => { setTaskConfirmed(true); }, []);
   const markContentConfirmed = useCallback((record, updatedPlan) => {
-    setContentConfirmed(true); setTaskConfirmed(true); setSelectedTaskIds([]);
+    setContentConfirmed(true); setTaskConfirmed(true); setSelectedTaskIds([]); setInterveningMode(null);
     if (updatedPlan) setPlan(updatedPlan);
   }, []);
   const onProgress = useCallback(result => {
     if (!result) return;
+    const cycle = result.ongoing?.enabled ? result.ongoing.records?.find(item => item.pageUrl === selectedUrl && item.lifecycle === 'active') || null : null;
     const record = result.records?.find(item => item.pageUrl === selectedUrl) || null;
-    setTaskConfirmed(Boolean(record));
+    if (loadedCycleId.current && cycle?.id && loadedCycleId.current !== cycle.id) {
+      setInterveningMode(null); setSelectedTaskIds([]); setPlanReload(value => value + 1); setContentReload(value => value + 1);
+    }
+    loadedCycleId.current = cycle?.id || null;
+    setOngoingCycle(cycle); setTaskConfirmed(Boolean(cycle || record));
   }, [selectedUrl]);
   const onProgressLoad = useCallback(status => setTrackingStatus(status), []);
   const onCycleStarted = useCallback(() => {
@@ -111,6 +121,20 @@ function LowCtrWorkspace() {
   const property = overview?.property || data.gscProperty;
   const pages = useMemo(() => taskPages({ property, trackedPages: [...(data.revampPages || []), ...redirectDestinations], observedPages: overview?.pages || [], keywords, focusKeywords }), [property, data.revampPages, redirectDestinations, overview?.pages, keywords, focusKeywords]);
   const selected = pages.find(page => page.url === selectedUrl);
+  const canRecordEdit = Boolean(ongoingCycle?.canRecordInterveningChange && !ongoingCycle.readOnly);
+  const followupTasks = Boolean(canRecordEdit && plan?.followUp?.cycleId === ongoingCycle.id);
+  const editingWhileTracked = canRecordEdit && (interveningMode === true || (interveningMode === null && followupTasks));
+  const onFollowupPlan = useCallback(nextPlan => {
+    if (!usableSavedPagePlan(nextPlan, { pageUrl: selectedUrl, property, websiteRunId: data.revampRunId })) return false;
+    setPlan(nextPlan); setSuggestion(nextPlan.review); setSelectedTaskIds([]); setInterveningMode(true);
+    requestAnimationFrame(() => document.getElementById('page-tasks-heading')?.focus());
+    return true;
+  }, [selectedUrl, property, data.revampRunId]);
+  const onRecordEdit = useCallback(cycle => {
+    if (cycle.pageUrl !== selectedUrl || !cycle.canRecordInterveningChange || cycle.readOnly) return;
+    setInterveningMode(true); setSelectedTaskIds([]);
+    requestAnimationFrame(() => document.getElementById('additional-change-heading')?.focus());
+  }, [selectedUrl]);
   const visibleActivity = activity?.pageUrl === selectedUrl ? activity : null;
   const redirected = Boolean(currentPage?.finalUrl && currentPage.finalUrl !== selectedUrl);
   const savedContentChanged = Boolean(plan && currentPageProvenance?.contentFingerprint && plan.review.provenance.contentFingerprint !== currentPageProvenance.contentFingerprint);
@@ -186,11 +210,12 @@ function LowCtrWorkspace() {
   const choosePage = value => {
     if (value === selectedUrl) return;
     planController.current?.abort(); taskController.current?.abort();
+    loadedCycleId.current = null;
     setSelectedUrl(value); setPlan(null); setPlanError(''); setTaskError(''); setTaskSaving(false); setPlanBusy(true);
     setGoal(''); setContentConfirmed(false); setSelectedTaskIds([]); setTrackingStatus({ loading: true, error: '' });
     setActivity(null); setActivityError(''); setActivityBusy(true);
     setCurrentPage(null); setCurrentPageProvenance(null); setContentError(''); setContentBusy(true);
-    resetAssessment(); setTaskConfirmed(false); setSelectionError('');
+    resetAssessment(); setTaskConfirmed(false); setOngoingCycle(null); setInterveningMode(null); setSelectionError('');
   };
   const reviewRelatedPage = value => {
     if (suggestion?.analysis.action !== 'review_page' || suggestion.analysis.targetPageUrl !== value ||
@@ -251,7 +276,7 @@ function LowCtrWorkspace() {
   const publishingBusy = taskSaving || generating || pageLoading;
   const hasExistingReview = Boolean(plan || suggestion);
   const togglePublished = (taskId, checked) => {
-    if (publishingBusy || taskConfirmed) return;
+    if (publishingBusy || (taskConfirmed && !editingWhileTracked)) return;
     setSelectedTaskIds(previous => checked ? [...new Set([...previous, taskId])] : previous.filter(id => id !== taskId));
   };
 
@@ -271,7 +296,7 @@ function LowCtrWorkspace() {
       {pageLoading && <div role="status" aria-live="polite" className="mb-4 flex items-center gap-2 rounded-lg border bg-muted/30 px-4 py-3 text-sm"><LoaderCircle className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" /><span>Loading this page…</span></div>}
       <div aria-busy={pageLoading} aria-label="Page review workspace">
       <PageSearchActivity key={selected.url} pageUrl={selected.url} evidence={visibleActivity} busy={activityBusy} error={activityError} onRetry={() => setActivityReload(value => value + 1)} />
-      <PageProgress key={`progress-${selected.url}`} pageUrl={selected.url} hideEmpty onResult={onProgress} onLoadState={onProgressLoad} onCycleStarted={onCycleStarted} />
+      <PageProgress key={`progress-${selected.url}`} pageUrl={selected.url} hideEmpty onResult={onProgress} onLoadState={onProgressLoad} onCycleStarted={onCycleStarted} onFollowupPlan={onFollowupPlan} onRecordEdit={onRecordEdit} planRevision={plan?.revision} />
       {contentError && <div role="alert" className="mb-4 space-y-2 rounded-lg border p-4 text-sm"><p>{contentError}</p><Button variant="outline" size="sm" onClick={() => setContentReload(value => value + 1)}>Retry reading page</Button></div>}
       {redirected && <div role="status" className="mb-4 space-y-2 rounded-lg border p-4"><p className="break-all text-sm">This URL redirects to {currentPage.finalUrl}. Review the destination page to track the edit there.</p>
         {propertyContainsUrl(property, currentPage.finalUrl) && <Button variant="outline" onClick={() => { const destination = currentPage.finalUrl; setRedirectDestinations(previous => [...new Set([...previous, destination])]); choosePage(destination); }}>Review destination page</Button>}
@@ -280,8 +305,11 @@ function LowCtrWorkspace() {
       {generationError && <div role="alert" className="mb-4 space-y-2 rounded-lg border p-4 text-sm text-destructive"><p>{generationError}</p><Button size="sm" variant="outline" disabled={planBusy || generating} onClick={() => setPlanReload(value => value + 1)}>Reload saved tasks</Button></div>}
       {savedContentChanged && !redirected && !taskConfirmed && <p role="status" className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/25 dark:text-amber-100">Your website changed since this analysis. If you published the suggested edits, confirm them below. Otherwise, use Check for updates to review the tasks.</p>}
       {suggestion?.analysis.searchFocus && !redirected && !taskConfirmed && <div className="mb-4"><SearchFocus focus={suggestion.analysis.searchFocus} /></div>}
-      {plan && !redirected && <SavedPagePlan plan={plan} busy={publishingBusy || Boolean(trackingStatus.error)} savingStatus={taskSaving} error={taskError} onStatus={updateTaskStatus} onReload={() => setPlanReload(value => value + 1)} selectedTaskIds={selectedTaskIds} onTogglePublished={togglePublished} tracking={taskConfirmed} />}
-      {suggestion && !redirected && plan && !taskConfirmed && <PageContentChangeConfirmation key={`${selected.url}:${suggestion.provenance.generatedAt}`} pageUrl={selected.url} provenance={suggestion.provenance} plan={plan} selectedTaskIds={selectedTaskIds} loading={publishingBusy} tracking={taskConfirmed} error={trackingStatus.error} onConfirmed={markContentConfirmed} />}
+      {editingWhileTracked && <section aria-label="Record an additional published change" className="mb-4 space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/20"><h2 id="additional-change-heading" tabIndex={-1} className="font-semibold">Your next published edits</h2><p className="text-sm">Your earlier edits are still being tracked. Only confirm another change after publishing it. Its new tracking cycle will keep your earlier results as history.</p><Button variant="link" className="h-auto px-0 text-sm" onClick={() => { setInterveningMode(false); setSelectedTaskIds([]); }}>Back to monitoring</Button></section>}
+      {plan && !redirected && <SavedPagePlan plan={plan} busy={publishingBusy || Boolean(trackingStatus.error)} savingStatus={taskSaving} error={taskError} onStatus={updateTaskStatus} onReload={() => setPlanReload(value => value + 1)} selectedTaskIds={selectedTaskIds} onTogglePublished={togglePublished} tracking={taskConfirmed && !editingWhileTracked} />}
+      {suggestion && !redirected && plan && (!taskConfirmed || editingWhileTracked) && <PageContentChangeConfirmation key={`${selected.url}:${suggestion.provenance.generatedAt}`} pageUrl={selected.url} provenance={suggestion.provenance} plan={plan} selectedTaskIds={selectedTaskIds} loading={publishingBusy} tracking={taskConfirmed && !editingWhileTracked} previousCycle={editingWhileTracked ? ongoingCycle : null} error={trackingStatus.error} onConfirmed={markContentConfirmed} />}
+      {editingWhileTracked && !redirected && <AdditionalPageChange key={ongoingCycle.id} cycle={ongoingCycle} provenance={currentPageProvenance} disabled={publishingBusy || Boolean(trackingStatus.error)} onConfirmed={markContentConfirmed} />}
+      {plan?.archivedTasksAvailable && <ArchivedPageTasks pageUrl={selectedUrl} property={property} websiteRunId={data.revampRunId} />}
       {suggestion && !redirected && !plan && <fieldset disabled={pageLoading} className="min-w-0">
         <PageReviewAssessment review={suggestion} onReviewPage={reviewRelatedPage} />
         {(contentConfirmed || !taskConfirmed) && hasContentTasks && <PageContentChangeConfirmation key={`${selected.url}:${suggestion.provenance.generatedAt}`} pageUrl={selected.url} provenance={suggestion.provenance} onConfirmed={markContentConfirmed} onExisting={markConfirmed} hasMetadataEditor={suggestion.analysis.action === 'revise_metadata'} />}

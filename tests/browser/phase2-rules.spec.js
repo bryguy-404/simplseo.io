@@ -79,9 +79,19 @@ test('authoritative assessments cannot be fabricated, changed, removed or delete
   expect((await patch(request, `implementedSeoTips/${uid}_forged`, { userId: uid, progressAssessment: { status: 'improved' } }, false)).status()).toBe(403);
   expect((await patch(request, `implementedSeoTips/${uid}_credential`, { userId: uid, gscToken: 'fake-token' }, false)).status()).toBe(403);
   expect((await patch(request, path, { gscToken: 'replacement-token' })).status()).toBe(403);
-  expect((await patch(request, path, { implementedMetaTitle: 'A real user edit', postStats: { impressions: 99 } })).status()).toBe(200);
-  // Starting fresh can remove old credentials while retaining the protected assessment.
-  expect((await patch(request, path, { userId: uid, pageUrl: 'https://example.test/page', progressAssessment: { status: 'insufficient_data' } }, false)).status()).toBe(200);
+  expect((await patch(request, path, { ongoingCycleId: 'forged', implementedAt: '2000-01-01', status: 'reviewed' })).status()).toBe(403);
+  expect((await patch(request, path, { implementedMetaTitle: 'A real user edit', postStats: { impressions: 99 } })).status()).toBe(403);
+  // Only the authenticated publication API can create/reset a tracked cycle.
+  expect((await patch(request, path, { userId: uid, pageUrl: 'https://example.test/page', progressAssessment: { status: 'insufficient_data' } }, false)).status()).toBe(403);
+});
+
+test('ongoing cycles, observations and decisions are server-owned even for the account owner', async ({ request }) => {
+  for (const path of [`pageProgressCycles/${uid}`, `pageProgressCycles/${uid}/observations/baseline`, `pageProgressCycles/${uid}/decisions/fake`]) {
+    await app.firestore().doc(path).set({ userId: uid, revision: 1 });
+    expect((await read(request, path)).status()).toBe(403);
+    expect((await patch(request, path, { userId: uid, revision: 2 })).status()).toBe(403);
+    expect((await request.delete(`${base}/${path}`, { headers: { Authorization: `Bearer ${token}` } })).status()).toBe(403);
+  }
 });
 
 test('client writes retain ownership and archived history remains immutable', async ({ request }) => {
@@ -90,7 +100,7 @@ test('client writes retain ownership and archived history remains immutable', as
   }
   expect((await patch(request, `users/${uid}/revampHistory/rules-run`, { complete: false })).status()).toBe(403);
   expect((await patch(request, `users/${uid}/revampHistory/rules-run/records/fake`, { data: 'fake' }, false)).status()).toBe(403);
-  expect((await patch(request, `implementedSeoTips/${uid}_new`, { userId: uid, pageUrl: 'https://example.test/new', status: 'implemented' }, false)).status()).toBe(200);
+  expect((await patch(request, `implementedSeoTips/${uid}_new`, { userId: uid, pageUrl: 'https://example.test/new', status: 'implemented' }, false)).status()).toBe(403);
   expect((await read(request, `implementedSeoTips/${uid}_missing`)).status()).toBe(404);
 });
 

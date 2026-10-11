@@ -76,7 +76,7 @@ export async function recordPageReviewResponse({ userId, reviewRunId, stage, req
     // This read participates in the write transaction. Account deletion removes
     // these roots before its final ledger sweep, so a late start cannot recreate
     // identifiable accounting after a successful deletion.
-    if (!user.exists || !setup.exists) return 'account_unavailable';
+    if (!user.exists || user.data()?.deletionInProgress || !setup.exists) return 'account_unavailable';
     tx.set(ref, initial);
     return 'started';
   }));

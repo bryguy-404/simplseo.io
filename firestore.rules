@@ -52,7 +52,7 @@ service cloud.firestore {
       
     // Authoritative observations/outcomes are added by server code. Historical client
     // snapshots (preStats/postStats) are retained for compatibility and never trusted as measurements.
-    function trustedOutcomeFields() { return ['progressAssessment']; }
+    function trustedOutcomeFields() { return ['progressAssessment', 'ongoingCycleId']; }
     function credentialFields() { return ['gscToken', 'accessToken', 'refreshToken', 'gscAccessToken', 'gscRefreshToken']; }
     function credentialUnchangedOrRemoved(key) {
       return !(key in request.resource.data) || (key in resource.data && request.resource.data[key] == resource.data[key]);
@@ -69,8 +69,9 @@ service cloud.firestore {
     }
     match /implementedSeoTips/{id} {
       allow read: if readsLegacy(id);
-      allow create: if safeSeoCreate(id);
-      allow update: if safeSeoUpdate(id);
+      // Publication dates, task links and cycle transitions are authenticated
+      // server operations. Legacy browser writers must not reset tracking.
+      allow create, update: if false;
       allow delete: if false;
     }
     match /contentAuditResults/{id} {
@@ -150,6 +151,7 @@ service cloud.firestore {
     match /conversations/{path=**} { allow read, write: if false; }
     match /gscOAuthStates/{path=**} { allow read, write: if false; }
     match /progressJobs/{path=**} { allow read, write: if false; }
+    match /pageProgressCycles/{path=**} { allow read, write: if false; }
     match /requestLimits/{path=**} { allow read, write: if false; }
     match /aiUsageEvents/{path=**} { allow read, write: if false; }
     match /cronRuns/{path=**} { allow read, write: if false; }

@@ -12,7 +12,7 @@ export async function getGscConnection(uid, { deadline = Infinity, signal } = {}
     return signal ? AbortSignal.any([signal, timeout]) : timeout;
   };
   const [user, legacy, onboarding] = await Promise.all(['users', 'gscTokens', 'onboarding'].map(c => db.collection(c).doc(uid).get()));
-  if (!user.exists) throw reconnect();
+  if (!user.exists || user.data()?.deletionInProgress) throw reconnect();
   const u = user.data() || {}, l = legacy.data() || {}, o = onboarding.data() || {};
   const expected = o.gscProperty || u.gscSiteUrl || l.siteUrl;
   const primary = { accessToken: u.gscAccessToken, refreshToken: u.gscRefreshToken, siteUrl: u.gscSiteUrl, expiresAt: u.gscExpiresAt || (Date.parse(u.gscConnectedAt) + 3600000) };
@@ -45,7 +45,7 @@ export async function getGscConnection(uid, { deadline = Infinity, signal } = {}
         const currentRefresh = latest.gscRefreshToken || old.refreshToken;
         // update(), never merge-create: an in-flight refresh must not recreate a
         // deleted account or overwrite a newly selected property/connection.
-        if (!currentUser.exists || currentSetup.exists !== onboarding.exists || currentProperty !== expected
+        if (!currentUser.exists || latest.deletionInProgress || currentSetup.exists !== onboarding.exists || currentProperty !== expected
           || (setup.revampRunId || null) !== (o.revampRunId || null)
           || (latest.gscSiteUrl && latest.gscSiteUrl !== expected) || currentRefresh !== originalRefreshToken) throw reconnect();
         tx.update(db.collection('users').doc(uid), { gscAccessToken: refreshed.accessToken, gscRefreshToken: refreshed.refreshToken,

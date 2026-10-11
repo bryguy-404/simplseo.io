@@ -58,10 +58,11 @@ it('normalizes invalid JSON without provider detail and fails mismatched account
   await expect(getGscConnection('alice')).rejects.toThrow('reconnect_required');
   expect(fetch).not.toHaveBeenCalled();
 });
-it.each(['account_deleted', 'onboarding_deleted', 'property_changed', 'website_rebuilt', 'credential_replaced'])('does not restore stale credentials when %s during OAuth refresh', async state => {
+it.each(['account_deleted', 'deletion_started', 'onboarding_deleted', 'property_changed', 'website_rebuilt', 'credential_replaced'])('does not restore stale credentials when %s during OAuth refresh', async state => {
   records.get('users/alice').gscExpiresAt = 1;
   fetch.mockImplementation(async () => {
     if (state === 'account_deleted') records.delete('users/alice');
+    if (state === 'deletion_started') records.get('users/alice').deletionInProgress = true;
     if (state === 'onboarding_deleted') records.delete('onboarding/alice');
     if (state === 'property_changed') records.get('onboarding/alice').gscProperty = 'https://another.test/';
     if (state === 'website_rebuilt') records.get('onboarding/alice').revampRunId = 'new-website';

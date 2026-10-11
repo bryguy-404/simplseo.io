@@ -34,7 +34,7 @@ beforeEach(() => {
 describe('bounded first-party diagnostics', () => {
   it('checks current Google state and at most two relevant source links with exact property and timestamps', async () => {
     const result = await collect();
-    expect(getGscConnection).toHaveBeenCalledExactlyOnceWith('alice');
+    expect(getGscConnection).toHaveBeenCalledExactlyOnceWith('alice', { deadline: undefined, signal: undefined });
     expect(inspect).toHaveBeenCalledTimes(3);
     expect(fetchCurrentPageContent).toHaveBeenCalledTimes(2);
     expect(fetchCurrentPageContent.mock.calls).toEqual([

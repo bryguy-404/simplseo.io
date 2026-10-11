@@ -22,7 +22,7 @@ function deletionStore(initial) {
     },
   });
   const db = { collection, runTransaction: async callback => callback({
-    get: async target => ({ data: () => records.get(target.path) }),
+    get: async target => ({ exists: records.has(target.path), data: () => records.get(target.path) }),
     update: (target, data) => records.set(target.path, { ...records.get(target.path), ...data }),
   }), recursiveDelete: vi.fn(async target => {
     deleted.push(target.path);
@@ -56,6 +56,9 @@ describe('account data deletion', () => {
       'pageReviewPlans/current-alice': { userId: 'alice' },
       'pageReviewPlans/old-run-alice': { userId: 'alice' },
       'pageReviewPlans/current-bob': { userId: 'bob', keep: true },
+      'pageProgressCycles/current-alice': { userId: 'alice' },
+      'pageProgressCycles/current-alice/checkpoints/28': { clicks: 1 },
+      'pageProgressCycles/current-bob': { userId: 'bob', keep: true },
       'aiUsageEvents/alice-research': { userId: 'alice', inputTokens: 100 },
       'aiUsageEvents/bob-assessment': { userId: 'bob', keep: true },
       'newPageWorkspaces/alice-work': { userId: 'alice' },
@@ -126,6 +129,8 @@ describe('account data deletion', () => {
         store.records.set('newPagePlans/in-flight', { userId: 'alice' });
         store.records.set('newPageInventories/in-flight', { userId: 'alice' });
         store.records.set('newPageInventories/in-flight/pages/example', { text: 'owned page' });
+        store.records.set('pageProgressCycles/in-flight', { userId: 'alice' });
+        store.records.set('pageProgressCycles/in-flight/decisions/one', { userId: 'alice' });
       }
       await remove(target);
     });
@@ -139,6 +144,7 @@ describe('account data deletion', () => {
     await expect(deleteAccountFirestore(store.db, 'alice')).rejects.toThrow();
     expect(store.records.has('users/alice')).toBe(true);
     expect(store.records.has('onboarding/alice')).toBe(true);
+    expect(store.records.get('users/alice').deletionInProgress).toBe(true);
   });
 
   it('rejects path injection before touching storage', async () => {

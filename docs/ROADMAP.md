@@ -133,3 +133,9 @@ Keep the public URL and current stack. New-page generation, automatic outcome de
 The approved replacement for Extra Opportunities keeps `/generic-keywords` and adds confirmed service areas, bounded website coverage, justified ideas (including no recommendation), saved editable page plans and manual publication verification. It runs independently of the current-page pilot. Details, operating limits, testing and live checkpoints are in [Phase 6](PHASE6.md).
 
 The first live checkpoint is for Bryan to review current coverage and confirm services/area. A draft is optional and must follow a justified idea. No new page is published or confirmed for testing; indexing and business value remain real-world pilot observations.
+
+## Phase 7 Ongoing page reviews
+
+Authorized implementation extends the original fixed comparison with successive 28-day checkpoints, preserved cycle history, explicit follow-up guidance and a clear next action. This supersedes Phase 5's fixed-window limitation for accounts enabled in the pilot. Waiting now permits collection of a later comparison without resetting the original publication date. Technical checks remain available during collection; AI guidance only runs after the owner requests it.
+
+The existing-page homepage pilot and New page ideas continue independently. See [Phase 7](PHASE7.md) for measurement, saved tasks, controls, tests, rollout and live checkpoints. Only a real published edit starts another cycle; no simulated observations or backdated publications are allowed in Bryan's account. Initial rollout is limited to Bryan's account, with real scheduled collection and mature results verified separately from isolated tests.

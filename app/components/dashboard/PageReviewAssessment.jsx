@@ -105,7 +105,7 @@ function ReviewChecks({ strategy, facts, sources }) {
 // A partial or older API response must never enable a publish confirmation.
 export function usablePageAssessment(review) {
   const analysis = review?.analysis;
-  if (!analysis || ![5, 6].includes(review.provenance?.reviewVersion) || !Object.hasOwn(actions, analysis.action) ||
+  if (!analysis || ![5, 6, 'follow_up_1'].includes(review.provenance?.reviewVersion) || !Object.hasOwn(actions, analysis.action) ||
     !Object.hasOwn(metadataVerdicts, analysis.metadataVerdict) || typeof analysis.metadataReason !== 'string' || !analysis.metadataReason.trim() ||
     !['summary', 'reason', 'nextStep'].every(key => typeof analysis[key] === 'string' && analysis[key].trim()) ||
     !Array.isArray(analysis.evidenceIds) || !Array.isArray(review.evidence?.facts) ||
@@ -123,7 +123,7 @@ export function usablePageAssessment(review) {
     ...(review.research.status === 'available' ? review.research.sources.filter(source => webUrl(source.url)).map(source => source.id) : []),
   ]);
   if (analysis.evidenceIds.some(id => typeof id !== 'string' || !knownIds.has(id)) || !usableStrategy(analysis.strategy, knownIds) || !usableRecommendations(review, knownIds)) return false;
-  if (review.provenance.reviewVersion >= 6 && !usableSearchFocus(analysis.searchFocus, knownIds)) return false;
+  if ((review.provenance.reviewVersion >= 6 || review.provenance.reviewVersion === 'follow_up_1') && !usableSearchFocus(analysis.searchFocus, knownIds)) return false;
   if ((analysis.action === 'revise_metadata') !== (analysis.metadataVerdict === 'revise') ||
     (analysis.action === 'keep_current' && analysis.metadataVerdict !== 'keep') ||
     (analysis.action === 'investigate_visibility' && !analysis.evidenceIds.some(id => /^(?:S|Q|H|I)\d+$/.test(id) || id === 'P4'))) return false;

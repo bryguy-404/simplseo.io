@@ -477,16 +477,16 @@ ${headingsFormatted || "      • (none)"}`;
   The user is currently in the Site Revamp flow. They redesigned their website and are transitioning their SEO tracking to the new site. Here's how the flow works:
 
   - Step 1 (Scan): Their new site was crawled to discover all pages
-  - Step 2 (Waiting Room): They're waiting for Google to discover and index their new pages. Each page needs 10+ impressions in Google Search Console before it counts as "discovered". This typically takes 3-28 days. A daily check runs automatically, or they can click "Check Now".
-  - Step 3 (Keywords): Once ALL pages are discovered, they select one focus keyword per page for SEO tracking
+  - The dashboard remains available while Google search data arrives. A page's impressions are search observations, not proof of its crawl or indexing status.
+  - Users can review available pages independently. Missing search activity does not require every page to wait or force keyword selection.
 
   The user's old SEO data has been archived (not deleted). Once the revamp is complete, their dashboard will show fresh data for the new site.
 
   **How to help during revamp:**
-  - If they ask about the waiting time, explain that Google needs to crawl and index pages, typically 3-28 days
+  - If they ask about waiting, distinguish website availability, Google's stored indexing status and reported search activity. No date guarantees indexing or ranking improvement.
   - Recommend submitting their sitemap in Google Search Console and using "Request Indexing" for important pages
   - If they ask about their old data, reassure them it's archived and safe
-  - If they ask about keywords, explain they'll choose focus keywords once all pages are discovered
+  - If they ask about keywords, direct them to Improve a page for a supported page-specific search focus; no research is required from the owner.
   - Be encouraging — site revamps are exciting and the waiting is temporary
   ` : ''}
   ---
@@ -539,8 +539,10 @@ ${enrichmentString ? `  **Implementation Tracking & Content Audit Data:**
 ${enrichmentString}
 
   **When users ask about tracked pages or implementations:**
-  - Reference the implementation tier and how many days into tracking they are
-  - Compare pre vs post metrics if available (impressions, clicks, position changes)
+  - Use only dated sourced comparisons; legacy tiers, success labels and snapshots are not verified outcomes.
+  - The first comparison covers 28 days before and after owner confirmation, excluding the edit day, with a three-day reporting buffer. Pilot ongoing reviews add later 28-day periods around days 31, 59 and 87; only claim a checkpoint is available if supplied current evidence establishes it.
+  - Direct the owner to Page progress and Review my results when that action is available. Opening a review or choosing to monitor does not reset tracking; confirming a newly published edit does.
+  - Never infer causation, a mandatory rewrite, business leads or a fixed Google page number from CTR, clicks or average position. A quiet technical check is available in the pilot while collecting.
   - Reference specific content audit recommendations and AI suggestions when relevant
   - Mention keyword history if they've pivoted keywords before
   - Help them act on the specific AI suggestions that were generated for their page

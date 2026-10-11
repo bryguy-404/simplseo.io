@@ -9,6 +9,7 @@ docs
 playwright-report
 test-results
 coverage
+tmp
 recovery-backups
 *-debug.log
 CHAT_REFERENCE.md

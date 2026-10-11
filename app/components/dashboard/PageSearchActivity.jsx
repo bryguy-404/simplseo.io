@@ -46,6 +46,20 @@ export function usablePageActivity(result, { property, pageUrl, websiteRunId }) 
         : dayValue(evidence.history[index - 1].window.startDate) - dayValue(period.window.endDate) === 86400000));
 }
 
+// Saved follow-up plans carry exact checkpoint observations, not six rolling
+// history windows. Validate that explicit schema without relaxing normal reads.
+export function usableConfirmedChangeActivity(review, { property, pageUrl, websiteRunId }) {
+  const { evidence, provenance } = review || {};
+  const validPeriod = period => validTotals(period) && validStatus(period?.queriesStatus) && Array.isArray(period.queries) && period.queries.length <= 100 &&
+    period.queries.every(row => typeof row?.query === 'string' && row.query.trim() && validMetrics(row) && (row.position == null || (Number.isFinite(row.position) && row.position >= 1)));
+  return provenance?.reviewVersion === 'follow_up_1' && provenance.property === property && provenance.pageUrl === pageUrl &&
+    (provenance.websiteRunId || null) === (websiteRunId || null) && evidence?.source === 'google_search_console' &&
+    evidence.property === property && evidence.pageUrl === pageUrl && evidence.comparisonKind === 'confirmed_change' &&
+    typeof evidence.checkpointId === 'string' && Boolean(evidence.checkpointId) && Number.isFinite(Date.parse(evidence.fetchedAt)) &&
+    validWindow(evidence.window) && validWindow(evidence.previousWindow) && dayValue(evidence.previousWindow.endDate) < dayValue(evidence.window.startDate) &&
+    validPeriod(evidence.current) && validPeriod(evidence.previous) && Array.isArray(evidence.history) && evidence.history.length === 0;
+}
+
 const periodLabel = window => window?.startDate && window?.endDate ? `${window.startDate}–${window.endDate}` : 'Dates unavailable';
 
 export default function PageSearchActivity({ pageUrl, evidence, busy, error, onRetry }) {

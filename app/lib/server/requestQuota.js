@@ -35,7 +35,11 @@ export async function consumePageReviewQuota(userId) {
     return { ref: db.collection('requestLimits').doc(key), limit, expiresAt: new Date((bucket + 2) * duration) };
   });
   await db.runTransaction(async tx => {
-    const previous = await Promise.all(entries.map(entry => tx.get(entry.ref)));
+    const [user, setup, ...previous] = await Promise.all([
+      tx.get(db.collection('users').doc(userId)), tx.get(db.collection('onboarding').doc(userId)),
+      ...entries.map(entry => tx.get(entry.ref)),
+    ]);
+    if (!user.exists || user.data()?.deletionInProgress || !setup.exists) throw new RequestError('Your account changed. Reload to continue.', 409);
     if (entries.some((entry, index) => (previous[index].data()?.count || 0) >= entry.limit)) {
       throw new RequestError('Your page review limit has been reached (5 per minute, 20 per day). Please try again later. You can still view your page and search activity.', 429);
     }
@@ -52,7 +56,7 @@ export async function consumeNewPageQuota(userId, kind) {
   const ref = db.collection('requestLimits').doc(key);
   await db.runTransaction(async tx => {
     const [previous, user, setup] = await Promise.all([tx.get(ref), tx.get(db.collection('users').doc(userId)), tx.get(db.collection('onboarding').doc(userId))]);
-    if (!user.exists || !setup.exists) throw new RequestError('Your account changed. Reload to continue.', 409);
+    if (!user.exists || user.data()?.deletionInProgress || !setup.exists) throw new RequestError('Your account changed. Reload to continue.', 409);
     const count = previous.data()?.count || 0;
     if (count >= limit) throw new RequestError(`Today’s new-page ${kind} allowance is used (${limit} per day). Saved work remains available. Try again tomorrow.`, 429);
     tx.set(ref, { userId, feature: 'new_page_planning', kind, count: count + 1, expiresAt: new Date((bucket + 2) * 86400000) });

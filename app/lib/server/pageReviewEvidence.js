@@ -115,37 +115,51 @@ function evidenceFacts(currentPage, evidence) {
 }
 
 /** Read-only, bounded evidence for one authenticated account's exact current page. */
-export async function collectPageReviewEvidence(userId, { pageUrl, property, currentPage, focusKeywords = [], now = new Date() }) {
+export async function collectPageReviewEvidence(userId, { pageUrl, property, currentPage, focusKeywords = [], now = new Date(), deadline, signal, comparisonWindows }) {
   if (typeof property !== 'string' || !property || !isScopedPage(property, pageUrl)) {
     throw new RequestError('Page must belong to your connected Search Console property.', 403);
   }
   if (!(now instanceof Date) || !Number.isFinite(now.getTime())) throw new RequestError('A valid observation time is required.');
   const phrase = firstPhrase(focusKeywords);
-  const window = searchWindow('28', now);
-  const previousWindow = { startDate: shiftDay(window.startDate, -28), endDate: shiftDay(window.startDate, -1) };
-  const history = Array.from({ length: HISTORY_WINDOW_COUNT }, (_, index) => ({
+  const recent = searchWindow('28', now);
+  if (comparisonWindows) {
+    const valid = period => period && ['startDate', 'endDate'].every(key => typeof period[key] === 'string'
+      && /^\d{4}-\d{2}-\d{2}$/.test(period[key]) && Number.isFinite(Date.parse(period[key]))
+      && new Date(period[key]).toISOString().slice(0, 10) === period[key])
+      && Date.parse(period.endDate) - Date.parse(period.startDate) === 27 * 86400000;
+    if (!valid(comparisonWindows.baseline) || !valid(comparisonWindows.post)
+      || comparisonWindows.baseline.endDate >= comparisonWindows.post.startDate
+      || comparisonWindows.post.endDate > recent.endDate) throw new RequestError('Use completed, equal-length comparison periods.', 409);
+  }
+  const window = comparisonWindows ? { ...comparisonWindows.post } : recent;
+  const previousWindow = comparisonWindows ? { ...comparisonWindows.baseline }
+    : { startDate: shiftDay(window.startDate, -28), endDate: shiftDay(window.startDate, -1) };
+  const history = Array.from({ length: comparisonWindows ? 2 : HISTORY_WINDOW_COUNT }, (_, index) => ({
     window: { startDate: shiftDay(window.startDate, -28 * index), endDate: shiftDay(window.endDate, -28 * index) },
     totals: null, totalsStatus: 'unavailable',
   }));
+  if (comparisonWindows) { history[0].window = window; history[1].window = previousWindow; }
   const emptyPeriod = () => ({ totals: null, queries: [], totalsStatus: 'unavailable', queriesStatus: 'unavailable',
     queryCoverage: { coverage: 'reported_queries', mayBeIncomplete: true, requestedLimit: QUERY_LIMIT,
       returnedRows: null, selectedForReview: null, hitRowLimit: null, order: 'impressions_descending' } });
   const evidence = {
     source: 'google_search_console', property, pageUrl, window, previousWindow, fetchedAt: now.toISOString(),
     status: 'unavailable', current: emptyPeriod(), previous: emptyPeriod(), relatedPages: [], history,
+    ...(comparisonWindows ? { comparisonKind: 'confirmed_change' } : {}),
     relatedPagesStatus: phrase ? 'unavailable' : 'not_requested',
     selectedPhrase: { value: phrase, source: phrase ? 'provided' : 'none' },
     limitations: [
       'Search Console query and page rows are limited samples and may omit searches for privacy. Page totals are requested separately, never summed from query rows.',
       'Each recent period requests up to 1,000 query rows. Google returns top rows by clicks; the returned rows are then ordered by appearances, and at most 40 current queries become individual review facts. Even a response below the limit is not a complete list of searches.',
-      'History covers six adjacent 28-day windows (168 days) of finalized web-search data, newest first. The newest three days are excluded. These are not a before-and-after test of a confirmed edit.',
+      comparisonWindows ? 'These two exact 28-day periods belong to a saved confirmed-change checkpoint. They are dated observations, not a controlled test or proof of causation.'
+        : 'History covers six adjacent 28-day windows (168 days) of finalized web-search data, newest first. The newest three days are excluded. These are not a before-and-after test of a confirmed edit.',
       'Historical activity belongs to this exact URL and may span earlier website versions. The age of the current title, description and page content is unknown; this history does not measure how long the current wording has been in use.',
       'Search activity does not establish whether a page is indexed, explain a ranking cause, or predict improvement from a proposed change.',
     ],
     facts: [],
   };
   let connection;
-  try { connection = await getGscConnection(userId); }
+  try { connection = await getGscConnection(userId, { deadline, signal }); }
   catch {
     evidence.limitations.push('Search Console could not be read for this review. No missing metrics have been treated as zero.');
     evidence.facts = evidenceFacts(currentPage, evidence);
@@ -166,7 +180,11 @@ export async function collectPageReviewEvidence(userId, { pageUrl, property, cur
     ...common(window), dimensions: ['page'], rowLimit: RELATED_PAGE_LIMIT,
     dimensionFilterGroups: [{ groupType: 'and', filters: [{ dimension: 'query', operator: 'equals', expression: phrase }] }],
   });
-  const results = await Promise.allSettled(plans.map(plan => Promise.resolve().then(() => connection.query(plan))));
+  const oldest = new Date(now); oldest.setUTCMonth(oldest.getUTCMonth() - 16);
+  const results = await Promise.allSettled(plans.map(plan => Promise.resolve().then(() => {
+    if (comparisonWindows && plan.startDate < oldest.toISOString().slice(0, 10)) throw new Error('Comparison predates available Google history.');
+    return connection.query(plan);
+  })));
   let successfulQueries = 0;
   for (const [index, key, field] of [
     [0, 'current', 'totals'], [1, 'current', 'queries'], [2, 'previous', 'totals'], [3, 'previous', 'queries'],
@@ -193,7 +211,7 @@ export async function collectPageReviewEvidence(userId, { pageUrl, property, cur
     history[index].totals = evidence[key].totals;
     history[index].totalsStatus = evidence[key].totalsStatus;
   }
-  for (let index = 2; index < HISTORY_WINDOW_COUNT; index += 1) {
+  for (let index = 2; index < history.length; index += 1) {
     try {
       const result = results[index + 2];
       if (result.status !== 'fulfilled') invalid();
@@ -207,8 +225,9 @@ export async function collectPageReviewEvidence(userId, { pageUrl, property, cur
   }
   if (phrase) {
     try {
-      if (results[8].status !== 'fulfilled') invalid();
-      evidence.relatedPages = readDimension(results[8].value, { limit: RELATED_PAGE_LIMIT, field: 'pageUrl', property }).filter(row => row.pageUrl !== pageUrl);
+      const related = results[plans.length - 1];
+      if (related.status !== 'fulfilled') invalid();
+      evidence.relatedPages = readDimension(related.value, { limit: RELATED_PAGE_LIMIT, field: 'pageUrl', property }).filter(row => row.pageUrl !== pageUrl);
       evidence.relatedPagesStatus = evidence.relatedPages.length ? 'available' : 'no_data';
       successfulQueries += 1;
     } catch { evidence.limitations.push('Other pages for the selected search phrase could not be read or validated.'); }

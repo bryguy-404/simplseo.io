@@ -13,17 +13,17 @@ import { readPageReviewPlanForUpdate, savePageReviewPlan } from './pageReviewPla
 import { PAGE_REVIEW_VERSION, comparePageReviewUpdate, pageReviewUpdateBaseline, pageReviewUpdateLimitation } from './pageReviewUpdates';
 import { PAGE_REVIEW_MODEL, PAGE_REVIEW_TIMELINE, buildReviewRequest, buildResearchRequest, responseText, validatePageAssessment, parseWebResearch } from '../pageReviewPolicy';
 
-export async function readCurrentPageForReview(userId, pageUrl) {
+export async function readCurrentPageForReview(userId, pageUrl, { deadline, signal } = {}) {
   let parsed;
   try { parsed = new URL(pageUrl); } catch { throw new RequestError('Enter a valid page URL.'); }
   if (typeof pageUrl !== 'string' || pageUrl.length > 2048 || parsed.username || parsed.password || parsed.hash) throw new RequestError('Use the full public page URL without a fragment or login details.');
-  const [snapshot, connection] = await Promise.all([db.collection('onboarding').doc(userId).get(), getGscConnection(userId)]);
+  const [snapshot, connection] = await Promise.all([db.collection('onboarding').doc(userId).get(), getGscConnection(userId, { deadline, signal })]);
   if (!snapshot.exists) throw new RequestError('Complete your website setup before reviewing a page.', 409);
   const onboarding = snapshot.data();
   const property = onboarding.gscProperty || connection.siteUrl;
   if (property !== connection.siteUrl) throw new RequestError('Your website connection changed. Reconnect Search Console and try again.', 409);
   if (!propertyContainsUrl(property, pageUrl)) throw new RequestError('Page must belong to your connected Search Console property.', 403);
-  const currentPage = await fetchCurrentPageContent(pageUrl, { property });
+  const currentPage = await fetchCurrentPageContent(pageUrl, { property, deadline, signal });
   const websiteRunId = onboarding.revampRunId || null;
   const contentFingerprint = createHash('sha256').update(JSON.stringify({
     userId, websiteRunId, property, pageUrl, finalUrl: currentPage.finalUrl,
@@ -32,12 +32,12 @@ export async function readCurrentPageForReview(userId, pageUrl) {
     mainContent: currentPage.mainContent, contentSections: currentPage.contentSections,
     internalLinks: currentPage.internalLinks, technical: currentPage.technical,
   })).digest('hex');
-  await assertReviewStillCurrent(userId, { property, websiteRunId });
+  await assertReviewStillCurrent(userId, { property, websiteRunId }, { deadline, signal });
   return { currentPage, provenance: { property, websiteRunId, pageUrl, finalUrl: currentPage.finalUrl, contentFingerprint } };
 }
 
-async function assertReviewStillCurrent(userId, provenance) {
-  const [snapshot, connection] = await Promise.all([db.collection('onboarding').doc(userId).get(), getGscConnection(userId)]);
+async function assertReviewStillCurrent(userId, provenance, { deadline, signal } = {}) {
+  const [snapshot, connection] = await Promise.all([db.collection('onboarding').doc(userId).get(), getGscConnection(userId, { deadline, signal })]);
   const onboarding = snapshot.data();
   if (!onboarding || (onboarding.revampRunId || null) !== provenance.websiteRunId
     || (onboarding.gscProperty || connection.siteUrl) !== provenance.property || connection.siteUrl !== provenance.property) {
