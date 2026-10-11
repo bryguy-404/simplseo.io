@@ -104,6 +104,10 @@ Verification: **753 unit/API tests in 41 files** passed; lint has no errors and 
 
 The isolated production build and **48 affected browser/security cases** passed (32 UI, seven actual API, nine Firestore rules). Desktop and mobile confirmation dialogs and the saved removed-pages section were visually checked. Tests cover cancellation, restoration, stale revisions, preservation of unsaved plan edits, and denied direct client reads/writes of retirement proofs.
 
+Released application commit `c46bd17` as **READY** deployment `dpl_Bn5QFHVRsJDSWNFNBnnAp5BRnE6C` (`https://simplseo-a162emyo5-bryan-arambulas-projects.vercel.app`) and promoted to the unchanged public URL. The production build passed in 3m 32s; both staged workspace reads and retirement writes returned the expected private/no-store JSON 401 without an app session. The preceding deployment `dpl_3gvcJFopHyo8ct9kMYz5vM431TgN` remains available for rollback; removal declarations and saved work are retained in Firestore, although the older UI does not offer the new resolution flow.
+
+Using Bryan's explicit clarification that the discontinued SEO services are irrelevant, the new API freshly verified and retired only the eight `/services/seo` URLs in the current account/property/website version at `2026-10-11T03:09:17.182Z`. The action preserved 22 inspected setup, plan, assessment and history records and made no AI request or website/publication change. A subsequent full inventory refresh at `2026-10-11T03:10:24.480Z` retained all eight declarations: 31 links, 21 fetched, two excluded downloads, eight retired, zero failed/pending. All 11 anonymous and 11 cross-account checks passed, and the existing-page plan/archive remained unchanged. The authenticated live UI shows **Website review saved**, **Removed pages (8)**, and an explicit **Check for updates** next step. No new opportunity assessment was generated on the owner's behalf. The post-release error-level log scan returned no entries.
+
 ## Live checkpoints
 
 1. **Inventory and area:** Bryan checks the recognized services, actual target area and existing coverage. Confirming an area does not declare publication.
