@@ -68,6 +68,14 @@ Automated release checks cover inventory bounds/uncertainty, decisions, factual 
 - Private rules and the monitoring index were deployed to the existing Firebase project. No website publication or owner service-area confirmation was made as part of automated verification.
 - First production checks passed all 10 anonymous and 10 cross-account boundaries, retired all five legacy writes, and preserved the existing homepage plan and 18 archive records. No AI calls or publications were made. Both manual collectors completed; their stored run health separates existing pages from the empty new-page queue. Actual overnight execution remains a separate checkpoint.
 
+### Final live release
+
+Application commit `518f08b` is deployed as `dpl_97zz6HWYs9uvECDB7gVSGT5sRCrT`, status **READY**, at the unchanged public URL [New page ideas](https://simplseo-io.vercel.app/generic-keywords). The exact build is `https://simplseo-2ol72lezs-bryan-arambulas-projects.vercel.app`; production build took 3m 4s. Firestore's new monitoring index is **READY**.
+
+Live verification at `2026-10-11T01:58:31Z` passed again on the final build. Generation is enabled, saved reads are private/no-store, the existing homepage plan and historical work are unchanged, and no new owner context or publication was confirmed. There were zero AI calls during live discovery. Bryan's inventory discovered **31 URLs: 21 fetched HTML pages, two excluded installer downloads and eight HTTP 404 URLs**, with no pending URLs or cap truncation. Coverage remains honestly partial. The 404s are `/services/seo` and its Fort Wayne, Goshen, LaPorte, Mishawaka, Niles, South Bend and Warsaw paths. They require review rather than being treated as proof of a new-page opportunity.
+
+The existing one-time morning follow-up now includes both website collectors and backlog/failure reporting. It must observe real scheduled execution. Bryan's next checkpoint is to review the actual inventory and confirm services/area; assessment, any qualifying draft and real publication remain owner-led checkpoints.
+
 ## Live checkpoints
 
 1. **Inventory and area:** Bryan checks the recognized services, actual target area and existing coverage. Confirming an area does not declare publication.
