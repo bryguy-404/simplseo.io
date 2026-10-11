@@ -84,6 +84,14 @@ Verification: **723 unit/API tests in 41 files**, **34 affected compiled browser
 
 Released `5163635` as **READY** deployment `dpl_3yxUUVSNHZJKZF5yieQ4vta92JhA` (`https://simplseo-755hq5o9h-bryan-arambulas-projects.vercel.app`) and promoted to the unchanged public URL. The production build passed in 3m 7s. The staged API returned the expected private/no-store JSON 401. Live owner verification at `2026-10-11T02:18:44.220Z` confirmed the three concise suggestions, all 10 anonymous and 10 cross-account boundaries, and preservation of the existing saved plan and 18 archive records. Owner context remains unconfirmed; no AI, inventory refresh or publication occurred during this check. A post-release error-level log scan returned no entries. The eight existing SEO-page 404s remain a separate coverage concern. Rollback to the preceding deployment preserves stored data.
 
+### Website-review message follow-up
+
+Application commit `93a4871` makes incomplete reviews actionable: discovered URLs are called links, failed/unreviewed pages get an explicit list of links to check with readable reasons, and the next steps use the actual button names. The UI distinguishes SimplSEO's fetch results from Google's indexing status. Previously saved generic coverage questions display the improved wording without an AI call or stored-data migration. This changes presentation and deterministic guidance only; recommendation eligibility and the website remain unchanged.
+
+Scoped lint, all **54 planning tests**, the isolated production build, and **two targeted browser cases** passed. Desktop and 390px mobile views were checked, including URL wrapping and the legacy saved-message case.
+
+Released as **READY** deployment `dpl_3gvcJFopHyo8ct9kMYz5vM431TgN` (`https://simplseo-oqroulj2g-bryan-arambulas-projects.vercel.app`) and promoted to the existing public URL. Production build passed, the staged unauthenticated API returned private/no-store JSON 401, and the live page bundle contains the new explanations. Read-only owner verification at `2026-10-11T02:31:40.847Z` passed all authentication boundaries and preserved existing work. Bryan's area is now owner-confirmed; the verification itself made no confirmations, AI calls, publication or inventory changes. The post-release error-level log scan returned no entries.
+
 ## Live checkpoints
 
 1. **Inventory and area:** Bryan checks the recognized services, actual target area and existing coverage. Confirming an area does not declare publication.
