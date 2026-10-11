@@ -1,0 +1,76 @@
+{
+  "releaseDate": "2026-10-11",
+  "verifiedAt": "2026-10-11T07:24:13.098Z",
+  "deploymentId": "dpl_4GcdF3NFCAhrMboFtuhzfHfYY9Sf",
+  "deploymentUrl": "https://simplseo-1o0vmpeqq-bryan-arambulas-projects.vercel.app",
+  "publicUrl": "https://simplseo-io.vercel.app",
+  "applicationCommit": "35bd906",
+  "coreCommit": "e829ca0",
+  "enrollment": "Bryan pilot only; existing completed accounts retain dashboard access",
+  "firecrawl": {
+    "enabled": false,
+    "evaluated": false,
+    "requests": 0,
+    "reason": "Credentials unavailable; live rendering evaluation required before enablement"
+  },
+  "validation": {
+    "unitTests": 1020,
+    "unitFiles": 56,
+    "browserApiRulesDistinctScenarios": 160,
+    "finalOnboardingBrowserCases": 25,
+    "productionBuild": "passed",
+    "lintErrors": 0,
+    "existingLintWarnings": 9
+  },
+  "staged": {
+    "verifiedAt": "2026-10-11T07:21:03.777Z",
+    "origin": "https://simplseo-1o0vmpeqq-bryan-arambulas-projects.vercel.app",
+    "pilotEnabled": true,
+    "profileStatus": "legacy",
+    "anonymousChecks": 6,
+    "retainedDocuments": 11,
+    "setupSessionCreated": false,
+    "currentHomepagePlan": true,
+    "activeHomepageCycles": 0,
+    "savedReadsUsedAI": false,
+    "publicationsConfirmed": 0,
+    "writesDuringVerification": 0,
+    "retiredTokenWriteStatus": 410,
+    "existingAccountCheckpoint": "Owner optionally reviews and confirms real business facts in Settings."
+  },
+  "live": {
+    "verifiedAt": "2026-10-11T07:23:36.105Z",
+    "origin": "https://simplseo-io.vercel.app",
+    "pilotEnabled": true,
+    "profileStatus": "legacy",
+    "anonymousChecks": 6,
+    "retainedDocuments": 11,
+    "setupSessionCreated": false,
+    "currentHomepagePlan": true,
+    "activeHomepageCycles": 0,
+    "savedReadsUsedAI": false,
+    "publicationsConfirmed": 0,
+    "writesDuringVerification": 0,
+    "retiredTokenWriteStatus": 410,
+    "existingAccountCheckpoint": "Owner optionally reviews and confirms real business facts in Settings."
+  },
+  "initialLivePreservationCheck": "Detected concurrent normal Google credential refresh while the browser opened the dashboard. Repeated without concurrent browser activity; all preservation assertions passed.",
+  "ttlPolicies": {
+    "pendingGscConnections": "ACTIVE",
+    "gscOAuthStates": "ACTIVE"
+  },
+  "runtimeErrorsInQueriedReleaseWindow": 0,
+  "liveBrowser": {
+    "dashboardAccessible": true,
+    "optionalProfilePromptVisible": true,
+    "settingsReviewEntryVisible": true,
+    "businessDetailsConfirmedByAgent": false
+  },
+  "remainingCheckpoints": [
+    "Owner reviews isolated preview",
+    "Owner optionally confirms real business profile",
+    "Authorized fresh-account Google consent, completion and resume",
+    "Firecrawl real-website evaluation and privacy disclosure before enablement",
+    "Actual scheduled collector invocation after this deployment"
+  ]
+}

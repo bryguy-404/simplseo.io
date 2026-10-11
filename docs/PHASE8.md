@@ -87,3 +87,11 @@ Live checkpoints remain distinct from automated tests:
 5. Correlate actual scheduled collection with persisted connection refresh/run health. Manual API checks do not establish that a schedule fired.
 
 The existing homepage and new-page pilots continue. Only Bryan's real published edits can start measurement cycles; this onboarding release does not create one.
+
+## Production pilot release — October 11, 2026
+
+Application commit `35bd906` (core implementation `e829ca0`) was built with production settings, verified before promotion, and promoted as `dpl_4GcdF3NFCAhrMboFtuhzfHfYY9Sf` to the existing public URL. Enrollment is limited to Bryan's account; both Firecrawl switches remain false. Firestore rules/indexes deployed successfully, and both staged-credential TTL policies are ACTIVE.
+
+Staged and public saved-state checks passed: six anonymous boundaries rejected access, 11 inspected records retained their contents/update times, the homepage plan remained available, and reads created no setup session, AI usage, cycle or publication confirmation. The first public preservation check overlapped the browser's normal Google credential refresh; the unchanged-record check passed when repeated without concurrent browser activity. The live dashboard and optional Settings profile entry were also inspected. The existing Google connection refreshed successfully during normal dashboard use; this is not verification of a scheduled invocation.
+
+Bryan's profile remains labeled legacy until he chooses **Settings → Profile → Review business details** and confirms his real services/areas. No owner confirmation was submitted by the agent. No runtime errors appeared in the queried release window. Fresh-account consent/resume, owner profile confirmation, Firecrawl evaluation and an actual post-release scheduled run remain separate live checkpoints. The public evidence record is [phase8-release.json](evidence/phase8-release.json).
