@@ -103,3 +103,29 @@ describe('technical observations and URL boundaries', () => {
     expect((await read()).textContent).toBe('');
   });
 });
+
+describe('bounded first-party JSON-LD observations', () => {
+  it('extracts service, area and FAQ statements before removing scripts without treating them as verified', async () => {
+    publicFetch.mockResolvedValue(response(`<script type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@graph': [
+      { '@type': 'LocalBusiness', name: 'Example Plumbing', address: { addressLocality: 'South Bend', addressRegion: 'Indiana' }, areaServed: [{ name: 'South Bend' }], serviceType: ['Drain cleaning'] },
+      { '@type': 'Question', name: 'Do you offer quotes?', acceptedAnswer: { '@type': 'Answer', text: 'Contact us to request a quote.' } },
+    ] })}</script><main><h1>Example Plumbing</h1><p>Public website copy.</p></main>`));
+    const result = await read();
+    expect(result.structuredData.items).toEqual(expect.arrayContaining([
+      expect.objectContaining({ types: ['LocalBusiness'], name: 'Example Plumbing', address: 'South Bend, Indiana', areaServed: ['South Bend'], serviceType: ['Drain cleaning'] }),
+      expect.objectContaining({ types: ['Question'], name: 'Do you offer quotes?', answer: 'Contact us to request a quote.' }),
+    ]));
+    expect(result.structuredData.limitation).toContain('not verified'); expect(result.mainContent).not.toContain('schema.org');
+  });
+  it('keeps malformed and oversized JSON-LD as explicit limitations without executing script or failing the page', async () => {
+    publicFetch.mockResolvedValue(response(`<script type="application/ld+json">{broken</script><script type="application/ld+json">${'x'.repeat(40000)}</script><script>throw new Error('never execute')</script><main>Public text</main>`));
+    const result = await read(); expect(result.structuredData.malformed).toBe(1); expect(result.structuredData.truncated).toBe(true); expect(result.mainContent).toBe('Public text');
+  });
+  it('caps script count, recursive typed records and supplied string sizes', async () => {
+    const script = `<script type="application/ld+json">${JSON.stringify(Array.from({ length: 60 }, (_, index) => ({ '@type': 'Service', name: 'x'.repeat(index === 0 ? 500 : 20), description: 'y'.repeat(index === 0 ? 2000 : 30) })))}</script>`;
+    publicFetch.mockResolvedValue(response(`${script.repeat(12)}<main>Public content</main>`));
+    const result = await read(); expect(result.structuredData.scriptCount).toBe(12); expect(result.structuredData.truncated).toBe(true);
+    expect(result.structuredData.items.length).toBe(40);
+    expect(result.structuredData.items.every(item => item.name.length <= 300 && item.description.length <= 1200)).toBe(true);
+  });
+});

@@ -122,7 +122,7 @@ Every recommendation cites at least one selected-page/inspection fact (P or I); 
 6. Read any linked-page comparison before proposing more investigation. It compares up to three exact phrases for the current and previous periods, separately for each fetched related URL. Compare those phrases with the selected page's supplied observations. Missing query rows are not proof of zero traffic, no demand or competition between the pages. Consider whether the homepage or a specific service/product page best serves the visitor's intent without presuming cannibalization. Do not ask the owner to repeat a supplied comparison in Search Console. A confirmed indexing/access blocker takes priority over cosmetic changes. A substantial grounded edit can take priority over optional research, but a tiny easy edit must not displace a more consequential specific uncertainty. Data gathering is not a substitute for an already-supported action.
 7. Tie recommendations to the server-provided review checkpoints; these are estimates for checking recrawl and trends, not waiting-room gates or promised improvements. Do not ask the owner to leave SimplSEO to get evidence already supplied here. The interface shows dates, positions, inspection links and monitoring checkpoints separately, so focus the prose on the next useful action.`;
 
-export function buildReviewRequest({ currentPage, evidence, research, diagnostics, ownerGoal = '', focusKeywords = [], priorTasks = [], model = PAGE_REVIEW_MODEL }) {
+export function buildReviewRequest({ currentPage, evidence, research, diagnostics, ownerGoal = '', focusKeywords = [], businessProfile, priorTasks = [], model = PAGE_REVIEW_MODEL }) {
   // The browser may inspect up to 1,000 reported queries. Keep the model input
   // bounded, preserving the highest-impression observations and their IDs.
   const modelEvidence = { ...evidence,
@@ -152,6 +152,8 @@ export function buildReviewRequest({ currentPage, evidence, research, diagnostic
           mainContent: currentPage.mainContent, contentSections: currentPage.contentSections,
           technical: currentPage.technical, internalLinks: currentPage.internalLinks, structureCoverage: currentPage.structureCoverage, structuralLimitations: currentPage.structuralLimitations },
         ownerGoal, optionalFocusKeywords: focusKeywords,
+        ...(businessProfile ? { confirmedBusinessProfile: businessProfile,
+          businessProfileGuidance: 'Owner-confirmed business facts are context, not website observations or proof of search demand. Respect services and areas actually offered; explain conflicts with page content. Keep proposed page edits grounded in the supplied page evidence.' } : {}),
         priorTasks: (Array.isArray(priorTasks) ? [...priorTasks] : [])
           .sort((a, b) => Number(['done', 'dismissed'].includes(a?.status)) - Number(['done', 'dismissed'].includes(b?.status)))
           .slice(0, 12).map(task => {

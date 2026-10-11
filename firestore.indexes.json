@@ -4,54 +4,108 @@
       "collectionGroup": "pageProgressCycles",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "lifecycle", "order": "ASCENDING" },
-        { "fieldPath": "nextCheckAt", "order": "ASCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lifecycle",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextCheckAt",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "pageProgressCycles",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "property", "order": "ASCENDING" },
-        { "fieldPath": "websiteRunId", "order": "ASCENDING" },
-        { "fieldPath": "lifecycle", "order": "ASCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "property",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "websiteRunId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lifecycle",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "pageProgressCycles",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "property", "order": "ASCENDING" },
-        { "fieldPath": "websiteRunId", "order": "ASCENDING" },
-        { "fieldPath": "lifecycle", "order": "ASCENDING" },
-        { "fieldPath": "pageUrl", "order": "ASCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "property",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "websiteRunId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lifecycle",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "pageUrl",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "pageProgressCycles",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "lifecycle", "order": "ASCENDING" },
-        { "fieldPath": "nextCheckAt", "order": "ASCENDING" }
+        {
+          "fieldPath": "lifecycle",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextCheckAt",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "pageProgressCycles",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "confirmedAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "confirmedAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "newPagePublications",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "trackingEnabled", "order": "ASCENDING" },
-        { "fieldPath": "nextCheckAt", "order": "ASCENDING" }
+        {
+          "fieldPath": "trackingEnabled",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextCheckAt",
+          "order": "ASCENDING"
+        }
       ]
     }
   ],
@@ -65,6 +119,18 @@
     {
       "collectionGroup": "aiUsageEvents",
       "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "pendingGscConnections",
+      "fieldPath": "deleteAfterAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "gscOAuthStates",
+      "fieldPath": "deleteAfterAt",
       "ttl": true,
       "indexes": []
     }

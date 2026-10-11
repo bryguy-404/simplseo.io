@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { db } from '../firebaseAdmin';
 import { propertyContainsUrl } from '../revampState';
 import { RequestError } from './requestAuth';
+import { accountWebsiteScope, businessProfileRef, profileEvidence, profileCompatibilityFields } from './businessProfile';
 
 const identity = scope => [scope.userId, scope.property, scope.websiteRunId || null, scope.websiteUrl];
 export const newPageScopeKey = scope => createHash('sha256').update(JSON.stringify(identity(scope))).digest('hex');
@@ -35,7 +36,12 @@ export async function readNewPageScope(userId, { write = false, tx } = {}) {
     throw new RequestError('Choose a valid website within your connected Search Console property.', 409);
   }
   website.search = '';
+  const profileRef = businessProfileRef(userId, accountWebsiteScope(setup, user, legacy));
+  const profile = (await (tx ? tx.get(profileRef) : profileRef.get())).data();
+  const businessContext = profile ? profileEvidence({ ...profile, status: 'confirmed' }) : null;
+  const confirmed = profile ? profileCompatibilityFields(profile.profile) : null;
   return { userId, property, websiteRunId: setup.revampRunId || null, websiteUrl: website.href,
-    businessName: setup.businessName || user.businessName || '',
-    businessLocation: setup.businessLocation || user.businessLocation || setup.location || '' };
+    ...(businessContext ? { businessContext } : {}),
+    businessName: confirmed?.businessName || setup.businessName || user.businessName || '',
+    businessLocation: confirmed?.businessLocation || setup.businessLocation || user.businessLocation || setup.location || '' };
 }

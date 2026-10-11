@@ -22,9 +22,10 @@ function canonical(value, key = '', queryLimit = Infinity) {
 }
 
 function fingerprint(context, queryLimit = Infinity) {
-  const { currentPage, evidence, diagnostics, ownerGoal = '', focusKeywords = [], provenance } = context;
+  const { currentPage, evidence, diagnostics, ownerGoal = '', focusKeywords = [], provenance, businessProfile } = context;
   return createHash('sha256').update(JSON.stringify(canonical({
     currentPage, evidence, diagnostics, ownerGoal, focusKeywords,
+    ...(businessProfile ? { businessProfile: { ...businessProfile, confirmedAt: null } } : {}),
     property: provenance.property, websiteRunId: provenance.websiteRunId, pageUrl: provenance.pageUrl,
     model: PAGE_REVIEW_MODEL, reviewVersion: PAGE_REVIEW_VERSION,
   }, '', queryLimit))).digest('hex');

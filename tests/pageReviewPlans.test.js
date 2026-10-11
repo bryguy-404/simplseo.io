@@ -10,6 +10,8 @@ vi.mock('../app/lib/firebaseAdmin', async () => {
 import { db, records, reset } from '../app/lib/firebaseAdmin';
 import { readPageReviewPlan, savePageReviewPlan, updatePageReviewTask } from '../app/lib/server/pageReviewPlans';
 import { GET, POST } from '../app/api/page-review/plan/route';
+import { accountWebsiteScope, businessProfileRef } from '../app/lib/server/businessProfile';
+import { pageReviewUpdateBaseline } from '../app/lib/server/pageReviewUpdates';
 
 const property = 'https://example.test/';
 const pageUrl = `${property}Services/?Topic=Web`;
@@ -37,6 +39,22 @@ beforeEach(async () => {
 });
 
 describe('saved page-review plans', () => {
+  it('preserves saved work if an owner confirms different business facts during analysis', async () => {
+    const first = await savePageReviewPlan('alice', review(), { startedAt: at(0) });
+    const scope = accountWebsiteScope(records.get('onboarding/alice'), records.get('users/alice'));
+    records.set(businessProfileRef('alice', scope).path, { scope, revision: 2, profile: { services: ['Leak repairs'] } });
+    const stale = review([], { provenance: { ...review().provenance, businessProfileRevision: 1 } });
+    await expect(savePageReviewPlan('alice', stale, { startedAt: at(1) })).rejects.toMatchObject({ status: 409 });
+    expect(await readPageReviewPlan('alice', pageUrl)).toEqual(first);
+  });
+
+  it('checks substantive confirmed facts for updates without treating a new confirmation date as a change', () => {
+    const context = { ...review(), businessProfile: { revision: 1, confirmedAt: at(0), services: ['Web design'], goal: 'quotes' } };
+    const original = pageReviewUpdateBaseline(context);
+    expect(pageReviewUpdateBaseline({ ...context, businessProfile: { ...context.businessProfile, confirmedAt: at(1) } })).toEqual(original);
+    expect(pageReviewUpdateBaseline({ ...context, businessProfile: { ...context.businessProfile, revision: 2, services: ['Software development'] } })).not.toEqual(original);
+  });
+
   it('restores the same saved assessment and prioritized tasks without Google or AI', async () => {
     const network = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('network is forbidden'));
     try {

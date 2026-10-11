@@ -1,3 +1,4 @@
+import { assertBusinessProfileRevision } from './businessProfile';
 import { createHash } from 'node:crypto';
 import { db } from '../firebaseAdmin';
 import { propertyContainsUrl } from '../revampState';
@@ -234,6 +235,7 @@ export async function savePageReviewPlan(userId, review, { startedAt = review?.p
     if (scope.property !== provenance.property || scope.websiteRunId !== provenance.websiteRunId) {
       throw new RequestError('Your website setup changed while this page was being reviewed. Reload and try again.', 409);
     }
+    await assertBusinessProfileRevision(userId, provenance.businessProfileRevision, transaction);
     const ref = planRef(userId, scope);
     const snapshot = await transaction.get(ref);
     const existing = snapshot.exists ? snapshot.data() : null;

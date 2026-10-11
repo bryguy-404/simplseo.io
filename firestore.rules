@@ -29,6 +29,7 @@ service cloud.firestore {
       return data.keys().hasOnly(onboardingFields().concat([
           'siteCrawlStatus', 'lastSiteCrawlAt', 'revampStatus', 'revampDate',
           'revampInitiatedAt', 'revampPages', 'revampStep'])) &&
+        data.get('isComplete', false) == false && data.get('gscProperty', '') == '' && data.get('hasGSC', false) == false &&
         data.get('siteCrawlStatus', 'idle') == 'idle' && data.get('lastSiteCrawlAt', null) == null &&
         data.get('revampStatus', 'idle') == 'idle' && data.get('revampDate', null) == null &&
         data.get('revampInitiatedAt', null) == null && data.get('revampPages', []) == [] && data.get('revampStep', null) == null;
@@ -37,7 +38,11 @@ service cloud.firestore {
       allow read: if owner(uid);
       allow create: if owner(uid) && safeInitialOnboarding();
       // Only editable profile/preferences/navigation fields. Monitoring and recovery state are server-owned.
-      allow update: if owner(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(onboardingFields());
+      allow update: if owner(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(onboardingFields())
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['websiteUrl', 'gscProperty', 'hasGSC', 'isComplete'])
+        && (resource.data.get('setupVersion', 1) != 2 || !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'websiteUrl', 'gscProperty', 'hasGSC', 'isComplete', 'postOnboardingStep', 'pagesStepCompleted',
+          'businessName', 'businessType', 'businessLocation', 'servesMultipleCities', 'serviceCities', 'cmsPlatform']));
       allow delete: if false; // Do not allow delete/recreate to remove recovery safeguards.
     }
 
@@ -47,7 +52,14 @@ service cloud.firestore {
       allow write: if false;
       match /feedbackPrompt/{id} { allow read, write: if owner(uid); }
       match /revampHistory/{history=**} { allow read, write: if false; }
+      match /onboardingSessions/{session=**} { allow read, write: if false; }
+      match /pendingGscConnections/{connection=**} { allow read, write: if false; }
+      match /businessProfiles/{profile=**} { allow read, write: if false; }
     }
+    match /onboardingInventories/{record=**} { allow read, write: if false; }
+    match /onboardingExtractions/{record=**} { allow read, write: if false; }
+    match /onboardingUsageEvents/{record=**} { allow read, write: if false; }
+    match /onboardingCrawlCache/{record=**} { allow read, write: if false; }
     match /gscTokens/{uid} { allow read: if owner(uid); allow write: if false; }
       
     // Authoritative observations/outcomes are added by server code. Historical client
@@ -173,6 +185,7 @@ service cloud.firestore {
     match /invitationCodes/{path=**} { allow read, write: if false; }
     match /contactMessages/{path=**} { allow read, write: if false; }
     match /deletedUsers/{path=**} { allow read, write: if false; }
+    match /accountDeletionGuards/{path=**} { allow read, write: if false; }
     match /{path=**} { allow read, write: if false; }
   }
 }

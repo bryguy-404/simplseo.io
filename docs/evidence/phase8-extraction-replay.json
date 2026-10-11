@@ -1,0 +1,88 @@
+{
+  "mode": "offline_replay",
+  "paidCalls": 0,
+  "results": [
+    {
+      "case": "roofing-service-and-base",
+      "repeat": 1,
+      "pass": true
+    },
+    {
+      "case": "roofing-service-and-base",
+      "repeat": 2,
+      "pass": true
+    },
+    {
+      "case": "plumbing-area-confirmation",
+      "repeat": 1,
+      "pass": true
+    },
+    {
+      "case": "plumbing-area-confirmation",
+      "repeat": 2,
+      "pass": true
+    },
+    {
+      "case": "landscaping-specific-work",
+      "repeat": 1,
+      "pass": true
+    },
+    {
+      "case": "landscaping-specific-work",
+      "repeat": 2,
+      "pass": true
+    },
+    {
+      "case": "web-services-no-invented-results",
+      "repeat": 1,
+      "pass": true
+    },
+    {
+      "case": "web-services-no-invented-results",
+      "repeat": 2,
+      "pass": true
+    },
+    {
+      "case": "missing-business-facts",
+      "repeat": 1,
+      "pass": true
+    },
+    {
+      "case": "missing-business-facts",
+      "repeat": 2,
+      "pass": true
+    },
+    {
+      "case": "injection-is-source-data",
+      "repeat": 1,
+      "pass": true
+    },
+    {
+      "case": "injection-is-source-data",
+      "repeat": 2,
+      "pass": true
+    },
+    {
+      "case": "client-location-not-service-area",
+      "repeat": 1,
+      "pass": false
+    },
+    {
+      "case": "client-location-not-service-area",
+      "repeat": 2,
+      "pass": false
+    },
+    {
+      "case": "rendered-evidence-with-caveat",
+      "repeat": 1,
+      "pass": true
+    },
+    {
+      "case": "rendered-evidence-with-caveat",
+      "repeat": 2,
+      "pass": true
+    }
+  ],
+  "passed": 14,
+  "failed": 2
+}

@@ -19,6 +19,7 @@ import { db, records, reset } from '../app/lib/firebaseAdmin';
 import { runFollowUpReview, readFollowUpReview } from '../app/lib/server/followUpReview';
 import { readOngoingCycle } from '../app/lib/server/ongoingProgress';
 import { GET, POST } from '../app/api/page-review/follow-up/route';
+import { accountWebsiteScope, businessProfileRef } from '../app/lib/server/businessProfile';
 
 const id = 'a'.repeat(64), planId = 'b'.repeat(64);
 const ref = () => db.collection('pageProgressCycles').doc(id);
@@ -53,6 +54,23 @@ beforeEach(async () => {
 });
 
 describe('scoped follow-up service and API', () => {
+  it('retains the prior decision when confirmed business facts change during generation', async () => {
+    const first = await runFollowUpReview('alice', action());
+    control.context.currentPage.textContent += ' A new page detail.';
+    const readPage = control.readPage.getMockImplementation();
+    control.readPage.mockImplementation(async (...args) => {
+      const page = await readPage(...args); page.provenance.businessProfileRevision = 0; return page;
+    });
+    control.create.mockImplementation(async () => {
+      const scope = accountWebsiteScope(records.get('onboarding/alice'), records.get('users/alice'));
+      records.set(businessProfileRef('alice', scope).path, { scope, revision: 1, profile: { services: ['Roof repair'] } });
+      return response(control.payload);
+    });
+    await expect(runFollowUpReview('alice', action(2))).rejects.toMatchObject({ status: 409 });
+    expect((await ref().get()).data().latestDecisionId).toBe(first.decision.id);
+    expect(decisionPaths()).toHaveLength(1);
+  });
+
   it('GET restores stored results without any providers, quota or writes', async () => {
     const before = [...records];
     expect((await GET(request())).status).toBe(200);

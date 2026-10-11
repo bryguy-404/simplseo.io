@@ -21,7 +21,7 @@ const pageLabel = pageUrl => { try { const url = new URL(pageUrl); return url.pa
 
 export default function CurrentWebsiteDashboard() {
   const { user } = useAuth();
-  const { data } = useOnboarding();
+  const { data, setupWorkspace } = useOnboarding();
   const [overview, setOverview] = useState(null);
   const [progress, setProgress] = useState(null);
   const [error, setError] = useState('');
@@ -83,6 +83,8 @@ export default function CurrentWebsiteDashboard() {
         </div>
         <Button asChild variant="outline"><Link href="/revamp">Website setup</Link></Button>
       </header>
+
+      {setupWorkspace?.eligible && !setupWorkspace?.profile?.confirmedAt && !setupWorkspace?.session?.profileConfirmed && <aside className="rounded-lg border px-4 py-3 flex flex-wrap items-center justify-between gap-3" aria-label="Business details reminder"><div><p className="text-sm font-medium">Help us understand your business</p><p className="text-sm text-muted-foreground">Review your services and areas for more relevant recommendations.</p></div><Link href="/settings" className="text-sm underline">Review business details</Link></aside>}
 
       <Card className="border-primary/30 bg-primary/5">
         <CardHeader>

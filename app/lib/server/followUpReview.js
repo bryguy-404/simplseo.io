@@ -1,3 +1,4 @@
+import { assertBusinessProfileRevision } from './businessProfile';
 import { createHash, randomUUID } from 'node:crypto';
 import OpenAI from 'openai';
 import { db } from '../firebaseAdmin';
@@ -200,7 +201,8 @@ export async function runFollowUpReview(userId, input, { signal, deadline = Date
       context.research = research || unavailableResearch();
       fingerprint = hash(stableFollowUpInputs({ version: FOLLOW_UP_VERSION, confirmation: cycle.confirmation,
         comparisons: followUpComparisons(cycle, previousCheckpoints), currentPage: context.currentPage, evidence, diagnostics,
-        tasks: context.priorTasks, ownerGoal: context.ownerGoal, focusKeywords: context.focusKeywords }));
+        tasks: context.priorTasks, ownerGoal: context.ownerGoal, focusKeywords: context.focusKeywords,
+        ...(context.businessProfile ? { businessProfile: { ...context.businessProfile, confirmedAt: null } } : {}) }));
       const previousDiagnostics = previous?.review?.diagnostics;
       const diagnosticFailure = previousDiagnostics?.inspection?.status === 'available' && diagnostics.inspection?.status !== 'available'
         || (previousDiagnostics?.relatedPages || []).some(old => old.status === 'available'
@@ -262,6 +264,7 @@ export async function runFollowUpReview(userId, input, { signal, deadline = Date
     const updated = await db.runTransaction(async tx => {
       const { cycle: latest } = await assertWritable(userId, input, { tx });
       if (latest.followUpLease?.id !== attempt) throw changed();
+      if (context) await assertBusinessProfileRevision(userId, context.provenance.businessProfileRevision, tx);
       if (currentPlan?.id && (await tx.get(db.collection('pageReviewPlans').doc(currentPlan.id))).data()?.revision !== currentPlan.revision) throw changed();
       const next = { ...latest, revision: latest.revision + 1, followUpLease: null,
         latestDecisionId: decisionId, latestDecision: publicFollowUpDecision(decision),

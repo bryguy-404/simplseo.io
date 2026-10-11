@@ -15,6 +15,7 @@ export const ACCOUNT_OWNED_COLLECTIONS = [
   'conversations', 'contactMessages', 'requestLimits', 'pageReviewPlans', 'aiUsageEvents',
   'pageProgressCycles',
   'newPageWorkspaces', 'newPageInventories', 'newPageAssessments', 'newPagePlans', 'newPagePublications', 'newPageJobs',
+  'onboardingInventories', 'onboardingExtractions', 'onboardingUsageEvents', 'onboardingCrawlCache',
 ];
 const PREFIXED_COLLECTIONS = [
   'implementedSeoTips', 'contentAuditResults', 'aiSuggestions',
@@ -43,7 +44,13 @@ export async function deleteAccountFirestore(db, uid, verifiedEmail) {
   // deletion can be retried; it must not allow fresh work to appear mid-sweep.
   await db.runTransaction(async tx => {
     const ref = db.collection('users').doc(uid);
-    const user = await tx.get(ref);
+    const guardRef = db.collection('accountDeletionGuards').doc(accountHash(uid));
+    const [user, guard] = await Promise.all([tx.get(ref), tx.get(guardRef)]);
+    // Retain this minimal, private guard after deleting account roots. Firebase
+    // Auth may still accept an already-started request until client deletion
+    // finishes; it must never provision this deleted UID again. No TTL: removing
+    // the guard would reopen that race. It stores no profile, email or tokens.
+    if (!guard.data()?.blocked) tx.set(guardRef, { blocked: true, deletedAt: new Date().toISOString() });
     if (user.exists) tx.update(ref, { deletionInProgress: true });
   });
   let deletedRoots = 0;
@@ -94,7 +101,7 @@ export async function deleteAccountFirestore(db, uid, verifiedEmail) {
   deletedRoots += await deleteMatching(db, db.collection('aiUsageEvents').where('userId', '==', uid));
   // In-flight new-page work saves only while account roots still exist. Sweep
   // anything committed between the first collection pass and root removal.
-  for (const name of ACCOUNT_OWNED_COLLECTIONS.filter(name => name.startsWith('newPage') || ['pageProgressCycles', 'pageReviewPlans', 'implementedSeoTips', 'requestLimits'].includes(name))) {
+  for (const name of ACCOUNT_OWNED_COLLECTIONS.filter(name => name.startsWith('newPage') || name.startsWith('onboarding') || ['pageProgressCycles', 'pageReviewPlans', 'implementedSeoTips', 'requestLimits'].includes(name))) {
     deletedRoots += await deleteMatching(db, db.collection(name).where('userId', '==', uid));
   }
   return { deletedRoots };

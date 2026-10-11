@@ -159,6 +159,13 @@ export async function readNewPagePlan(userId, planId) {
   assertSameNewPageScope(scope, await readNewPageScope(userId));
   return { plan: { ...publicRecord(saved), id: snapshot.id, readOnly }, ...observations };
 }
+export function areaProfileNotices(profile, context) {
+  if (!profile || !context || Date.parse(context.confirmedAt || '') >= Date.parse(profile.confirmedAt || '')) return [];
+  const names = new Set((profile.services || []).map(normalize));
+  const different = (context.services || []).filter(service => !names.has(normalize(service)));
+  return different.length ? [`Your saved area includes services not listed in your latest business profile: ${different.join(', ')}. Review the area details and save them again if you still offer these services here. Your saved plans have not changed.`] : [];
+}
+
 export async function readNewPageWorkspace(userId) {
   const scope = await readNewPageScope(userId);
   const [workspace, inventory, allPlans, legacyCreated, legacySkipped, setup] = await Promise.all([
@@ -179,9 +186,10 @@ export async function readNewPageWorkspace(userId) {
     ...legacySkipped.docs.map(doc => ({ id: doc.id, historyType: 'legacy_skipped', topic: doc.data().keyword || doc.id, readOnly: true, unverified: true })),
   ];
   const profile = setup.data() || {};
-  const services = suggestedNewPageServices(profile, inventory);
+  const services = scope.businessContext?.services || suggestedNewPageServices(profile, inventory);
   assertSameNewPageScope(scope, await readNewPageScope(userId));
   return { context: currentContext, contexts: workspace.data()?.contexts || [],
+    profileNotices: areaProfileNotices(scope.businessContext, currentContext),
     business: { name: scope.businessName, location: scope.businessLocation, websiteUrl: scope.websiteUrl, services },
     inventory: inventoryView(inventory), assessments: scoped(scope, currentAssessment) ? [{ ...assessmentSummary(currentAssessment),
       coverageChanged: currentAssessment.inventoryFingerprint !== inventoryFingerprint(inventory) }] : [],
@@ -217,7 +225,9 @@ async function currentInputs(userId) {
   return { scope, context, inventory, priorPlans: records.filter(plan => scoped(scope, plan)) };
 }
 async function assertInputsCurrent(scope, context, tx) {
-  assertSameNewPageScope(scope, await readNewPageScope(scope.userId, { write: true, tx }));
+  const currentScope = await readNewPageScope(scope.userId, { write: true, tx });
+  assertSameNewPageScope(scope, currentScope);
+  if ((scope.businessContext?.revision || 0) !== (currentScope.businessContext?.revision || 0)) throw new RequestError('Your business details changed. Reload before continuing. Your saved work is unchanged.', 409);
   const snapshot = tx ? await tx.get(workspaceRef(scope)) : await workspaceRef(scope).get();
   const current = snapshot.data()?.context;
   if (!current || contextSignature(context) !== contextSignature(current)) throw new RequestError('Your selected area or business facts changed. Reload before continuing.', 409);
@@ -235,8 +245,9 @@ function inventoryFingerprint(inventory) {
   return hash(stableEvidence({ pages: (inventory?.pages || []).map(page => [page.url, page.status, page.reason || null, page.content || null,
     ...(page.status === 'retired' ? [isVerifiedRetiredPage(page)] : [])]).sort((a, b) => a[0].localeCompare(b[0])), coverage: inventory?.coverage }));
 }
-function inputFingerprint({ context, inventory, priorPlans }) {
+function inputFingerprint({ scope, context, inventory, priorPlans }) {
   return hash({ version: NEW_PAGE_POLICY_VERSION, context: contextSignature(context), inventory: inventoryFingerprint(inventory),
+    ...(scope?.businessContext ? { businessContext: { ...scope.businessContext, confirmedAt: null } } : {}),
     plans: priorPlans.map(plan => [plan.id, plan.idea?.topic, plan.idea?.searchFocus?.phrase, plan.status]).sort() });
 }
 async function assertInventoryCurrent(scope, inventory, tx) {
@@ -290,6 +301,8 @@ export function buildNewPageBundle({ scope, context, inventory, priorPlans, quer
     ...pages.map(page => ({ id: page.id, source: 'website', url: page.url, text: page.text, observedAt: page.observedAt })),
     ...queries.map((query, index) => ({ id: `Q${index + 1}`, source: 'google_search_console', text: JSON.stringify(query), ...query }))];
   return { websiteUrl: scope.websiteUrl, businessName: scope.businessName, context, pages,
+    ...(scope.businessContext ? { confirmedBusinessProfile: scope.businessContext,
+      profileGuidance: 'The selected area confirmation remains separate. If it conflicts with the confirmed business profile, request clarification. Do not overwrite confirmations or invent services, locations or demand.' } : {}),
     unknownPages: uncertainCoveragePages(inventory).map(page => ({ url: page.url, status: page.status, reason: page.reason || null })),
     removedPages: (inventory?.pages || []).filter(isVerifiedRetiredPage).map(page => ({ url: page.url,
       ownerConfirmedAt: page.retirementProof.ownerConfirmedAt, verifiedAt: page.retirementProof.verifiedAt })),
@@ -462,7 +475,7 @@ export async function generateNewPageDraft(userId, { planId, revision, ownerFact
     const bundle = buildNewPageBundle({ scope, context: plan.context, inventory, priorPlans, research: plan.research || { status: 'unavailable', sources: [] } });
     if (ownerFacts.trim()) bundle.facts.push({ id: 'O2', source: 'owner_confirmation', text: ownerFacts.trim(), observedAt: now() });
     bundle.planId = planId; bundle.selectedIdea = plan.idea; bundle.requiredFacts = plan.requiredFacts;
-    const draftFingerprint = hash([inputFingerprint({ context: plan.context, inventory, priorPlans: priorPlans.filter(item => item.id !== planId) }), ownerFacts]);
+    const draftFingerprint = hash([inputFingerprint({ scope, context: plan.context, inventory, priorPlans: priorPlans.filter(item => item.id !== planId) }), ownerFacts]);
     if (plan.draft && plan.draftFingerprint === draftFingerprint) return { plan: publicRecord(plan), unchanged: true };
     await consumeNewPageQuota(userId, 'draft');
     const runId = randomUUID(), deadline = Date.now() + 210000;
@@ -487,7 +500,9 @@ export async function generateNewPageDraft(userId, { planId, revision, ownerFact
       slugCheck = { url: proposedUrl, status: 'unverified', checkedAt: now() };
     }
     return db.runTransaction(async tx => {
-      assertSameNewPageScope(scope, await readNewPageScope(userId, { write: true, tx }));
+      const currentScope = await readNewPageScope(userId, { write: true, tx });
+      assertSameNewPageScope(scope, currentScope);
+      if ((scope.businessContext?.revision || 0) !== (currentScope.businessContext?.revision || 0)) throw new RequestError('Your business details changed. Your saved draft is unchanged; check for updates again.', 409);
       await assertInventoryCurrent(scope, inventory, tx);
       const snapshot = await tx.get(ref), latest = snapshot.data(); mustOwn(scope, latest); mutable(latest, revision);
       const timestamp = now();

@@ -259,6 +259,7 @@ export default function NewPageWorkspace() {
     {notice && <p role="status" className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">{notice}</p>}
     {busy && <div role="status" className="sticky top-20 z-10 flex items-center gap-3 rounded-lg border bg-background p-3 text-sm shadow-sm"><LoaderCircle className="size-4 animate-spin" />{busy}</div>}
     {data?.enabled === false && <p className="rounded-lg border p-4 text-sm">New research is temporarily paused. Your saved drafts, editing and tracking remain available.</p>}
+    {data?.profileNotices?.map((message, index) => <div key={index} className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 text-sm"><p>{message}</p><Button variant="link" className="mt-2 px-0" onClick={() => setAreaExpanded(true)}>Review area details</Button></div>)}
     {data && <>
       <Card className={showArea ? undefined : 'py-4'}><CardContent className={showArea ? 'space-y-5 pt-6' : 'px-4 sm:px-6'}>
         <div className="flex flex-wrap items-center justify-between gap-3">

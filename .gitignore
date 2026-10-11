@@ -50,3 +50,4 @@ CLAUDE.md
 /firebase-debug.log
 /firestore-debug.log
 /recovery-backups/
+/tmp/

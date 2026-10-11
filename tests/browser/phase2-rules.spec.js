@@ -64,11 +64,21 @@ test('new onboarding allows safe defaults but denies fabricated server state on 
   try {
     expect((await patch(request, `onboarding/${uid}`, { isComplete: true, progressReviewRequired: false }, false)).status()).toBe(403);
     expect((await patch(request, `onboarding/${uid}`, { isComplete: true, revampPages: [{ impressions: 999 }] }, false)).status()).toBe(403);
-    expect((await patch(request, `onboarding/${uid}`, { businessName: 'Fixture', isComplete: true, revampStatus: 'idle', revampPages: [], revampDate: null, revampStep: null, lastSiteCrawlAt: null, siteCrawlStatus: 'idle' }, false)).status()).toBe(200);
+    expect((await patch(request, `onboarding/${uid}`, { businessName: 'Fixture', isComplete: true, revampStatus: 'idle', revampPages: [], revampDate: null, revampStep: null, lastSiteCrawlAt: null, siteCrawlStatus: 'idle' }, false)).status()).toBe(403);
+    expect((await patch(request, `onboarding/${uid}`, { businessName: 'Fixture', isComplete: false, revampStatus: 'idle', revampPages: [], revampDate: null, revampStep: null, lastSiteCrawlAt: null, siteCrawlStatus: 'idle' }, false)).status()).toBe(200);
     expect((await patch(request, `onboarding/${uid}`, { businessName: 'Updated', revampReminderDate: '2026-11-01' })).status()).toBe(200);
   } finally {
     await app.firestore().doc(`onboarding/${uid}`).set({ isComplete: true, revampRunId: 'rules-run', progressReviewRequired: true });
   }
+});
+
+test('account deletion guards remain private and cannot be removed by a still-signed-in owner', async ({ request }) => {
+  const hash = require('node:crypto').createHash('sha256').update(uid).digest('hex');
+  const path = `accountDeletionGuards/${hash}`;
+  await app.firestore().doc(path).set({ blocked: true, deletedAt: '2026-10-11T00:00:00Z' });
+  expect((await read(request, path)).status()).toBe(403);
+  expect((await patch(request, path, { blocked: false })).status()).toBe(403);
+  expect((await request.delete(`${base}/${path}`, { headers: { Authorization: `Bearer ${token}` } })).status()).toBe(403);
 });
 
 test('authoritative assessments cannot be fabricated, changed, removed or delete-recreated', async ({ request }) => {

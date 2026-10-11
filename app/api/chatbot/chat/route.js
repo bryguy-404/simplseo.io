@@ -2,7 +2,7 @@ import { authenticatedRoute } from '../../../lib/server/authenticatedRoute';
 // app/api/chatbot/chat/route.js
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
-import { db } from "../../../lib/firebaseAdmin";
+import { readMentorContext, withMentorBusinessContext, formatMentorContext, scopeLegacyMentorTracking } from '../../../lib/server/mentorContext';
 import {
   getImplementationSummary,
   getPageEnrichmentData,
@@ -129,6 +129,7 @@ const buildPageSummaries = (pages, expandedUrls = new Set()) => {
     const headingsFormatted = headings.map((h) => `      • ${h}`).join("\n");
 
     return `    ${idx + 1}. URL: ${page.pageUrl}
+       Saved review date: ${page.observedAt || "unknown"}
        Title: ${page.title || "N/A"}
        Description: ${page.metaDescription || "N/A"}
        Summary: ${cleanText(page.textContent || "", summaryLength)}
@@ -137,43 +138,13 @@ ${headingsFormatted || "      • (none)"}`;
   }).join("\n\n");
 };
 
-const getCachedSitePages = async (userId, desiredCount = 25) => {
-  if (!userId) return [];
-  try {
-    // Use backward-compatible helper (checks both old and new structures)
-    const { getCachedSitePages: getCachedPages } = await import("../../../lib/firestoreMigrationHelpers");
-    const pages = await getCachedPages(userId, {
-      source: "site-crawl",
-      limit: Math.max(desiredCount * 3, 50),
-      useAdminSDK: true // Use admin SDK for server-side
-    });
 
-    // Sort pages
-    pages.sort((a, b) => {
-      const navScore = (b.isNavLink ? 1 : 0) - (a.isNavLink ? 1 : 0);
-      if (navScore !== 0) return navScore;
-
-      const orderA = typeof a.crawlOrder === "number" ? a.crawlOrder : Number.MAX_SAFE_INTEGER;
-      const orderB = typeof b.crawlOrder === "number" ? b.crawlOrder : Number.MAX_SAFE_INTEGER;
-      if (orderA !== orderB) return orderA - orderB;
-
-      const aTime = a.cachedAt ? new Date(a.cachedAt).getTime() : 0;
-      const bTime = b.cachedAt ? new Date(b.cachedAt).getTime() : 0;
-      return bTime - aTime;
-    });
-
-    return pages;
-  } catch (error) {
-    console.error("Failed to fetch cached site pages:", error);
-    return [];
-  }
-};
 
 async function handlePOST(req) {
   try {
-    const { message, conversationHistory = [], userData, userId } = await req.json();
+    const { message, conversationHistory = [], userData: suppliedUserData = {}, userId } = await req.json();
 
-    if (!message) {
+    if (typeof message !== 'string' || !message.trim()) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 });
     }
 
@@ -183,10 +154,10 @@ async function handlePOST(req) {
 
     // Get cached pages and implementation summary in parallel
 
-    const [cachedPages, implementationSummary] = await Promise.all([
-      userId ? getCachedSitePages(userId, 25) : Promise.resolve([]),
-      userId ? getImplementationSummary(userId) : Promise.resolve([]),
-    ]);
+    const [mentor, legacySummary] = await Promise.all([readMentorContext(userId), getImplementationSummary(userId)]);
+    const cachedPages = mentor.pages;
+    const userData = withMentorBusinessContext(suppliedUserData, mentor);
+    const implementationSummary = scopeLegacyMentorTracking(legacySummary, mentor);
     const pageIndex = cachedPages.length > 0 ? buildPageIndex(cachedPages) : null;
 
     // Match message to tracked pages and fetch deep enrichment
@@ -224,7 +195,9 @@ async function handlePOST(req) {
 - Be encouraging and supportive
 - Adapt responses to different time periods (7 days, 1 month, 3 months, etc.)
 
-**Complete User Profile:**
+${formatMentorContext(mentor)}
+
+**Session context:**
 - Name: ${userData?.userFirstName || 'User'}
 - Business: ${userData?.businessName || 'their business'}
 - Location: ${userData?.businessLocation || 'their area'}
@@ -301,27 +274,27 @@ ${enrichmentString}
 - Actionable next steps
 - Time period context
 
-${pageIndex ? `**Complete Website Page Index:**
+${pageIndex ? `**Reviewed Website Pages (partial evidence):**
 When users ask about pages without providing URLs, use this index to find the right pages:
 ${pageIndex}
 
 **Understanding Page Queries:**
 - When user says "my about page" or "the about page", find pages with type "about" from the index above
-- When user says "services pages" or "all services", find ALL pages with type "services" from the index above
+- When user says "services pages" or "all services", find matching reviewed pages with type "services" from the index above; do not claim the list covers the whole site
 - When user says "contact page", find pages with type "contact"
-- When user asks to "optimize all my services pages", provide recommendations for ALL service pages
+- When user asks to "optimize all my services pages", provide recommendations for the reviewed service pages and explain the coverage limit
 - Always identify which specific page(s) the user is referring to before answering
 - If multiple pages match, mention all of them and their URLs
-- Use the full content from the identified page(s) to answer questions
+- Use the supplied excerpts from the identified reviewed page(s) to answer questions
 
-**Detailed Page Content:**
-${pageSummaries || '(No cached pages available yet)'}
+**Saved Page Excerpts:**
+${pageSummaries || '(No saved reviewed page excerpts are available)'}
 
 **Important Guidelines:**
 - When answering questions about specific pages, FIRST identify which page(s) from the index match the query
 - Use the detailed content summaries above to provide accurate, specific answers
 - Always include the page URL when referencing a specific page
-- If user asks about "all [type] pages", provide information about ALL matching pages
+- If user asks about "all [type] pages", provide information about matching reviewed pages, explaining that others may be unreviewed
 - When user asks "what's in my about page", use the content from the about page(s) to answer
 - When user asks to "optimize my services pages", provide specific recommendations for each service page
 
@@ -329,16 +302,16 @@ ${pageSummaries || '(No cached pages available yet)'}
 If you cannot find the specific page the user is asking about:
 1. First, check the page index above to see if there are similar pages (e.g., if they ask about "pricing" but only "services" pages exist, suggest those)
 2. Recommend 2-3 relevant pages from the index that might be what they're looking for, with their URLs
-3. If no similar pages exist, politely ask: "I couldn't find that page in your website. Could you share the URL of the page you'd like help with? That way I can give you specific recommendations."
+3. If no similar pages exist, politely ask: "That page is not in the saved website excerpts available to me. Could you share the URL of the page you'd like help with? That way I can give you specific recommendations."
 4. Always be helpful and suggest alternative pages that might be relevant to their question
-5. Example response: "I couldn't find a specific [requested page type] page, but I found these related pages: [list with URLs]. Would any of these help, or could you share the URL of the page you're thinking of?"` : ''}
+5. Example response: "The saved excerpts do not include a specific [requested page type] page, but I found these related pages: [list with URLs]. Would any of these help, or could you share the URL of the page you're thinking of?"` : ''}
 
-Remember: You have access to their real Google Search Console data from the last 28 days${pageIndex ? ' and their complete website content' : ''}, so use it to give personalized, data-driven advice!`;
+Use the available dashboard observations and saved partial website evidence to give personalized advice. State uncertainty when the requested evidence is unavailable.`;
 
     // Build messages array with conversation history
     const messagesArray = [
       { role: "system", content: systemPrompt },
-      ...conversationHistory.map(msg => ({
+      ...(Array.isArray(conversationHistory) ? conversationHistory : []).filter(msg => ['user', 'assistant'].includes(msg?.role) && typeof msg.content === 'string').slice(-20).map(msg => ({
         role: msg.role,
         content: msg.content
       })),
@@ -365,7 +338,7 @@ Remember: You have access to their real Google Search Console data from the last
     return NextResponse.json({ 
       error: "Failed to generate response",
       details: error.message 
-    }, { status: 500 });
+    }, { status: error.status || 500 });
   }
 }
 

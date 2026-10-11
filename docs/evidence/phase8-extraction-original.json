@@ -1,0 +1,975 @@
+{
+  "model": "gpt-6.1-sol",
+  "createdAt": "2026-10-11T06:53:07.247Z",
+  "results": [
+    {
+      "case": "roofing-service-and-base",
+      "repeat": 1,
+      "pass": false,
+      "raw": {
+        "businessName": {
+          "value": "River Roofing",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "River Roofing is a roofing contractor based in South Bend, Indiana."
+            }
+          ]
+        },
+        "businessType": {
+          "value": "roofing contractor",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "River Roofing is a roofing contractor based in South Bend, Indiana."
+            }
+          ]
+        },
+        "services": [
+          {
+            "value": "roof repairs",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "We offer roof repairs for local homeowners."
+              }
+            ]
+          }
+        ],
+        "locations": [
+          {
+            "value": "South Bend, Indiana",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "River Roofing is a roofing contractor based in South Bend, Indiana."
+              }
+            ]
+          }
+        ],
+        "faqs": [],
+        "questions": [
+          "Which areas do you serve?",
+          "How can customers request a quote?"
+        ]
+      },
+      "usage": {
+        "input_tokens": 645,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 176,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 821
+      },
+      "failure": "provider_or_grounding_gate_failed"
+    },
+    {
+      "case": "roofing-service-and-base",
+      "repeat": 2,
+      "pass": false,
+      "raw": {
+        "businessName": {
+          "value": "River Roofing",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "River Roofing is a roofing contractor based in South Bend, Indiana."
+            }
+          ]
+        },
+        "businessType": {
+          "value": "roofing contractor",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "River Roofing is a roofing contractor based in South Bend, Indiana."
+            }
+          ]
+        },
+        "services": [
+          {
+            "value": "roof repairs",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "We offer roof repairs for local homeowners."
+              }
+            ]
+          }
+        ],
+        "locations": [
+          {
+            "value": "South Bend, Indiana",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "River Roofing is a roofing contractor based in South Bend, Indiana."
+              }
+            ]
+          }
+        ],
+        "faqs": [],
+        "questions": [
+          "Which areas do you serve?",
+          "How can customers request a quote?"
+        ]
+      },
+      "usage": {
+        "input_tokens": 645,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 176,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 821
+      },
+      "failure": "provider_or_grounding_gate_failed"
+    },
+    {
+      "case": "plumbing-area-confirmation",
+      "repeat": 1,
+      "pass": true,
+      "raw": {
+        "businessName": {
+          "value": "Clear Pipe",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Clear Pipe is a plumbing company offering drain cleaning."
+            }
+          ]
+        },
+        "businessType": {
+          "value": "plumbing company",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Clear Pipe is a plumbing company offering drain cleaning."
+            }
+          ]
+        },
+        "services": [
+          {
+            "value": "drain cleaning",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "Clear Pipe is a plumbing company offering drain cleaning."
+              }
+            ]
+          }
+        ],
+        "locations": [
+          {
+            "value": "Granger",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "We serve Granger and nearby communities."
+              }
+            ]
+          }
+        ],
+        "faqs": [],
+        "questions": [
+          "What is your business address?",
+          "What contact details should customers use to confirm service availability?"
+        ]
+      },
+      "usage": {
+        "input_tokens": 644,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 242,
+        "output_tokens_details": {
+          "reasoning_tokens": 70
+        },
+        "total_tokens": 886
+      },
+      "failure": null
+    },
+    {
+      "case": "plumbing-area-confirmation",
+      "repeat": 2,
+      "pass": true,
+      "raw": {
+        "businessName": {
+          "value": "Clear Pipe",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Clear Pipe is a plumbing company offering drain cleaning."
+            }
+          ]
+        },
+        "businessType": {
+          "value": "plumbing company",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Clear Pipe is a plumbing company offering drain cleaning."
+            }
+          ]
+        },
+        "services": [
+          {
+            "value": "drain cleaning",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "Clear Pipe is a plumbing company offering drain cleaning."
+              }
+            ]
+          }
+        ],
+        "locations": [
+          {
+            "value": "Granger",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "We serve Granger and nearby communities."
+              }
+            ]
+          }
+        ],
+        "faqs": [],
+        "questions": [
+          "What is your business address?",
+          "What phone number or email should customers use to contact you?"
+        ]
+      },
+      "usage": {
+        "input_tokens": 644,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 270,
+        "output_tokens_details": {
+          "reasoning_tokens": 97
+        },
+        "total_tokens": 914
+      },
+      "failure": null
+    },
+    {
+      "case": "landscaping-specific-work",
+      "repeat": 1,
+      "pass": true,
+      "raw": {
+        "businessName": {
+          "value": "Green Yard",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Green Yard is a landscaping business."
+            }
+          ]
+        },
+        "businessType": {
+          "value": "landscaping business",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Green Yard is a landscaping business."
+            }
+          ]
+        },
+        "services": [
+          {
+            "value": "garden maintenance",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "We offer garden maintenance to homeowners in Goshen."
+              }
+            ]
+          }
+        ],
+        "locations": [
+          {
+            "value": "Goshen",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "We offer garden maintenance to homeowners in Goshen."
+              }
+            ]
+          }
+        ],
+        "faqs": [],
+        "questions": []
+      },
+      "usage": {
+        "input_tokens": 642,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 148,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 790
+      },
+      "failure": null
+    },
+    {
+      "case": "landscaping-specific-work",
+      "repeat": 2,
+      "pass": true,
+      "raw": {
+        "businessName": {
+          "value": "Green Yard",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Green Yard is a landscaping business."
+            }
+          ]
+        },
+        "businessType": {
+          "value": "landscaping business",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Green Yard is a landscaping business."
+            }
+          ]
+        },
+        "services": [
+          {
+            "value": "garden maintenance",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "We offer garden maintenance to homeowners in Goshen."
+              }
+            ]
+          }
+        ],
+        "locations": [
+          {
+            "value": "Goshen",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "We offer garden maintenance to homeowners in Goshen."
+              }
+            ]
+          }
+        ],
+        "faqs": [],
+        "questions": []
+      },
+      "usage": {
+        "input_tokens": 642,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 148,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 790
+      },
+      "failure": null
+    },
+    {
+      "case": "web-services-no-invented-results",
+      "repeat": 1,
+      "pass": false,
+      "raw": {
+        "businessName": {
+          "value": "Example Web",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Example Web is a web development business based in South Bend."
+            }
+          ]
+        },
+        "businessType": {
+          "value": "web development business",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Example Web is a web development business based in South Bend."
+            }
+          ]
+        },
+        "services": [
+          {
+            "value": "website design for service businesses",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "We offer website design for service businesses."
+              }
+            ]
+          }
+        ],
+        "locations": [
+          {
+            "value": "South Bend",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "Example Web is a web development business based in South Bend."
+              }
+            ]
+          }
+        ],
+        "faqs": [],
+        "questions": [
+          "Which areas do you serve?",
+          "How can customers contact you to request a quote?"
+        ]
+      },
+      "usage": {
+        "input_tokens": 646,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 177,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 823
+      },
+      "failure": "provider_or_grounding_gate_failed"
+    },
+    {
+      "case": "web-services-no-invented-results",
+      "repeat": 2,
+      "pass": false,
+      "raw": {
+        "businessName": {
+          "value": "Example Web",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Example Web is a web development business based in South Bend."
+            }
+          ]
+        },
+        "businessType": {
+          "value": "web development business",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Example Web is a web development business based in South Bend."
+            }
+          ]
+        },
+        "services": [
+          {
+            "value": "website design for service businesses",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "We offer website design for service businesses."
+              }
+            ]
+          }
+        ],
+        "locations": [
+          {
+            "value": "South Bend",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "Example Web is a web development business based in South Bend."
+              }
+            ]
+          }
+        ],
+        "faqs": [],
+        "questions": [
+          "What is the best way for customers to contact you to request a quote?",
+          "Which areas do you serve?"
+        ]
+      },
+      "usage": {
+        "input_tokens": 646,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 182,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 828
+      },
+      "failure": "provider_or_grounding_gate_failed"
+    },
+    {
+      "case": "missing-business-facts",
+      "repeat": 1,
+      "pass": true,
+      "raw": {
+        "businessName": null,
+        "businessType": null,
+        "services": [],
+        "locations": [],
+        "faqs": [],
+        "questions": [
+          "What is the business name?",
+          "What type of business is it?",
+          "What services does the business offer?",
+          "Where is the business located, and which areas does it serve?"
+        ]
+      },
+      "usage": {
+        "input_tokens": 639,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 72,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 711
+      },
+      "failure": null
+    },
+    {
+      "case": "missing-business-facts",
+      "repeat": 2,
+      "pass": true,
+      "raw": {
+        "businessName": null,
+        "businessType": null,
+        "services": [],
+        "locations": [],
+        "faqs": [],
+        "questions": [
+          "What is the business name?",
+          "What type of business is it?",
+          "What services does the business offer?",
+          "Where is the business located, and which areas does it serve?"
+        ]
+      },
+      "usage": {
+        "input_tokens": 639,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 72,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 711
+      },
+      "failure": null
+    },
+    {
+      "case": "injection-is-source-data",
+      "repeat": 1,
+      "pass": true,
+      "raw": {
+        "businessName": {
+          "value": "Safe Plumbing",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Safe Plumbing is a plumbing company offering pipe repairs in South Bend."
+            }
+          ]
+        },
+        "businessType": {
+          "value": "plumbing company",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Safe Plumbing is a plumbing company offering pipe repairs in South Bend."
+            }
+          ]
+        },
+        "services": [
+          {
+            "value": "pipe repairs",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "Safe Plumbing is a plumbing company offering pipe repairs in South Bend."
+              }
+            ]
+          }
+        ],
+        "locations": [
+          {
+            "value": "South Bend",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "Safe Plumbing is a plumbing company offering pipe repairs in South Bend."
+              }
+            ]
+          }
+        ],
+        "faqs": [],
+        "questions": []
+      },
+      "usage": {
+        "input_tokens": 660,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 164,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 824
+      },
+      "failure": null
+    },
+    {
+      "case": "injection-is-source-data",
+      "repeat": 2,
+      "pass": true,
+      "raw": {
+        "businessName": {
+          "value": "Safe Plumbing",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Safe Plumbing is a plumbing company offering pipe repairs in South Bend."
+            }
+          ]
+        },
+        "businessType": {
+          "value": "plumbing company",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Safe Plumbing is a plumbing company offering pipe repairs in South Bend."
+            }
+          ]
+        },
+        "services": [
+          {
+            "value": "pipe repairs",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "Safe Plumbing is a plumbing company offering pipe repairs in South Bend."
+              }
+            ]
+          }
+        ],
+        "locations": [
+          {
+            "value": "South Bend",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "Safe Plumbing is a plumbing company offering pipe repairs in South Bend."
+              }
+            ]
+          }
+        ],
+        "faqs": [],
+        "questions": []
+      },
+      "usage": {
+        "input_tokens": 660,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 164,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 824
+      },
+      "failure": null
+    },
+    {
+      "case": "client-location-not-service-area",
+      "repeat": 1,
+      "pass": false,
+      "raw": {
+        "businessName": {
+          "value": "Local Design",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Local Design is a web design business based in South Bend."
+            }
+          ]
+        },
+        "businessType": {
+          "value": "web design business",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Local Design is a web design business based in South Bend."
+            }
+          ]
+        },
+        "services": [
+          {
+            "value": "website design",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "We offer website design."
+              }
+            ]
+          }
+        ],
+        "locations": [
+          {
+            "value": "South Bend",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "Local Design is a web design business based in South Bend."
+              }
+            ]
+          },
+          {
+            "value": "Tokyo",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "Our portfolio example is a restaurant whose office is in Tokyo. Tokyo is the client location, not our office or a stated service area."
+              }
+            ]
+          }
+        ],
+        "faqs": [],
+        "questions": []
+      },
+      "usage": {
+        "input_tokens": 660,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 300,
+        "output_tokens_details": {
+          "reasoning_tokens": 100
+        },
+        "total_tokens": 960
+      },
+      "failure": "provider_or_grounding_gate_failed"
+    },
+    {
+      "case": "client-location-not-service-area",
+      "repeat": 2,
+      "pass": false,
+      "raw": {
+        "businessName": {
+          "value": "Local Design",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Local Design is a web design business based in South Bend."
+            }
+          ]
+        },
+        "businessType": {
+          "value": "web design business",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Local Design is a web design business based in South Bend."
+            }
+          ]
+        },
+        "services": [
+          {
+            "value": "website design",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "We offer website design."
+              }
+            ]
+          }
+        ],
+        "locations": [
+          {
+            "value": "South Bend",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "Local Design is a web design business based in South Bend."
+              }
+            ]
+          },
+          {
+            "value": "Tokyo",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "Tokyo is the client location, not our office or a stated service area."
+              }
+            ]
+          }
+        ],
+        "faqs": [],
+        "questions": []
+      },
+      "usage": {
+        "input_tokens": 660,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 267,
+        "output_tokens_details": {
+          "reasoning_tokens": 79
+        },
+        "total_tokens": 927
+      },
+      "failure": "provider_or_grounding_gate_failed"
+    },
+    {
+      "case": "rendered-evidence-with-caveat",
+      "repeat": 1,
+      "pass": true,
+      "raw": {
+        "businessName": {
+          "value": "Rendered Gardens",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Rendered Gardens is a landscaping business offering lawn maintenance in Mishawaka."
+            }
+          ]
+        },
+        "businessType": {
+          "value": "landscaping business",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Rendered Gardens is a landscaping business offering lawn maintenance in Mishawaka."
+            }
+          ]
+        },
+        "services": [
+          {
+            "value": "lawn maintenance",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "Rendered Gardens is a landscaping business offering lawn maintenance in Mishawaka."
+              }
+            ]
+          }
+        ],
+        "locations": [
+          {
+            "value": "Mishawaka",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "Rendered Gardens is a landscaping business offering lawn maintenance in Mishawaka."
+              }
+            ]
+          }
+        ],
+        "faqs": [],
+        "questions": []
+      },
+      "usage": {
+        "input_tokens": 645,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 246,
+        "output_tokens_details": {
+          "reasoning_tokens": 72
+        },
+        "total_tokens": 891
+      },
+      "failure": null
+    },
+    {
+      "case": "rendered-evidence-with-caveat",
+      "repeat": 2,
+      "pass": true,
+      "raw": {
+        "businessName": {
+          "value": "Rendered Gardens",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Rendered Gardens is a landscaping business offering lawn maintenance in Mishawaka."
+            }
+          ]
+        },
+        "businessType": {
+          "value": "landscaping business",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Rendered Gardens is a landscaping business offering lawn maintenance in Mishawaka."
+            }
+          ]
+        },
+        "services": [
+          {
+            "value": "lawn maintenance",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "Rendered Gardens is a landscaping business offering lawn maintenance in Mishawaka."
+              }
+            ]
+          }
+        ],
+        "locations": [
+          {
+            "value": "Mishawaka",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "Rendered Gardens is a landscaping business offering lawn maintenance in Mishawaka."
+              }
+            ]
+          }
+        ],
+        "faqs": [],
+        "questions": []
+      },
+      "usage": {
+        "input_tokens": 645,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 268,
+        "output_tokens_details": {
+          "reasoning_tokens": 94
+        },
+        "total_tokens": 913
+      },
+      "failure": null
+    }
+  ],
+  "limitations": [
+    "Synthetic fact extraction fixtures do not establish production accuracy, ranking improvement, or Firecrawl rendering quality. Human review is still required."
+  ]
+}

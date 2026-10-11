@@ -185,8 +185,6 @@ const MainLayout = ({
   }
 
   // Check if user is in post-onboarding flow or revamp flow
-  const postOnboardingStep = data?.postOnboardingStep;
-  const isInPostOnboardingFlow = !data?.revampStatus?.match(/in-progress|complete/) && postOnboardingStep && postOnboardingStep !== 'complete';
   const isInRevampFlow = data?.revampStatus === 'in-progress';
 
   // Public pages that don't need header/navigation
@@ -199,7 +197,6 @@ const MainLayout = ({
       {!isPublicPage && (
       <header className={cn(
         "sticky top-0 z-50 bg-background border-b border-border shadow-sm transition-opacity duration-500",
-        isInPostOnboardingFlow && "opacity-30 pointer-events-none"
       )}>
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">

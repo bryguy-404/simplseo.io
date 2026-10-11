@@ -23,6 +23,7 @@ function deletionStore(initial) {
   });
   const db = { collection, runTransaction: async callback => callback({
     get: async target => ({ exists: records.has(target.path), data: () => records.get(target.path) }),
+    set: (target, data) => records.set(target.path, data),
     update: (target, data) => records.set(target.path, { ...records.get(target.path), ...data }),
   }), recursiveDelete: vi.fn(async target => {
     deleted.push(target.path);
@@ -99,19 +100,22 @@ describe('account data deletion', () => {
     const result = await deleteAccountFirestore(store.db, 'alice', 'Alice@Example.test');
     expect(result.deletedRoots).toBeGreaterThan(20);
     expect([...store.records.values()]).toEqual(expect.arrayContaining([{ keep: true }]));
-    expect([...store.records.values()].every(value => value.keep === true)).toBe(true);
+    expect([...store.records].filter(([path]) => !path.startsWith('accountDeletionGuards/')).every(([, value]) => value.keep === true)).toBe(true);
+    const guard = store.records.get(`accountDeletionGuards/${hash}`);
+    expect(guard).toEqual({ blocked: true, deletedAt: expect.any(String) });
     expect(store.deleted.at(-1)).toBe('onboarding/alice');
     expect(store.records.get('progressJobs/daily-website-monitoring')).toEqual({ cursor: null, leaseToken: 'global-lease', keep: true });
     // Missing parents are still recursively deleted; retrying has no effect on other users.
     const remaining = [...store.records.keys()];
     await deleteAccountFirestore(store.db, 'alice', 'alice@example.test');
     expect([...store.records.keys()]).toEqual(remaining);
+    expect(store.records.get(`accountDeletionGuards/${hash}`)).toEqual(guard);
   });
 
   it('deletes more than one Firestore query batch', async () => {
     const store = deletionStore(Object.fromEntries(Array.from({ length: 501 }, (_, i) => [`conversations/${i}`, { userId: 'alice' }])));
     await deleteAccountFirestore(store.db, 'alice');
-    expect(store.records.size).toBe(0);
+    expect([...store.records.keys()]).toEqual([`accountDeletionGuards/${accountHash('alice')}`]);
   });
 
   it('preserves a different account\'s current sweep cursor and the scheduler lease', async () => {
@@ -135,7 +139,7 @@ describe('account data deletion', () => {
       await remove(target);
     });
     await deleteAccountFirestore(store.db, 'alice');
-    expect(store.records.size).toBe(0);
+    expect([...store.records.keys()]).toEqual([`accountDeletionGuards/${accountHash('alice')}`]);
   });
 
   it('propagates failures and keeps account context available for retry', async () => {
@@ -145,6 +149,7 @@ describe('account data deletion', () => {
     expect(store.records.has('users/alice')).toBe(true);
     expect(store.records.has('onboarding/alice')).toBe(true);
     expect(store.records.get('users/alice').deletionInProgress).toBe(true);
+    expect(store.records.get(`accountDeletionGuards/${accountHash('alice')}`).blocked).toBe(true);
   });
 
   it('rejects path injection before touching storage', async () => {

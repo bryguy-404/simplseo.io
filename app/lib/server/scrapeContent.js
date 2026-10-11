@@ -65,6 +65,44 @@ function linkContext($, node) {
   return $(node).closest('main, article, [role="main"]').length ? 'main' : 'body';
 }
 
+
+const schemaText = (value, limit = 600) => typeof value === 'string' ? clean(value, limit) : '';
+function schemaLabels(value) {
+  return (Array.isArray(value) ? value : [value]).slice(0, 20).map(item => schemaText(typeof item === 'object' ? item?.name : item, 180)).filter(Boolean);
+}
+
+function extractStructuredData($) {
+  const scripts = $('script[type="application/ld+json" i]').toArray();
+  const items = [];
+  let bytes = 0, inspected = 0, malformed = 0, truncated = scripts.length > 10;
+  const visit = (value, depth = 0) => {
+    if (!value || typeof value !== 'object') return;
+    if (depth > 8 || inspected >= 400 || items.length >= 40) { truncated = true; return; }
+    inspected += 1;
+    if (Array.isArray(value)) { value.slice(0, 50).forEach(item => visit(item, depth + 1)); if (value.length > 50) truncated = true; return; }
+    const types = schemaLabels(value['@type']);
+    if (types.length) {
+      const address = value.address && typeof value.address === 'object'
+        ? ['streetAddress', 'addressLocality', 'addressRegion', 'postalCode', 'addressCountry'].map(key => schemaText(value.address[key], 160)).filter(Boolean).join(', ')
+        : schemaText(value.address, 400);
+      const item = { types, name: schemaText(value.name, 300), description: schemaText(value.description, 1200),
+        url: schemaText(value.url, 2048), address, areaServed: schemaLabels(value.areaServed), serviceType: schemaLabels(value.serviceType),
+        answer: schemaText(value.acceptedAnswer?.text, 1600) };
+      if (item.name || item.description || item.address || item.areaServed.length || item.serviceType.length || item.answer) items.push(item);
+    }
+    Object.values(value).slice(0, 60).forEach(child => visit(child, depth + 1));
+    if (Object.keys(value).length > 60) truncated = true;
+  };
+  for (const node of scripts.slice(0, 10)) {
+    const raw = $(node).text(), size = Buffer.byteLength(raw);
+    if (size > 32768 || bytes + size > 65536) { truncated = true; continue; }
+    bytes += size;
+    try { visit(JSON.parse(raw)); } catch { malformed += 1; }
+  }
+  return { items, scriptCount: scripts.length, malformed, truncated, source: 'website_json_ld',
+    limitation: 'Structured data contains website assertions, not verified business facts or proof that the content is visible.' };
+}
+
 // Always fetch current HTML; callers must not use client-supplied content as
 // evidence of what is on a website. Legacy fallback fields remain for old UI.
 export async function fetchCurrentPageContent(pageUrl, { property, deadline, signal, allowedHostname } = {}) {
@@ -91,7 +129,17 @@ export async function fetchCurrentPageContent(pageUrl, { property, deadline, sig
   if (!/^(?:text\/html|application\/xhtml\+xml)(?:\s*;|$)/i.test(contentType)) throw new RequestError('This URL does not return an HTML page. Choose a public webpage to review.', 422);
 
   const html = await response.text();
+  return extractPageContent(html, { pageUrl, finalUrl, property, httpStatus: response.status, headers: response.headers, redirectChain: response.redirectChain || [] });
+}
+
+// Parse trusted transport output; this does not verify URLs, perform requests or
+// establish that an extracted business/FAQ assertion is true.
+export function extractPageContent(html, { pageUrl, finalUrl = pageUrl, property, httpStatus = null, headers = new Headers(), redirectChain = [] } = {}) {
+  if (typeof html !== 'string' || Buffer.byteLength(html) > 2 * 1024 * 1024) throw new RequestError('This page is too large to scan.', 422);
+  const response = { status: httpStatus, headers, redirectChain };
+  const contentType = headers.get('content-type') || '';
   const $ = cheerio.load(html);
+  const structuredData = extractStructuredData($);
   const htmlTitle = clean($('title').first().text(), 500);
   const h1 = clean($('h1').first().text(), 500);
   const seoMetaDescription = clean($('meta[name="description" i]').first().attr('content'), 1000);
@@ -152,7 +200,7 @@ export async function fetchCurrentPageContent(pageUrl, { property, deadline, sig
   // Prefer content links in the bounded view, while retaining navigation links.
   const internalLinks = allInternalLinks.sort((a, b) => Number(b.context === 'main') - Number(a.context === 'main')).slice(0, LINK_LIMIT);
   return {
-    htmlTitle, seoMetaDescription, h1, textContent, headings, mainContent, contentSections, internalLinks, technical,
+    htmlTitle, seoMetaDescription, h1, textContent, headings, mainContent, contentSections, internalLinks, technical, structuredData,
     structureCoverage: {
       contentSource, textCharacters: fullTextLength, mainContentTruncated: fullTextLength > 12000,
       headingCount: headingNodes.length, headingsTruncated: headingNodes.length > HEADING_LIMIT,

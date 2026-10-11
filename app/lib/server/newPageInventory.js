@@ -106,17 +106,18 @@ function robotsExcluded(rawUrl, rules) {
 }
 
 function view(id, state, pages) {
+  const limits = state.limits || INVENTORY_LIMITS;
   const count = status => pages.filter(page => page.status === status).length;
   const fetched = count('fetched'), failed = count('failed'), excluded = count('excluded'), pending = count('pending'), retired = count('retired');
   const fetchedAttempts = fetched + failed + retired + pages.filter(page => page.reason === 'non_html_response').length;
   const canContinue = !state.initialized || state.robotsStatus === 'pending' || state.googleStatus === 'pending'
-    || state.sitemaps.some(item => item.status === 'pending') || (pending > 0 && fetchedAttempts < INVENTORY_LIMITS.htmlPages);
+    || state.sitemaps.some(item => item.status === 'pending') || (pending > 0 && fetchedAttempts < limits.htmlPages);
   const limitations = [...generalLimitations, ...state.limitations];
-  if (pending && fetchedAttempts >= INVENTORY_LIMITS.htmlPages) limitations.push('The 100-page HTML review limit was reached. Remaining discovered pages are unreviewed, not missing.');
+  if (pending && fetchedAttempts >= limits.htmlPages) limitations.push(`The ${limits.htmlPages}-page HTML review limit was reached. Remaining discovered pages are unreviewed, not missing.`);
   const incomplete = failed > 0 || pending > 0 || pages.some(page => page.reason === 'robots_disallowed') || state.truncated || state.limitations.length > 0;
   return { id, scope: state.scope, revision: state.revision, status: canContinue ? 'running' : !fetched ? 'unavailable' : incomplete ? 'partial' : 'ready',
     updatedAt: state.updatedAt, pages: pages.map(({ generation: _generation, ...page }) => page),
-    coverage: { discovered: pages.length, fetched, failed, excluded, pending, retired, truncated: Boolean(state.truncated || (pending && fetchedAttempts >= INVENTORY_LIMITS.htmlPages)),
+    coverage: { discovered: pages.length, fetched, failed, excluded, pending, retired, truncated: Boolean(state.truncated || (pending && fetchedAttempts >= limits.htmlPages)),
       limitations, sitemapsChecked: state.sitemaps.filter(item => item.status !== 'pending').length, sitemaps: state.sitemaps,
       googleStatus: state.googleStatus, robotsStatus: state.robotsStatus }, canContinue };
 }
@@ -125,37 +126,46 @@ async function readPages(ref, generation) {
   const snapshot = await ref.collection('pages').where('generation', '==', generation).limit(INVENTORY_LIMITS.urls).get();
   return snapshot.docs.map(doc => doc.data()).sort((a, b) => a.url.localeCompare(b.url));
 }
-export async function readNewPageInventory(userId) {
-  const scope = await readNewPageScope(userId);
-  const id = newPageScopeKey(scope), ref = db.collection('newPageInventories').doc(id);
+export const readNewPageInventory = userId => readScopedWebsiteInventory(userId);
+
+export async function readScopedWebsiteInventory(userId, adapter = {}) {
+  const readScope = adapter.readScope || readNewPageScope, assertScope = adapter.assertScope || assertSameNewPageScope;
+  const scope = await readScope(userId);
+  const id = (adapter.scopeKey || newPageScopeKey)(scope), ref = db.collection(adapter.collection || 'newPageInventories').doc(id);
   const snapshot = await ref.get();
   if (!snapshot.exists) return null;
   const state = snapshot.data();
-  assertSameNewPageScope(scope, state.scope);
+  assertScope(scope, state.scope);
   const pages = await readPages(ref, state.generation);
-  assertSameNewPageScope(scope, await readNewPageScope(userId));
+  assertScope(scope, await readScope(userId));
   return view(id, state, pages);
 }
 
-export async function continueNewPageInventory(userId, { restart = false, signal } = {}) {
-  const started = Date.now(), deadline = started + INVENTORY_LIMITS.batchMs - 5000;
-  const scope = await readNewPageScope(userId, { write: true });
-  const id = newPageScopeKey(scope), ref = db.collection('newPageInventories').doc(id), attempt = randomUUID();
+export const continueNewPageInventory = (userId, options) => continueScopedWebsiteInventory(userId, options);
+
+// Only trusted server callers provide adapters; no request body is spread here.
+export async function continueScopedWebsiteInventory(userId, { restart = false, signal } = {}, adapter = {}) {
+  const readScope = adapter.readScope || readNewPageScope, assertScope = adapter.assertScope || assertSameNewPageScope;
+  const limits = { ...INVENTORY_LIMITS, ...(adapter.limits || {}) };
+  const readPage = adapter.readPage || fetchCurrentPageContent;
+  const started = Date.now(), deadline = started + limits.batchMs - 5000;
+  const scope = await readScope(userId, { write: true });
+  const id = (adapter.scopeKey || newPageScopeKey)(scope), ref = db.collection(adapter.collection || 'newPageInventories').doc(id), attempt = randomUUID();
   let state = await db.runTransaction(async tx => {
-    assertSameNewPageScope(scope, await readNewPageScope(userId, { write: true, tx }));
+    assertScope(scope, await readScope(userId, { write: true, tx }));
     const previous = (await tx.get(ref)).data();
     if (previous?.leaseUntil && Date.parse(previous.leaseUntil) > Date.now()) throw new RequestError('Your website review is already running. Try again shortly.', 429);
     const current = !previous || restart ? { scope, userId, property: scope.property, websiteRunId: scope.websiteRunId,
-      generation: randomUUID(), revision: (previous?.revision || 0) + 1, initialized: false, sitemaps: [],
-      robotsStatus: 'pending', robotsRules: [], googleStatus: 'pending', limitations: [], truncated: false, updatedAt: iso() } : previous;
-    assertSameNewPageScope(scope, current.scope);
+      limits, generation: randomUUID(), revision: (previous?.revision || 0) + 1, initialized: false, sitemaps: [],
+      robotsStatus: 'pending', robotsRules: [], googleStatus: adapter.skipGoogle ? 'not_requested' : 'pending', limitations: [], truncated: false, updatedAt: iso() } : previous;
+    assertScope(scope, current.scope);
     tx.set(ref, { ...current, attempt, leaseUntil: new Date(started + 70000).toISOString() });
     return { ...current, attempt };
   });
   const pages = new Map((await readPages(ref, state.generation)).map(page => [page.url, page]));
-  const retirementSnapshots = await ref.collection('retirements').where('active', '==', true).limit(INVENTORY_LIMITS.urls).get();
+  const retirementSnapshots = await ref.collection('retirements').where('active', '==', true).limit(limits.urls).get();
   const retirements = new Map(retirementSnapshots.docs.map(doc => ({ ...doc.data(), recordId: doc.id })).filter(record => {
-    try { assertSameNewPageScope(scope, record.scope); return true; } catch { return false; }
+    try { assertScope(scope, record.scope); return true; } catch { return false; }
   }).map(record => [record.url, record]));
   const retirementUpdates = new Map();
   const dirty = new Set();
@@ -169,7 +179,7 @@ export async function continueNewPageInventory(userId, { restart = false, signal
       if (!page.sources.includes(source)) { page.sources.push(source); dirty.add(url); }
       return;
     }
-    if (pages.size >= INVENTORY_LIMITS.urls) { state.truncated = true; addLimitation(state, 'The 500-URL discovery limit was reached. Additional URLs may exist.'); return; }
+    if (pages.size >= limits.urls) { state.truncated = true; addLimitation(state, `The ${limits.urls}-URL discovery limit was reached. Additional URLs may exist.`); return; }
     const excluded = nonHtml.test(new URL(url).pathname) || robotsExcluded(url, state.robotsRules);
     pages.set(url, { url, status: excluded ? 'excluded' : 'pending', reason: excluded ? (nonHtml.test(new URL(url).pathname) ? 'non_html_resource' : 'robots_disallowed') : null,
       sources: [source], discoveredAt: iso(), generation: state.generation });
@@ -179,7 +189,7 @@ export async function continueNewPageInventory(userId, { restart = false, signal
     const url = pageUrl(raw, scope);
     if (!url) { addLimitation(state, 'A sitemap URL was invalid or outside the selected website/property and was not fetched.'); return; }
     if (state.sitemaps.some(item => item.url === url)) return;
-    if (state.sitemaps.length >= INVENTORY_LIMITS.sitemaps) { state.truncated = true; addLimitation(state, 'The 20-sitemap document limit was reached. Additional sitemap documents were not reviewed.'); return; }
+    if (state.sitemaps.length >= limits.sitemaps) { state.truncated = true; addLimitation(state, `The ${limits.sitemaps}-sitemap document limit was reached. Additional sitemap documents were not reviewed.`); return; }
     state.sitemaps.push({ url, source, status: 'pending' });
   };
   const flush = async (release = false) => {
@@ -190,13 +200,13 @@ export async function continueNewPageInventory(userId, { restart = false, signal
     for (let offset = 0; offset < allDirty.length; offset += 25) {
       const urls = allDirty.slice(offset, offset + 25);
       await db.runTransaction(async tx => {
-        assertSameNewPageScope(scope, await readNewPageScope(userId, { write: true, tx }));
+        assertScope(scope, await readScope(userId, { write: true, tx }));
         const latest = (await tx.get(ref)).data();
         if (latest?.attempt !== attempt || latest.generation !== state.generation) throw new RequestError('Website review changed. Reload before continuing.', 409);
         const reactivated = await Promise.all(urls.filter(url => retirementUpdates.has(url)).map(async url => {
           const update = retirementUpdates.get(url), removalRef = ref.collection('retirements').doc(update.recordId);
           const removal = await tx.get(removalRef);
-          if (removal.exists) assertSameNewPageScope(scope, removal.data().scope);
+          if (removal.exists) assertScope(scope, removal.data().scope);
           return { removalRef, removal, at: update.at };
         }));
         for (const url of urls) tx.set(ref.collection('pages').doc(hash(url)), plain(pages.get(url)));
@@ -207,7 +217,7 @@ export async function continueNewPageInventory(userId, { restart = false, signal
       urls.forEach(url => { dirty.delete(url); retirementUpdates.delete(url); });
     }
     await db.runTransaction(async tx => {
-      assertSameNewPageScope(scope, await readNewPageScope(userId, { write: true, tx }));
+      assertScope(scope, await readScope(userId, { write: true, tx }));
       const latest = (await tx.get(ref)).data();
       if (latest?.attempt !== attempt || latest.generation !== state.generation) throw new RequestError('Website review changed. Reload before continuing.', 409);
       state.revision = (latest.revision || 0) + 1;
@@ -220,6 +230,7 @@ export async function continueNewPageInventory(userId, { restart = false, signal
       // Keep owner declarations reviewable even after every discovery source
       // drops an old URL. They still receive a fresh bounded HTTP check.
       for (const url of retirements.keys()) addPage(url, 'owner_removal_record');
+      if (adapter.savedSeeds !== false) {
       const [onboarding, legacy] = await Promise.all([db.collection('onboarding').doc(userId).get(), db.collection('siteCrawls').doc(userId).get()]);
       for (const page of (onboarding.data()?.revampPages || []).slice(0, 500)) addPage(typeof page === 'string' ? page : page.url, 'saved_website_record');
       const old = legacy.data() || {};
@@ -227,6 +238,7 @@ export async function continueNewPageInventory(userId, { restart = false, signal
       // remain history, not current discovery evidence for the new website run.
       if (!scope.websiteRunId || (old.websiteRunId || old.revampRunId) === scope.websiteRunId) {
         for (const url of [...(old.approvedUrls || []), ...(old.manualUrls || []), ...(old.lastCrawlUrls || [])].slice(0, 500)) addPage(url, 'previous_crawl_record');
+      }
       }
       addSitemap(new URL('sitemap.xml', scope.websiteUrl).href, 'default');
       state.initialized = true;
@@ -287,11 +299,11 @@ export async function continueNewPageInventory(userId, { restart = false, signal
     }
     while (available()) {
       const attempted = [...pages.values()].filter(page => ['fetched', 'failed', 'retired'].includes(page.status) || page.reason === 'non_html_response').length;
-      const selected = [...pages.values()].filter(page => page.status === 'pending').slice(0, Math.min(INVENTORY_LIMITS.concurrency, INVENTORY_LIMITS.htmlPages - attempted));
+      const selected = [...pages.values()].filter(page => page.status === 'pending').slice(0, Math.min(limits.concurrency, limits.htmlPages - attempted));
       if (!selected.length) break;
       await Promise.all(selected.map(async page => {
         try {
-          const content = await fetchCurrentPageContent(page.url, options);
+          const content = await readPage(page.url, { ...options, inventoryId: id, generation: state.generation, robotsStatus: state.robotsStatus });
           if (!pageUrl(content.finalUrl || page.url, scope)) throw new RequestError('Page redirects outside selected website.', 403);
           page.status = 'fetched'; page.content = content; page.reason = null; page.observedAt = iso();
           delete page.retirementProof;

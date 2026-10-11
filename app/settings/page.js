@@ -79,10 +79,11 @@ import {
   signInWithEmailAndPassword 
 } from "firebase/auth";
 import RevampModal from "../components/settings/RevampModal";
+import OnboardingWorkspace from "../components/onboarding/OnboardingWorkspace";
 
 export default function Settings() {
   const { user, isLoading: authLoading } = useAuth();
-  const { data, updateData } = useOnboarding();
+  const { data, updateData, setupWorkspace } = useOnboarding();
   const { isDarkMode, toggleTheme } = useTheme();
   const router = useRouter();
 
@@ -1058,7 +1059,8 @@ export default function Settings() {
         <div className="px-6 py-8">
           <div className="w-full">
             {/* Profile Tab */}
-            {activeTab === "profile" && (
+            {activeTab === "profile" && (setupWorkspace?.eligible || setupWorkspace?.pinned) && <OnboardingWorkspace key={user?.id} existing />}
+            {activeTab === "profile" && !(setupWorkspace?.eligible || setupWorkspace?.pinned) && (
               <Card className="border-green-200 dark:border-green-800">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-lg">

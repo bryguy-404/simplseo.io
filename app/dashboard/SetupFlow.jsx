@@ -1201,10 +1201,6 @@ export default function Dashboard() {
     const selectedProperty = data?.gscProperty;
 
     if (selectedProperty) {
-      // Store site URL in Firestore
-      const tokenManager = createGSCTokenManager(user.id);
-      await tokenManager.storeTokens(null, token, selectedProperty);
-
       // Fetch dashboard metrics (always 28 days - optimal sweet spot)
       fetchDashboardMetrics(selectedProperty, token);
 
@@ -1503,8 +1499,11 @@ export default function Dashboard() {
 
   const requestGSCAuthToken = async () => {
     try {
-      const tokens = await reconnectGsc(data?.gscProperty);
-      setGscAccessToken(tokens.access_token); setIsGscConnected(true); await updateData({ hasGSC: true }); await fetchAndMatchGSC(tokens.access_token);
+      await reconnectGsc(data?.gscProperty);
+      const tokenManager = createGSCTokenManager(user.id);
+      const accessToken = await tokenManager.getValidAccessToken();
+      setGscAccessToken(accessToken); setIsGscConnected(true);
+      await updateData({ hasGSC: true }); await fetchAndMatchGSC(accessToken);
     } catch (error) { window.alert(error.message); }
   };
 

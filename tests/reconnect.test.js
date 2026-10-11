@@ -12,7 +12,7 @@ it('accepts only the matching popup, origin and one-time state', async () => {
   const popup = { location: {}, closed: false, close: vi.fn() };
   let handler;
   vi.stubGlobal('window', { open: () => popup, location: { origin: 'https://app.test' }, addEventListener: (_event, fn) => { handler = fn; }, removeEventListener: vi.fn() });
-  authenticatedFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ state: 'expected', url: 'https://accounts.google.com/auth' }) }).mockResolvedValueOnce({ ok: true, json: async () => ({ access_token: 'valid-result' }) });
+  authenticatedFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ state: 'expected', url: 'https://accounts.google.com/auth' }) }).mockResolvedValueOnce({ ok: true, json: async () => ({ success: true, property: 'sc-domain:example.test' }) });
   const pending = reconnectGsc('sc-domain:example.test');
   await vi.waitFor(() => expect(handler).toBeTypeOf('function'));
   const good = { origin: 'https://app.test', source: popup, data: { state: 'expected', type: 'GSC_AUTH_SUCCESS', code: 'code' } };
@@ -21,7 +21,9 @@ it('accepts only the matching popup, origin and one-time state', async () => {
   handler({ ...good, data: { ...good.data, state: 'wrong' } });
   expect(authenticatedFetch).toHaveBeenCalledTimes(1);
   handler(good);
-  await expect(pending).resolves.toEqual({ access_token: 'valid-result' });
+  await expect(pending).resolves.toEqual({ success: true, property: 'sc-domain:example.test' });
+  expect(authenticatedFetch.mock.calls[0][0]).toBe('/api/gsc/connect?property=sc-domain%3Aexample.test');
+  expect(JSON.parse(authenticatedFetch.mock.calls[1][1].body)).toEqual({ code: 'code', state: 'expected' });
   expect(popup.close).toHaveBeenCalled();
 });
 it('reports a declined connection without exchanging or clearing credentials', async () => {

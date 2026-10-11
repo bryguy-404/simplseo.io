@@ -1,8 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useRef } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { saveOnboardingData, getOnboardingData } from "../lib/firestoreHelpers";
 import { useAuth } from "./AuthContext";
+import { authenticatedFetch } from '../lib/authenticatedFetch';
 
 const initialData = {
   businessName: "",
@@ -77,13 +78,38 @@ const clearDraftFromLocalStorage = (userId) => {
 export const OnboardingProvider = ({ children }) => {
   const [data, setData] = useState(initialData);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [setupWorkspace, setSetupWorkspace] = useState(null);
+  const [setupError, setSetupError] = useState('');
   const { user } = useAuth();
   const dataRef = useRef(data);
+  const userId = user?.id;
+  const accountRef = useRef(userId);
+  accountRef.current = user?.id;
   dataRef.current = data;
 
+  const applySetupWorkspace = useCallback(workspace => {
+    if (!workspace || typeof workspace.eligible !== 'boolean') return;
+    setSetupWorkspace(workspace); setSetupError('');
+  }, []);
+
+  const refreshSetup = useCallback(async () => {
+    const uid = user?.id;
+    if (!uid) return null;
+    try {
+      const response = await authenticatedFetch('/api/onboarding/workspace');
+      const workspace = await response.json();
+      if (!response.ok) throw new Error(workspace.error || 'Your saved setup could not be loaded. Please retry.');
+      if (accountRef.current !== uid) return null;
+      applySetupWorkspace(workspace);
+      return workspace;
+    } catch (error) { if (accountRef.current === uid) setSetupError(error.message); throw error; }
+  }, [user?.id, applySetupWorkspace]);
+
   useEffect(() => {
+    let cancelled = false;
     const loadData = async () => {
-      if (!user) {
+      setSetupWorkspace(null); setSetupError('');
+      if (!userId) {
         setData(initialData);
         setIsLoaded(false);
         return;
@@ -93,19 +119,31 @@ export const OnboardingProvider = ({ children }) => {
         setIsLoaded(false);
         
         // First, try to load from Firestore (completed onboarding)
-        const firestoreData = await getOnboardingData(user.id);
+        const [stored, workspace] = await Promise.allSettled([
+          getOnboardingData(userId),
+          authenticatedFetch('/api/onboarding/workspace').then(async response => {
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Your saved setup could not be loaded. Please retry.');
+            return result;
+          }),
+        ]);
+        if (cancelled) return;
+        if (workspace.status === 'fulfilled') applySetupWorkspace(workspace.value);
+        else setSetupError(workspace.reason.message);
+        if (stored.status === 'rejected') throw stored.reason;
+        const firestoreData = stored.value;
         
         if (firestoreData?.isComplete) {
           // User has completed onboarding - use Firestore data
           setData(firestoreData);
           // Clear any draft from localStorage since onboarding is complete
-          clearDraftFromLocalStorage(user.id);
+          clearDraftFromLocalStorage(userId);
         } else if (firestoreData) {
           // Firestore has incomplete data (legacy) - use it but don't save drafts
           setData(firestoreData);
         } else {
           // No Firestore data - check localStorage for draft
-          const draftData = loadDraftFromLocalStorage(user.id);
+          const draftData = loadDraftFromLocalStorage(userId);
           if (draftData) {
             console.log("📝 Restoring draft from localStorage");
             setData(draftData);
@@ -114,21 +152,23 @@ export const OnboardingProvider = ({ children }) => {
           }
         }
       } catch (err) {
+        if (cancelled) return;
         console.error("Failed to fetch onboarding data:", err);
         // On error, try to load from localStorage
-        const draftData = loadDraftFromLocalStorage(user.id);
+        const draftData = loadDraftFromLocalStorage(userId);
         if (draftData) {
           setData(draftData);
         } else {
           setData(initialData);
         }
       } finally {
-        setIsLoaded(true);
+        if (!cancelled) setIsLoaded(true);
       }
     };
 
     loadData();
-  }, [user]);
+    return () => { cancelled = true; };
+  }, [userId, applySetupWorkspace]);
 
   const updateData = async (newData) => {
     const previous = dataRef.current;
@@ -148,8 +188,9 @@ export const OnboardingProvider = ({ children }) => {
 
   const reloadData = async () => {
     if (!user) return;
+    const uid = user.id;
     const stored = await getOnboardingData(user.id);
-    if (stored) { dataRef.current = { ...initialData, ...stored }; setData(dataRef.current); }
+    if (stored && accountRef.current === uid) { dataRef.current = { ...initialData, ...stored }; setData(dataRef.current); }
   };
 
   const resetData = () => {
@@ -165,7 +206,7 @@ export const OnboardingProvider = ({ children }) => {
   };
 
   return (
-    <OnboardingContext.Provider value={{ data, updateData, resetData, reloadData, isLoaded }}>
+    <OnboardingContext.Provider value={{ data, updateData, resetData, reloadData, isLoaded, setupWorkspace, setupError, refreshSetup, applySetupWorkspace }}>
       {children}
     </OnboardingContext.Provider>
   );

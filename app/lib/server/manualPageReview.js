@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { readBusinessContext, profileEvidence } from './businessProfile';
 import OpenAI from 'openai';
 import { db } from '../firebaseAdmin';
 import { propertyContainsUrl } from '../revampState';
@@ -33,7 +34,8 @@ export async function readCurrentPageForReview(userId, pageUrl, { deadline, sign
     internalLinks: currentPage.internalLinks, technical: currentPage.technical,
   })).digest('hex');
   await assertReviewStillCurrent(userId, { property, websiteRunId }, { deadline, signal });
-  return { currentPage, provenance: { property, websiteRunId, pageUrl, finalUrl: currentPage.finalUrl, contentFingerprint } };
+  const businessProfile = profileEvidence(await readBusinessContext(userId));
+  return { currentPage, ...(businessProfile ? { businessProfile } : {}), provenance: { property, websiteRunId, pageUrl, finalUrl: currentPage.finalUrl, contentFingerprint, businessProfileRevision: businessProfile?.revision || 0 } };
 }
 
 async function assertReviewStillCurrent(userId, provenance, { deadline, signal } = {}) {
@@ -136,7 +138,7 @@ export async function generatePageReviewSuggestions(userId, pageUrl, keywordInpu
     // was attempted if the earlier evidence checks exhausted that budget.
     providerTimeout(65000);
     response = await recordPageReviewResponse({ ...usageContext, stage: 'assessment' },
-      () => openai.responses.create(buildReviewRequest({ currentPage, evidence, research, diagnostics, ownerGoal, focusKeywords, priorTasks: previousPlan?.tasks || [] }),
+      () => openai.responses.create(buildReviewRequest({ currentPage, evidence, research, diagnostics, ownerGoal, focusKeywords, businessProfile: review.businessProfile, priorTasks: previousPlan?.tasks || [] }),
         { timeout: providerTimeout(65000), ...(signal ? { signal } : {}) }));
   } catch {
     throw new RequestError('The page review service is temporarily unavailable. Your website has not been changed. Please try again later.', 503);
@@ -146,7 +148,7 @@ export async function generatePageReviewSuggestions(userId, pageUrl, keywordInpu
   catch { throw new RequestError('The service did not return a clearly supported review. Your website has not been changed. Please try again.', 502); }
   await assertReviewStillCurrent(userId, review.provenance);
   if (signal?.aborted) throw new RequestError('The page review was cancelled. Your saved plan is unchanged.', 409);
-  const completedReview = { ...result, currentPage, evidence, research, diagnostics, timeline: PAGE_REVIEW_TIMELINE, ownerGoal,
+  const completedReview = { ...result, currentPage, ...(review.businessProfile ? { businessProfile: review.businessProfile } : {}), evidence, research, diagnostics, timeline: PAGE_REVIEW_TIMELINE, ownerGoal,
     updateBaseline: pageReviewUpdateBaseline(context),
     provenance: { ...review.provenance, generatedAt: new Date().toISOString(), reviewVersion: PAGE_REVIEW_VERSION, model: PAGE_REVIEW_MODEL } };
   const plan = await savePageReviewPlan(userId, completedReview, { startedAt });

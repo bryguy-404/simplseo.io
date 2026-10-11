@@ -195,19 +195,8 @@ const Auth = () => {
       return; // Stop here, don't redirect
     }
 
-    // 🛡️ SAFEGUARD: Detect if user is trying to log in with a non-existent account
-    if (isLogin && !hasCompletedOnboarding) {
-      // User clicked "Log In" but no account exists
-      toast.error("No Account Found", {
-        description: "We couldn't find an account with this Google email. Please create an account first.",
-        duration: 8000,
-      });
-      
-      // Sign them out so they can create an account
-      await signOut(auth);
-      setIsLogin(false); // Switch to create account mode
-      return; // Stop here, don't redirect
-    }
+    // An authenticated account may have an unfinished setup. Resume it instead
+    // of treating missing completion as a missing account and signing it out.
 
     // Normal flow: redirect based on onboarding status
       if (hasCompletedOnboarding) {

@@ -1,0 +1,137 @@
+{
+  "model": "gpt-6.1-sol",
+  "createdAt": "2026-10-11T06:54:46.712Z",
+  "results": [
+    {
+      "case": "client-location-not-service-area",
+      "repeat": 1,
+      "pass": true,
+      "raw": {
+        "businessName": {
+          "value": "Local Design",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Local Design is a web design business based in South Bend."
+            }
+          ]
+        },
+        "businessType": {
+          "value": "web design business",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Local Design is a web design business based in South Bend."
+            }
+          ]
+        },
+        "services": [
+          {
+            "value": "website design",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "We offer website design."
+              }
+            ]
+          }
+        ],
+        "locations": [
+          {
+            "value": "South Bend",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "Local Design is a web design business based in South Bend."
+              }
+            ]
+          }
+        ],
+        "faqs": [],
+        "questions": [
+          "Can you confirm that your business is based in South Bend?"
+        ]
+      },
+      "usage": {
+        "input_tokens": 713,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 166,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 879
+      },
+      "failure": null
+    },
+    {
+      "case": "client-location-not-service-area",
+      "repeat": 2,
+      "pass": true,
+      "raw": {
+        "businessName": {
+          "value": "Local Design",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Local Design is a web design business based in South Bend."
+            }
+          ]
+        },
+        "businessType": {
+          "value": "web design business",
+          "evidence": [
+            {
+              "sourceId": "S1",
+              "quote": "Local Design is a web design business based in South Bend."
+            }
+          ]
+        },
+        "services": [
+          {
+            "value": "website design",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "We offer website design."
+              }
+            ]
+          }
+        ],
+        "locations": [
+          {
+            "value": "South Bend",
+            "evidence": [
+              {
+                "sourceId": "S1",
+                "quote": "Local Design is a web design business based in South Bend."
+              }
+            ]
+          }
+        ],
+        "faqs": [],
+        "questions": [
+          "Can you confirm that your business is based in South Bend?"
+        ]
+      },
+      "usage": {
+        "input_tokens": 713,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 324,
+        "output_tokens_details": {
+          "reasoning_tokens": 66
+        },
+        "total_tokens": 1037
+      },
+      "failure": null
+    }
+  ],
+  "limitations": [
+    "Synthetic fact extraction fixtures do not establish production accuracy, ranking improvement, or Firecrawl rendering quality. Human review is still required."
+  ]
+}

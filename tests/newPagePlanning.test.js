@@ -16,6 +16,7 @@ import { readNewPageScope, newPageScopeKey } from '../app/lib/server/newPageScop
 import { readNewPageWorkspace, readNewPagePlan, saveNewPageContext, assessNewPageIdeas, selectNewPageIdea, editNewPagePlan, generateNewPageDraft, suggestNearbyAreas, buildNewPageBundle, suggestedNewPageServices } from '../app/lib/server/newPagePlanning';
 import { consumeNewPageQuota } from '../app/lib/server/requestQuota';
 import { contextKey } from '../app/components/new-pages/shared';
+import { accountWebsiteScope, businessProfileRef } from '../app/lib/server/businessProfile';
 
 const when = new Date('2026-10-10T18:00:00Z');
 const context = { area: { name: 'Mishawaka', region: 'Indiana', country: 'United States' }, services: ['plumbing repairs'], facts: 'We repair plumbing in older Mishawaka homes and explain access arrangements.', confirmed: true };
@@ -63,6 +64,38 @@ beforeEach(async () => {
   vi.mocked(getGscConnection).mockClear(); vi.mocked(recordPageReviewResponse).mockClear();
 });
 afterEach(() => { vi.useRealTimers(); delete process.env.NEW_PAGE_GENERATION_ENABLED; });
+
+it('preserves an assessment when business facts change during a new model response', async () => {
+  const first = await assessNewPageIdeas('alice');
+  const saved = structuredClone([...records].find(([path]) => path.startsWith('newPageAssessments/')));
+  mocks.inventory.pages[0].content.textContent += ' We also explain water shutoff access.';
+  const run = mocks.create.getMockImplementation();
+  mocks.create.mockImplementation(async request => {
+    const result = await run(request);
+    if (request.text?.format?.name === 'new_page_assessment') {
+      const raw = accountWebsiteScope(records.get('onboarding/alice'), records.get('users/alice'));
+      records.set(businessProfileRef('alice', raw).path, { scope: raw, revision: 1, confirmedAt: when.toISOString(), profile: {
+        businessName: 'Fixture Plumbing', businessType: 'Plumber', services: ['Drain repair'], baseLocation: { city: 'Mishawaka', region: 'Indiana', country: 'United States' }, serviceAreas: ['Mishawaka'], goal: 'quotes',
+      } });
+    }
+    return result;
+  });
+  await expect(assessNewPageIdeas('alice')).rejects.toMatchObject({ status: 409 });
+  expect(records.get(saved[0])).toEqual(saved[1]);
+  expect((await readNewPageWorkspace('alice')).assessments[0].id).toBe(first.assessment.id);
+});
+
+it('shows a profile conflict without erasing separately confirmed area services or saved plans', async () => {
+  const { plan } = await evaluateAndSelect();
+  const raw = accountWebsiteScope(records.get('onboarding/alice'), records.get('users/alice'));
+  records.set(businessProfileRef('alice', raw).path, { scope: raw, revision: 1, confirmedAt: new Date(when.getTime() + 1000).toISOString(), profile: {
+    businessName: 'Fixture Plumbing', businessType: 'Plumber', services: ['Drain repair'], baseLocation: { city: 'Mishawaka', region: 'Indiana', country: 'United States' }, serviceAreas: ['Mishawaka'], goal: 'quotes',
+  } });
+  const result = await readNewPageWorkspace('alice');
+  expect(result.profileNotices).toHaveLength(1);
+  expect(result.context.services).toEqual(context.services);
+  expect(result.plans[0].id).toBe(plan.id);
+});
 
 const retiredPage = () => ({ url: 'https://example.test/services/discontinued', status: 'retired', reason: 'owner_confirmed_removed',
   observedAt: when.toISOString(), retirementProof: { httpStatus: 404, ownerConfirmedAt: when.toISOString(), verifiedAt: when.toISOString() } });
