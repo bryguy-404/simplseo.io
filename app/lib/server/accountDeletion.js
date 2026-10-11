@@ -56,13 +56,6 @@ export async function deleteAccountFirestore(db, uid, verifiedEmail) {
   }
   for (const name of ACCOUNT_ROOT_COLLECTIONS) await remove(db.collection(name).doc(uid));
   await remove(db.collection('progressJobs').doc(`user-${uid}`));
-  // The bounded website sweep keeps one account ID as its pagination cursor.
-  // Clear only this account's cursor; preserve the global lease and other users.
-  const sweep = db.collection('progressJobs').doc('daily-website-monitoring');
-  await db.runTransaction(async tx => {
-    const snapshot = await tx.get(sweep);
-    if (snapshot.data()?.cursor === uid) tx.update(sweep, { cursor: null });
-  });
   for (const name of HASHED_COLLECTIONS) await remove(db.collection(name).doc(accountHash(uid)));
   deletedRoots += await deleteMatching(db, db.collection('gscOAuthStates').where('uid', '==', uid));
 
@@ -80,6 +73,13 @@ export async function deleteAccountFirestore(db, uid, verifiedEmail) {
   // for an idempotent retry instead of reporting an incomplete deletion as success.
   await remove(db.collection('users').doc(uid));
   await remove(db.collection('onboarding').doc(uid));
+  // Clear this account's cursor after removing onboarding. A finishing sweep
+  // transaction checks that document, so it cannot restore the deleted UID.
+  const sweep = db.collection('progressJobs').doc('daily-website-monitoring');
+  await db.runTransaction(async tx => {
+    const snapshot = await tx.get(sweep);
+    if (snapshot.data()?.cursor === uid) tx.update(sweep, { cursor: null });
+  });
   // A review already in flight may have started its accounting after the first
   // sweep. New accounting transactions now see the missing account roots.
   deletedRoots += await deleteMatching(db, db.collection('aiUsageEvents').where('userId', '==', uid));

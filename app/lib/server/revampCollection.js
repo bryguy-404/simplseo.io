@@ -20,7 +20,11 @@ export async function runRevampCollection(now = new Date()) {
     return prior;
   });
   const finish = async patch => db.runTransaction(async tx => {
-    if ((await tx.get(ref)).data()?.attempt === attempt) tx.set(ref, { ...patch, leaseUntil: null }, { merge: true });
+    if ((await tx.get(ref)).data()?.attempt !== attempt) return;
+    // Account deletion may finish after this sweep's query/observation. The
+    // transactional read also conflicts with a concurrent onboarding deletion.
+    const cursorExists = !patch.cursor || (await tx.get(db.collection('onboarding').doc(patch.cursor))).exists;
+    tx.set(ref, { ...patch, ...(patch.cursor && !cursorExists ? { cursor: null } : {}), leaseUntil: null }, { merge: true });
   });
   try {
     const base = () => db.collection('onboarding').where('revampMonitoringEnabled', '==', true).orderBy('__name__').limit(MAX_ACCOUNTS);

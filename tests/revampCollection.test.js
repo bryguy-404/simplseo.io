@@ -70,6 +70,19 @@ it('wraps a saved cursor when the later accounts have been removed', async () =>
   expect(records.get(jobPath).cursor).toBeNull();
 });
 
+it('does not restore a deleted account as the cursor when an in-flight sweep finishes', async () => {
+  await setup(20);
+  monitorRevamp.mockImplementation(async uid => {
+    if (uid === 'user-19') {
+      await db.collection('onboarding').doc(uid).delete();
+      records.set(jobPath, { ...records.get(jobPath), cursor: null });
+    }
+    return { connectionStatus: 'usable', checked: 1 };
+  });
+  expect((await runRevampCollection(now)).checked).toBe(20);
+  expect(records.get(jobPath)).toMatchObject({ cursor: null, leaseUntil: null });
+});
+
 it('isolates errors and indicates partial work without exposing raw provider messages', async () => {
   await setup(3);
   monitorRevamp.mockRejectedValueOnce(new Error('private provider payload'))
