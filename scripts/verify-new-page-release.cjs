@@ -1,5 +1,6 @@
 // Production release check. No AI, area confirmations, drafts or publications.
 // --inventory explicitly performs bounded public website discovery only.
+// --restart-inventory rebuilds that evidence without altering owner plans.
 require('dotenv').config({ path: '.env.local', quiet: true });
 const admin = require('firebase-admin');
 const ORIGIN = 'https://simplseo-io.vercel.app';
@@ -8,7 +9,8 @@ const [uid, property, ...flags] = process.argv.slice(2);
 const assert = (ok, message) => { if (!ok) throw new Error(message); };
 let stage = 'configuration';
 async function main() {
-  assert(/^[\w-]{1,128}$/.test(uid || '') && property && flags.every(flag => flag === '--inventory') && flags.length <= 1, 'Provide exact account/property and optional inventory flag.');
+  assert(/^[\w-]{1,128}$/.test(uid || '') && property && flags.every(flag => ['--inventory', '--restart-inventory'].includes(flag))
+    && new Set(flags).size === flags.length && (!flags.includes('--restart-inventory') || flags.includes('--inventory')), 'Provide exact account/property and optional inventory flags.');
   assert(process.env.FIREBASE_PROJECT_ID === PROJECT && !process.env.FIRESTORE_EMULATOR_HOST && !process.env.FIREBASE_AUTH_EMULATOR_HOST, 'Use only existing production config.');
   const app = admin.initializeApp({ credential: admin.credential.cert({ projectId: PROJECT, clientEmail: process.env.FIREBASE_CLIENT_EMAIL, privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') }) });
   const db = app.firestore();
@@ -47,11 +49,12 @@ async function main() {
     }
     stage = 'saved workspace and optional inventory';
     const first = await request(); assert(first.status === 200 && /no-store/.test(first.cache || ''), 'Saved workspace unavailable or cacheable.');
+    assert(first.data.enabled === true, 'New-page generation is unexpectedly paused.');
     const initialContext = JSON.stringify(first.data.context), initialPlans = JSON.stringify(first.data.plans);
     let batches = 0, inventory = first.data.inventory;
     if (flags.includes('--inventory')) {
       do {
-        const result = await request('/inventory', 'POST', {}); assert(result.status === 200, 'Inventory continuation failed.');
+        const result = await request('/inventory', 'POST', { restart: flags.includes('--restart-inventory') && batches === 0 }); assert(result.status === 200, 'Inventory continuation failed.');
         inventory = result.data.inventory; batches++;
         assert(inventory.coverage.discovered <= 500 && inventory.coverage.fetched <= 100, 'Inventory bounds exceeded.');
         if (!inventory.canContinue) break;
@@ -69,7 +72,7 @@ async function main() {
     assert(beforeUsage.length === afterUsage.length, 'AI was called during saved read/discovery.');
     console.log(JSON.stringify({ verifiedAt: new Date().toISOString(), origin: ORIGIN, authChecks: protectedPaths.length, crossAccountChecks: protectedPaths.length,
       retiredWrites: 5, savedPlansPreserved: preserved.length, existingRecordsPreserved: snapshots.length,
-      newPublicationsCreated: 0, aiCallsDuringCheck: 0, ownerContextConfirmed: Boolean(reloaded.data.context?.confirmed), inventoryBatches: batches,
+      newPublicationsCreated: 0, aiCallsDuringCheck: 0, generationEnabled: first.data.enabled, ownerContextConfirmed: Boolean(reloaded.data.context?.confirmed), inventoryBatches: batches,
       inventory: inventory && { status: inventory.status, coverage: inventory.coverage, pages: inventory.pages.map(page => ({ url: page.url, status: page.status, reason: page.reason || null })) },
       nextCheckpoint: 'Owner reviews actual service/area and coverage; do not confirm publication.' }, null, 2));
   } finally { await app.delete(); }

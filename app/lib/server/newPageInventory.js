@@ -14,7 +14,7 @@ const hash = value => createHash('sha256').update(value).digest('hex');
 const iso = () => new Date().toISOString();
 const plain = value => JSON.parse(JSON.stringify(value));
 const MAX_LIMITATIONS = 30;
-const nonHtml = /\.(?:pdf|jpe?g|png|gif|webp|svg|ico|mp[34]|webm|mov|avi|zip|gz|css|js|json|xml|woff2?|ttf|eot|csv|docx?|xlsx?)(?:$|\?)/i;
+const nonHtml = /\.(?:pdf|jpe?g|png|gif|webp|svg|ico|mp[34]|webm|mov|avi|zip|gz|tar|tgz|bz2|tbz2|xz|txz|zst|7z|rar|dmg|pkg|exe|msi|msix|appx|apk|aab|deb|rpm|iso|img|bin|jar|war|css|js|json|xml|woff2?|ttf|eot|csv|docx?|xlsx?)(?:$|\?)/i;
 const generalLimitations = [
   'This inventory reviews discovered pages, not every possible URL. A sitemap, internal links and Search Console may each omit pages.',
   'Downloaded HTML is not a browser rendering. Content excerpts and links are bounded; missing excerpt text does not prove it is absent.',

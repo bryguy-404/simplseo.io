@@ -24,6 +24,7 @@ import { publicFetch } from '../app/lib/server/publicFetch';
 import { fetchCurrentPageContent } from '../app/lib/server/scrapeContent';
 import { getGscConnection } from '../app/lib/server/gscConnection';
 import { readNewPageInventory, continueNewPageInventory, parseInventorySitemap } from '../app/lib/server/newPageInventory';
+import { uncertainCoveragePages } from '../app/lib/newPagePolicy';
 
 const scope = { userId: 'u1', property: 'https://example.test/', websiteRunId: 'v1', websiteUrl: 'https://example.test/', businessName: 'Example', businessLocation: 'South Bend' };
 const root = 'newPageInventories/u1-v1';
@@ -129,6 +130,29 @@ describe('evidence-based website discovery', () => {
     expect(result.coverage.sitemaps.find(item => item.url.endsWith('.gz')).status).toBe('unsupported');
     expect(publicFetch.mock.calls.some(([url]) => url.endsWith('.gz'))).toBe(false);
     expect(result.status).toBe('partial');
+  });
+  it('excludes installer and archive downloads without fetching them or creating coverage gaps', async () => {
+    const downloads = ['Captura.dmg', 'PinMemories.DMG?download=1', 'setup.pkg', 'setup.exe', 'setup.msi', 'setup.msix',
+      'setup.appx', 'mobile.apk', 'mobile.aab', 'package.deb', 'package.rpm', 'backup.tar', 'backup.tgz',
+      'backup.bz2', 'backup.tbz2', 'backup.xz', 'backup.txz', 'backup.zst', 'backup.7z', 'backup.rar',
+      'disk.iso', 'disk.img', 'firmware.bin', 'package.jar', 'package.war'].map(file => `${scope.websiteUrl}downloads/${file}`);
+    fetchCurrentPageContent.mockImplementation(async url => content(url, downloads));
+    const result = await continueNewPageInventory('u1');
+    expect(result).toMatchObject({ status: 'ready', canContinue: false, coverage: { fetched: 1, failed: 0, excluded: downloads.length } });
+    expect(result.pages.filter(page => downloads.includes(page.url)).every(page => page.status === 'excluded' && page.reason === 'non_html_resource')).toBe(true);
+    expect(fetchCurrentPageContent.mock.calls.map(([url]) => url)).toEqual([scope.websiteUrl]);
+    expect(publicFetch.mock.calls.some(([url]) => downloads.includes(url))).toBe(false);
+    expect(uncertainCoveragePages(result)).toEqual([]);
+  });
+  it('keeps missing service pages uncertain alongside excluded downloads', async () => {
+    const missing = `${scope.websiteUrl}services/seo`;
+    fetchCurrentPageContent.mockImplementation(async url => {
+      if (url === missing) throw fail(404);
+      return content(url, [missing, `${scope.websiteUrl}downloads/Captura.dmg`]);
+    });
+    const result = await continueNewPageInventory('u1');
+    expect(result).toMatchObject({ status: 'partial', coverage: { fetched: 1, failed: 1, excluded: 1 } });
+    expect(uncertainCoveragePages(result).map(page => page.url)).toEqual([missing]);
   });
 });
 

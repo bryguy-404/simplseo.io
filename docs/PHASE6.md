@@ -58,6 +58,16 @@ The pre-Phase-6 production deployment is `dpl_974BuvecyRuoj7btfrvhLoY3KZ17` (`si
 
 Automated release checks cover inventory bounds/uncertainty, decisions, factual drafts, concurrency, scoped reads/writes, revisions and deletion races, publication redirects/directives, independent observations, collector fairness/deadlines, desktop/mobile/keyboard flows and existing-page regressions. A bounded repeated real-model evaluation must reject invented claims and duplicate recommendations in covered fixtures before production promotion.
 
+### Verification recorded October 10, 2026
+
+- Core implementation: `a63f23c` on `codex/phase3-current-website`.
+- Final unit/API suite: **705 passed** in 41 files, including the live-discovered installer-download exclusion.
+- Complete compiled browser/API/Firestore-rules suite: **84 passed**. After the final compact-read and freshness fixes, the affected **28 UI/API cases passed again** against a rebuilt production-mode isolated app.
+- Production builds passed; lint has no errors and nine preexisting warnings. Changed components passed scoped lint.
+- The [quality evaluation](PHASE6_EVALUATION.md) passed with covered-site, useful-gap, synonymous-service, unserved-area and city-clone examples. Two drafts passed evidence validation and separate factual review.
+- Private rules and the monitoring index were deployed to the existing Firebase project. No website publication or owner service-area confirmation was made as part of automated verification.
+- First production checks passed all 10 anonymous and 10 cross-account boundaries, retired all five legacy writes, and preserved the existing homepage plan and 18 archive records. No AI calls or publications were made. Both manual collectors completed; their stored run health separates existing pages from the empty new-page queue. Actual overnight execution remains a separate checkpoint.
+
 ## Live checkpoints
 
 1. **Inventory and area:** Bryan checks the recognized services, actual target area and existing coverage. Confirming an area does not declare publication.
