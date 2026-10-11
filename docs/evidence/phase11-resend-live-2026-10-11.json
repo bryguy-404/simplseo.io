@@ -1,0 +1,63 @@
+{
+  "deliveryVerified": true,
+  "checkedAt": "2026-10-11T20:45:55.492Z",
+  "deliveryId": "e31a48c3269b2fa237e7a17cdaf0a9a10dd8ce6c817705134ba68e284db21859",
+  "providerId": "01a12cb6-ecd1-73fd-ba47-f5e4bf0584b6",
+  "status": "delivered",
+  "dispatchPending": false,
+  "attemptCount": 1,
+  "firstAttemptAt": "2026-10-11T20:45:44.941Z",
+  "webhookReceivedAt": "2026-10-11T20:45:50.450Z",
+  "webhooks": [
+    {
+      "type": "email.delivered",
+      "receivedAt": "2026-10-11T20:45:50.450Z"
+    },
+    {
+      "type": "email.sent",
+      "receivedAt": "2026-10-11T20:45:49.959Z"
+    }
+  ],
+  "headersAndPayloadVerified": true,
+  "unsubscribeReadOnlyGetPassed": true,
+  "unsubscribeAlreadyOffNoOpPassed": true,
+  "seoRecordsAndConsentPreserved": 67,
+  "seoFingerprint": "88c4a4d1a8b7e40e56e8fee3352e7941215929983a2fb197a18415f3ce2a73a9",
+  "noFakeProgressEvent": true,
+  "productionOrigin": "https://simplseo-io.vercel.app",
+  "deploymentId": "dpl_FsxeTutf4e1YSt63vJrcud2ZBpBk",
+  "sourceCommit": "df38b52",
+  "applicationCodeUnchanged": true,
+  "verifiedSignInRecipient": true,
+  "emailConsentEnabled": false,
+  "pilotScope": "Bryan only",
+  "stagedReadOnlyCheck": {
+    "passed": true,
+    "requests": 9,
+    "savedRecordsPreserved": 362,
+    "fingerprint": "883fe7eca06ff4d7de6f02662dc0df524fea4fbbb7b62abf67b322c1243ec6ae"
+  },
+  "postDeployErrorScan": {
+    "lookback": "20 minutes",
+    "returnedErrors": 0,
+    "bounded": true
+  },
+  "remainingChecks": [
+    "Actual scheduled invocation and run health.",
+    "Real publication followed by an eligible comparison and exactly one results notification.",
+    "Receiving inbox placement and desktop/mobile rendering.",
+    "Enabled-to-disabled unsubscribe transition; already-off behavior verified."
+  ],
+  "firecrawl": "Optional; not enabled.",
+  "publicReadOnlyCheck": {
+    "verifiedAt": "2026-10-11T20:47:50.868Z",
+    "passed": true,
+    "requests": 9,
+    "savedRecordsPreserved": 366,
+    "fingerprint": "60b65d63f381cd1c386ab15b79ab5df577e0bd5b32e5fc72ccc785065da5be31",
+    "notificationDeliveries": 1,
+    "notifications": 0,
+    "activeConfirmedCycles": 0,
+    "verifiedPublications": 0
+  }
+}

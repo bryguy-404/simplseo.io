@@ -1,6 +1,6 @@
 # Phase 11 — Progress emails and in-app updates
 
-Implemented for a staged, account-scoped pilot. Notification email stays **off** until the final Resend setup and delivery checks below. No AI generation, third cron, automatic website publishing, task confirmation, indexing request, or fabricated result is introduced.
+Implemented for an account-scoped pilot. Resend setup and one labeled test delivery were verified on 2026-10-11; sending is enabled only for Bryan's pilot, while his recurring email preference remains off until he opts in. No AI generation, third cron, automatic website publishing, task confirmation, indexing request, or fabricated result is introduced.
 
 ## User experience
 
@@ -63,6 +63,18 @@ Private records: `notificationPreferences`, `notificationEvents`, `notificationI
 7. Publish genuine homepage improvements manually and confirm only the exact changes actually published.
 
 Never put API keys in chat messages, source files, browser variables or screenshots. Use Vercel's server-only settings.
+
+### Resend setup checkpoint — 2026-10-11
+
+The `simpl-seo.com` sending domain is verified. Production configuration now includes `SimplSEO <updates@simpl-seo.com>` as From and `simplseoai@gmail.com` as Reply-To. Bryan saved the Resend API key directly in Vercel. A high-entropy unsubscribe signing secret was generated and saved as a production Secret without printing its value.
+
+Webhook `6c1ac72c-d3ab-412b-92a5-6610ca015c01` is enabled at the production notification endpoint, subscribed to `email.sent`, `email.delivered`, `email.delivery_delayed`, `email.bounced`, `email.complained`, `email.failed` and `email.suppressed`. The domain has no configured tracking subdomain; the unsaved “New tracking subdomain” form was inspected without adding one. `NOTIFICATION_TRACKING_DISABLED=true` was saved after that check.
+
+Bryan saved `RESEND_WEBHOOK_SECRET` directly in Vercel. Deployment `dpl_FsxeTutf4e1YSt63vJrcud2ZBpBk` was staged, verified with nine authenticated/boundary read requests, then promoted to the public URL. Application code is unchanged from the tested Phase 11 release. The staged read check preserved all 362 then-current saved records.
+
+The authorized labeled test was delivered in one provider attempt. Signed `email.sent` and `email.delivered` receipts persisted; the delivery receipt arrived at 20:45:50 UTC. This proves receiving-server acceptance, not inbox placement or reading. From, Reply-To, recipient, test subject, HTML/plain text and unsubscribe headers were verified. Valid unsubscribe GET and an already-off unsubscribe POST preserved the absent/off preference; an enabled-to-disabled transition remains a live consent check.
+
+The test preserved the fingerprint of all 67 checked SEO/profile/preference/event records and created no fictional progress event. A final public read-only check preserved all 366 records, including the real test delivery and its receipts. A bounded 20-minute error-level scan returned no errors. Recurring email remains an explicit Settings choice; setup did not opt Bryan in. See [Resend live evidence](evidence/phase11-resend-live-2026-10-11.json). Actual scheduled execution, real results notifications, recipient-side rendering and inbox placement remain pilot checkpoints.
 
 ## Release evidence and remaining live checkpoints
 
