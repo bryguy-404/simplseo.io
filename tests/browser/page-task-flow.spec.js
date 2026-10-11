@@ -179,11 +179,13 @@ test('no-keyword task generates only on request, retries a failed save, preserve
   await page.screenshot({ path: 'test-results/design-draft-mobile.png', fullPage: true });
   await page.getByRole('region', { name: 'Page assessment' }).screenshot({ path: 'test-results/refinement-assessment-mobile.png' });
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.locator('button[title="Switch to light mode"]:visible').press('Space');
+  await page.getByRole('button', { name: 'Account', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Switch to light mode', exact: true }).press('Space');
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
   await expect(page.getByRole('heading', { name: 'Improve a page', exact: true })).toHaveCSS('color', await page.locator('body').evaluate(el => getComputedStyle(el).color));
   await page.screenshot({ path: 'test-results/design-draft-light.png', fullPage: true, animations: 'disabled' });
-  await page.locator('button[title="Switch to dark mode"]:visible').press('Space');
+  await page.getByRole('button', { name: 'Account', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Switch to dark mode', exact: true }).press('Space');
   await page.getByRole('textbox', { name: 'Suggested page title (SEO title)' }).fill('');
   await expect(page.getByRole('textbox', { name: 'Suggested page title (SEO title)' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Confirm change and start tracking' })).toBeDisabled();
@@ -604,7 +606,8 @@ test('generalized page review prioritizes a concrete action, preserves metadata 
   await assessment.screenshot({ path: 'test-results/generalized-review-mobile.png', ...componentScreenshot });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.locator('button[title="Switch to light mode"]:visible').press('Space');
+  await page.getByRole('button', { name: 'Account', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Switch to light mode', exact: true }).press('Space');
   await expect(page.locator('html')).not.toHaveClass(/dark/);
   await expect(assessment.getByRole('heading', { name: 'Make the opening heading more specific' })).toHaveCSS('color', await page.locator('body').evaluate(el => getComputedStyle(el).color));
   await assessment.screenshot({ path: 'test-results/generalized-review-light.png', ...componentScreenshot });
@@ -768,7 +771,8 @@ test('automatic focus and multiple saved tasks survive reload, page switches, fa
   await page.setViewportSize({ width: 1280, height: 850 });
   await tasks.screenshot({ path: 'test-results/saved-page-plan-desktop.png', animations: 'disabled', style: 'header, .fixed { visibility: hidden !important; }' });
   await page.getByRole('region', { name: 'Automatically selected search focus' }).screenshot({ path: 'test-results/automatic-search-focus-desktop.png', animations: 'disabled', style: 'header, .fixed { visibility: hidden !important; }' });
-  await page.locator('button[title="Switch to light mode"]:visible').press('Space');
+  await page.getByRole('button', { name: 'Account', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Switch to light mode', exact: true }).press('Space');
   await tasks.screenshot({ path: 'test-results/saved-page-plan-light.png', animations: 'disabled', style: 'header, .fixed { visibility: hidden !important; }' });
   await page.getByRole('region', { name: 'Automatically selected search focus' }).screenshot({ path: 'test-results/automatic-search-focus-light.png', animations: 'disabled', style: 'header, .fixed { visibility: hidden !important; }' });
 });

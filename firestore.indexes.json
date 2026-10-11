@@ -1,6 +1,25 @@
 {
   "indexes": [
     {
+      "collectionGroup": "pageReviewPlans",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "property", "order": "ASCENDING" },
+        { "fieldPath": "websiteRunId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "newPagePlans",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "property", "order": "ASCENDING" },
+        { "fieldPath": "websiteRunId", "order": "ASCENDING" },
+        { "fieldPath": "websiteUrl", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "pageProgressCycles",
       "queryScope": "COLLECTION",
       "fields": [

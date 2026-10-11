@@ -86,10 +86,10 @@ test('empty and failed observations never claim great performance or turn into n
   await expect(page.getByText(/No page activity was returned for this period/)).toBeVisible();
   await expect(page.getByRole('link', { name: 'Choose a page', exact: true })).toBeVisible();
   await expect(page.locator('body')).not.toContainText('Great performance');
-  await page.route('**/api/dashboard/overview', route => route.fulfill({ status: 200, json: overview }));
+  await page.route('**/api/dashboard/overview?refresh=true', route => route.fulfill({ status: 200, json: overview }));
   await page.getByRole('button', { name: 'Refresh search data' }).click();
   await expect(page.getByText('700', { exact: true })).toBeVisible();
-  await page.route('**/api/dashboard/overview', route => route.fulfill({ status: 503, json: { error: 'Provider unavailable' } }));
+  await page.route('**/api/dashboard/overview?refresh=true', route => route.fulfill({ status: 503, json: { error: 'Provider unavailable' } }));
   await page.getByRole('button', { name: 'Refresh search data' }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'Search activity could not be refreshed' })).toContainText('last successful observation');
   await expect(page.getByText('700', { exact: true })).toBeVisible();

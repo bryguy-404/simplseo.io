@@ -223,7 +223,8 @@ test('selecting edits and cancelling publication does not write tasks, start tra
   expect(state.calls.publications).toHaveLength(0);
   expect(state.calls.generations).toHaveLength(0);
   expect((await app.firestore().collection('implementedSeoTips').where('userId', '==', uid).get()).empty).toBe(true);
-  await page.locator('button[title="Switch to light mode"]:visible').press('Space');
+  await page.getByRole('button', { name: 'Account', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Switch to light mode', exact: true }).press('Space');
   await expect(page.getByRole('heading', { name: 'Improve a page', exact: true })).toHaveCSS('color', await page.locator('body').evaluate(element => getComputedStyle(element).color));
   await capture(page, 'simple-publication-tasks-light.png');
   await publishButton(page).click();
@@ -280,7 +281,8 @@ test('a failed publication preserves the selected edit; retry confirms only that
   await expect(page.locator('body')).toHaveJSProperty('scrollWidth', await page.locator('body').evaluate(element => element.clientWidth));
   await capture(page, 'simple-publication-collecting-mobile.png');
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.locator('button[title="Switch to light mode"]:visible').press('Space');
+  await page.getByRole('button', { name: 'Account', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Switch to light mode', exact: true }).press('Space');
   await expect(page.getByRole('heading', { name: 'Improve a page', exact: true })).toHaveCSS('color', await page.locator('body').evaluate(element => getComputedStyle(element).color));
   await capture(page, 'simple-publication-collecting-light.png');
 });

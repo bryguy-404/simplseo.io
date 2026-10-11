@@ -15,11 +15,29 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 const SearchActivityChart = dynamic(() => import('./SearchActivityChart'), { ssr: false, loading: () => <p>Loading chart…</p> });
+const VisualProgressDashboard = dynamic(() => import('./VisualProgressDashboard'), { loading: () => <MainLayout><p role="status">Loading your dashboard…</p></MainLayout> });
 const count = value => Number(value).toLocaleString();
 const reviewHref = pageUrl => `/low-ctr?page=${encodeURIComponent(pageUrl)}`;
 const pageLabel = pageUrl => { try { const url = new URL(pageUrl); return url.pathname === '/' && !url.search ? 'Homepage' : url.pathname + url.search; } catch { return pageUrl; } };
 
 export default function CurrentWebsiteDashboard() {
+  const { user } = useAuth();
+  const [enabled, setEnabled] = useState(null);
+  useEffect(() => {
+    let current = true;
+    const controller = new AbortController();
+    setEnabled(null);
+    if (user?.id) authenticatedFetch('/api/dashboard/config', { signal: controller.signal })
+      .then(response => response.ok ? response.json() : { enabled: false })
+      .then(value => { if (current) setEnabled(value.enabled === true); })
+      .catch(() => { if (current) setEnabled(false); });
+    return () => { current = false; controller.abort(); };
+  }, [user?.id]);
+  if (enabled === null) return <MainLayout><p role="status">Loading your dashboard…</p></MainLayout>;
+  return enabled ? <VisualProgressDashboard /> : <LegacyWebsiteDashboard />;
+}
+
+function LegacyWebsiteDashboard() {
   const { user } = useAuth();
   const { data, setupWorkspace } = useOnboarding();
   const [overview, setOverview] = useState(null);

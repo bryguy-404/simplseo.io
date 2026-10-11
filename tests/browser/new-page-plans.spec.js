@@ -37,7 +37,7 @@ test.beforeEach(async () => {
   await app.firestore().doc(`users/${uid}`).set({ gscSiteUrl: property });
 });
 
-async function setup(page, overrides = {}, { expandSteps = true } = {}) {
+async function setup(page, overrides = {}, { expandSteps = true, path = '/generic-keywords' } = {}) {
   const state = { data: { enabled: true, business: { name: 'Example Plumbing', websiteUrl: property, location: 'South Bend', services: ['Drain cleaning'] },
     context: structuredClone(context), inventory: structuredClone(inventory), assessments: [makeAssessment()], plans: [makePlan()], history: [], ...overrides },
     calls: [], errors: [], saveFails: false, redirect: false, ready: Promise.resolve(), block: '', analysis: null, nextInventory: null, nextServices: null, contextError: null, analysisError: null, inventoryError: null };
@@ -52,10 +52,13 @@ async function setup(page, overrides = {}, { expandSteps = true } = {}) {
       const endpoint = url.pathname.slice('/api/new-page-plans'.length);
       const method = route.request().method();
       const body = method === 'GET' ? null : route.request().postDataJSON();
-      state.calls.push({ endpoint, body, method });
-      if (state.block === endpoint) await state.ready;
+      state.calls.push({ endpoint, body, method, planId: url.searchParams.get('planId') });
+      if (state.block && state.block === endpoint) await state.ready;
       if (!endpoint) return json({ ...state.data, contexts: state.data.contexts || [...new Map(state.data.assessments.map(item => [item.context.area.name, item.context])).values()], assessments: state.data.assessments.filter(item => JSON.stringify(item.context) === JSON.stringify(state.data.context)), plans: state.data.plans.map(summarizePlan), history: state.data.history.map(item => item.idea ? summarizePlan(item) : item) });
-      if (endpoint === '/plan' && method === 'GET') return json({ plan: [...state.data.plans, ...state.data.history].find(item => item.id === url.searchParams.get('planId')) });
+      if (endpoint === '/plan' && method === 'GET') {
+        const plan = [...state.data.plans, ...state.data.history].find(item => item.id === url.searchParams.get('planId'));
+        return plan ? json({ plan }) : json({ error: 'Saved work not found.' }, 404);
+      }
       if (endpoint === '/context') { if (state.contextError) return json({ error: state.contextError }, 400); state.data.context = body; return json({ context: body }); }
       if (endpoint === '/areas') return json({ areas: [{ ...otherArea, reason: 'Nearby community in Indiana.', sourceUrl: 'https://example.org/mishawaka' }] });
       if (endpoint === '/inventory/retire') {
@@ -113,7 +116,7 @@ async function setup(page, overrides = {}, { expandSteps = true } = {}) {
   await page.locator('input[type=password]').fill('Test-only-pass123!');
   await page.getByRole('button', { name: 'Log In', exact: true }).click();
   await expect(page).toHaveURL(/dashboard/, { timeout: 20000 });
-  await page.goto('/generic-keywords');
+  await page.goto(path);
   await expect(page.getByRole('heading', { name: 'New page ideas', exact: true })).toBeVisible({ timeout: 20000 });
   await expect(page.getByRole('main', { name: 'New page planning workspace' })).toHaveAttribute('aria-busy', 'false');
   if (expandSteps) { await openArea(page); await openWebsiteReview(page); }
@@ -749,4 +752,83 @@ test('partial and missing-information reviews remain open on return, with busine
   await expect(page.getByRole('button', { name: 'Continue website review', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'View website review details', exact: true })).toHaveCount(0);
   expect(state.calls.every(call => call.method === 'GET')).toBe(true);
+});
+
+// Opening a plan from the dashboard is navigation, never an area change or save.
+test('saved-plan deep link opens its own area and survives reload without changing the active area', async ({ page }) => {
+  const otherContext = { ...context, area: otherArea, facts: 'We also serve Mishawaka.' };
+  const otherPlan = makePlan({ id: 'plan-mishawaka', context: otherContext,
+    idea: { ...idea, id: 'mishawaka-idea', topic: 'Drain cleaning in Mishawaka' },
+    draft: { ...structuredClone(draft), title: 'Owner-edited Mishawaka title' } });
+  const state = await setup(page, { plans: [makePlan(), otherPlan] }, {
+    expandSteps: false, path: '/generic-keywords?planId=plan-mishawaka',
+  });
+  const before = structuredClone(state.data);
+  const selected = page.getByRole('region', { name: 'Selected page plan', exact: true });
+  await expect(selected.getByRole('heading', { name: 'Drain cleaning in Mishawaka', exact: true })).toBeVisible();
+  await expect(selected).toContainText('Mishawaka, Indiana, United States');
+  await expect(page.getByLabel('SEO title', { exact: true })).toHaveValue('Owner-edited Mishawaka title');
+  await expect(page.getByLabel('City or service area')).toHaveCount(0);
+  await page.screenshot({ path: '/private/tmp/simpleseo-phase10-saved-plan.png', fullPage: true });
+  await page.reload();
+  await expect(page.getByLabel('SEO title', { exact: true })).toHaveValue('Owner-edited Mishawaka title');
+  await page.getByRole('link', { name: 'Back to New page ideas', exact: true }).click();
+  await expect(page).toHaveURL(/\/generic-keywords$/);
+  await expect(page.getByRole('heading', { name: 'Ideas for South Bend, Indiana, United States' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Selected page plan', exact: true })).toHaveCount(0);
+  expect(state.data).toEqual(before);
+  expect(state.calls.filter(call => call.endpoint === '/plan').every(call => call.planId === otherPlan.id)).toBe(true);
+  expect(state.calls.every(call => call.method === 'GET')).toBe(true);
+  expect(state.errors).toEqual([]);
+});
+
+for (const planId of ['foreign-account-plan', '../invalid', '']) {
+  test(`unavailable saved-plan deep link stays safe (${planId || 'empty'})`, async ({ page }) => {
+    const state = await setup(page, {}, { expandSteps: false,
+      path: `/generic-keywords?planId=${encodeURIComponent(planId)}` });
+    await expect(page.getByRole('main', { name: 'New page planning workspace' }).getByRole('alert')).toContainText('This saved page plan isn’t available.');
+    await expect(page.getByRole('link', { name: 'Back to New page ideas', exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Selected page plan', exact: true })).toHaveCount(0);
+    await expect(page.getByLabel('SEO title', { exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Prepare my draft', exact: true })).toHaveCount(0);
+    expect(state.data.context).toEqual(context);
+    expect(state.calls.every(call => call.method === 'GET')).toBe(true);
+    expect(state.errors).toEqual([]);
+  });
+}
+
+test('historical saved-plan deep link uses the existing read-only history policy', async ({ page }) => {
+  const previous = makePlan({ id: 'previous-site-plan', readOnly: true, historyType: 'previous_website',
+    context: { ...context, area: otherArea }, idea: { ...idea, topic: 'Earlier website wording' } });
+  const state = await setup(page, { history: [previous] }, {
+    expandSteps: false, path: '/generic-keywords?planId=previous-site-plan',
+  });
+  const selected = page.getByRole('region', { name: 'Selected page plan', exact: true });
+  await expect(selected).toContainText('This saved work is read-only.');
+  await expect(selected).toContainText('Mishawaka, Indiana, United States');
+  await expect(selected.getByText(draft.sections[0].body, { exact: true })).toBeVisible();
+  for (const name of ['Save my edits', 'I published this page', 'Prepare my draft', 'Set this idea aside', 'Check tracking']) {
+    await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0);
+  }
+  expect(state.data.context).toEqual(context);
+  expect(state.calls.every(call => call.method === 'GET')).toBe(true);
+  expect(state.errors).toEqual([]);
+});
+
+test('changing a saved-plan link ignores an older in-flight response', async ({ page }) => {
+  const otherPlan = makePlan({ id: 'next-saved-plan', context: { ...context, area: otherArea },
+    idea: { ...idea, topic: 'Next saved plan' }, draft: { ...structuredClone(draft), title: 'Next saved title' } });
+  const state = await setup(page, { plans: [makePlan(), otherPlan] }, { expandSteps: false });
+  state.block = '/plan'; state.ready = new Promise(resolve => { state.release = resolve; });
+  await page.evaluate(() => window.history.pushState(null, '', '/generic-keywords?planId=plan-drain'));
+  await expect(page.getByRole('status').filter({ hasText: 'Loading your saved page ideas…' })).toBeVisible();
+  state.block = '';
+  await page.evaluate(() => window.history.pushState(null, '', '/generic-keywords?planId=next-saved-plan'));
+  await expect(page.getByLabel('SEO title', { exact: true })).toHaveValue('Next saved title');
+  state.release();
+  await expect(page.getByLabel('SEO title', { exact: true })).toHaveValue('Next saved title');
+  await expect(page.getByRole('region', { name: 'Selected page plan', exact: true })).toContainText('Mishawaka, Indiana, United States');
+  expect(state.calls.every(call => call.method === 'GET')).toBe(true);
+  expect(state.data.context).toEqual(context);
+  expect(state.errors).toEqual([]);
 });

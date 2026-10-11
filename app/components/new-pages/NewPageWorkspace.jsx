@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { ArrowRight, CheckCircle2, ChevronDown, ChevronUp, LoaderCircle, MapPin, RefreshCw, Search } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { authenticatedFetch } from '../../lib/authenticatedFetch';
@@ -52,15 +53,18 @@ function Evidence({ research, idea }) {
   </details>;
 }
 
-function HistoryEntry({ record: summary, act, disabled }) {
+function HistoryEntry({ record: summary, act, disabled, expanded = false }) {
   const [detail, setDetail] = useState(null);
   const record = detail || summary;
-  return <details className="mt-3 rounded-lg border p-3"><summary className="cursor-pointer">{record.topic || record.keyword || record.idea?.topic || record.draft?.title || record.pageUrl || record.url || 'Previous opportunity record'}</summary><div className="mt-3 space-y-3"><p className="text-xs text-muted-foreground">Read-only history{record.context?.area ? ` · ${areaLabel(record.context.area)}` : ''}{record.createdAt ? ` · ${displayDate(record.createdAt)}` : ''}</p>{safeLink(record.pageUrl || record.url) && <a className="block break-all underline" href={safeLink(record.pageUrl || record.url)} target="_blank" rel="noopener noreferrer">{record.pageUrl || record.url}</a>}{!record.draft && record.hasDraft && !detail && <Button variant="outline" size="sm" disabled={disabled} onClick={() => act('Loading previous website work…', `/plan?planId=${encodeURIComponent(record.id)}`, undefined, result => setDetail(result.plan))}>View saved draft</Button>}{record.draft && <><p><span className="font-medium">SEO title: </span>{record.draft.title}</p><p><span className="font-medium">Description: </span>{record.draft.description}</p><p><span className="font-medium">Main heading: </span>{record.draft.h1}</p>{record.draft.sections?.map((section, index) => <div key={section.id || index}><h3 className="font-medium">{section.heading}</h3><p className="mt-1 whitespace-pre-wrap text-muted-foreground">{section.body}</p></div>)}</>}</div></details>;
+  return <details open={expanded || undefined} className="mt-3 rounded-lg border p-3"><summary className="cursor-pointer">{record.topic || record.keyword || record.idea?.topic || record.draft?.title || record.pageUrl || record.url || 'Previous opportunity record'}</summary><div className="mt-3 space-y-3"><p className="text-xs text-muted-foreground">Read-only history{record.context?.area ? ` · ${areaLabel(record.context.area)}` : ''}{record.createdAt ? ` · ${displayDate(record.createdAt)}` : ''}</p>{safeLink(record.pageUrl || record.url) && <a className="block break-all underline" href={safeLink(record.pageUrl || record.url)} target="_blank" rel="noopener noreferrer">{record.pageUrl || record.url}</a>}{!record.draft && record.hasDraft && !detail && <Button variant="outline" size="sm" disabled={disabled} onClick={() => act('Loading previous website work…', `/plan?planId=${encodeURIComponent(record.id)}`, undefined, result => setDetail(result.plan))}>View saved draft</Button>}{record.draft && <><p><span className="font-medium">SEO title: </span>{record.draft.title}</p><p><span className="font-medium">Description: </span>{record.draft.description}</p><p><span className="font-medium">Main heading: </span>{record.draft.h1}</p>{record.draft.sections?.map((section, index) => <div key={section.id || index}><h3 className="font-medium">{section.heading}</h3><p className="mt-1 whitespace-pre-wrap text-muted-foreground">{section.body}</p></div>)}</>}</div></details>;
 }
 
 export default function NewPageWorkspace() {
   const { user, isLoading: authLoading } = useAuth();
+  const searchParams = useSearchParams();
+  const requestedPlanId = searchParams.get('planId');
   const [data, setData] = useState(null);
+  const [linkedPlan, setLinkedPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -97,26 +101,44 @@ export default function NewPageWorkspace() {
     const token = ++generation.current;
     controller.current?.abort();
     actionActive.current = false;
-    setBusy(''); setData(null); setError(''); setNotice(''); setNearby([]); setSelectedPlan(''); setResolution(null); setResolutionConfirmed(false); setResolutionError(''); setResolutionConflict(false);
+    setBusy(''); setData(null); setLinkedPlan(null); setError(''); setNotice(''); setNearby([]); setSelectedPlan(''); setResolution(null); setResolutionConfirmed(false); setResolutionError(''); setResolutionConflict(false);
     setAreaExpanded(false); setReviewExpanded(false); setFocusStep('');
     if (!user?.id) { setLoading(false); return; }
     const current = new AbortController(); controller.current = current;
     setLoading(true);
-    request('', undefined, current.signal).then(result => {
+    // A link restores its own saved area and plan without changing the active
+    // planning context. Loading never starts research, saves or publication.
+    const load = async () => {
+      if (requestedPlanId !== null && !/^[A-Za-z0-9_-]{1,100}$/.test(requestedPlanId)) {
+        throw new Error('This saved page plan isn’t available. Choose a plan from New page ideas.');
+      }
+      const [result, detail] = await Promise.all([
+        request('', undefined, current.signal),
+        requestedPlanId === null ? Promise.resolve(null) : request(`/plan?planId=${encodeURIComponent(requestedPlanId)}`, undefined, current.signal),
+      ]);
+      if (requestedPlanId !== null && detail?.plan?.id !== requestedPlanId) {
+        throw new Error('This saved page plan isn’t available. Choose a plan from New page ideas.');
+      }
       if (token !== generation.current) return;
       setData(result); fillContext(result.context, result.business);
-    }).catch(reason => {
-      if (token === generation.current && reason.name !== 'AbortError') setError(reason.message);
+      if (detail) setLinkedPlan({ ...detail.plan,
+        ...(detail.publication ? { publication: detail.publication } : {}),
+        ...(detail.tracking ? { tracking: detail.tracking } : {}),
+      });
+    };
+    load().catch(reason => {
+      if (token === generation.current && reason.name !== 'AbortError') setError(requestedPlanId !== null && [400, 403, 404].includes(reason.details?.status)
+        ? 'This saved page plan isn’t available. Choose a plan from New page ideas.' : reason.message);
     }).finally(() => { if (token === generation.current) setLoading(false); });
     return () => { generation.current = token + 1; current.abort(); controller.current?.abort(); };
-  }, [user?.id, authLoading, reload, fillContext]);
+  }, [user?.id, authLoading, reload, fillContext, requestedPlanId]);
 
   useEffect(() => {
-    if (!selectedPlan) return;
+    if (!selectedPlan && !linkedPlan?.id) return;
     const section = document.getElementById('selected-new-page-plan');
     section?.focus({ preventScroll: true });
     section?.scrollIntoView({ block: 'start' });
-  }, [selectedPlan]);
+  }, [selectedPlan, linkedPlan?.id]);
 
   // Move keyboard focus out of a step only after its successful response has
   // rendered. Reopening details never reloads or discards the form or draft.
@@ -154,10 +176,12 @@ export default function NewPageWorkspace() {
 
   const updatePlan = result => {
     if (!result.plan) return;
-    setData(previous => ({ ...previous, plans: [{ ...result.plan,
+    const updated = { ...result.plan,
       ...(result.publication ? { publication: result.publication } : {}),
       ...(result.tracking ? { tracking: result.tracking } : {}),
-    }, ...(previous.plans || []).filter(plan => plan.id !== result.plan.id)] }));
+    };
+    setData(previous => ({ ...previous, plans: [updated, ...(previous.plans || []).filter(plan => plan.id !== result.plan.id)] }));
+    setLinkedPlan(previous => previous?.id === updated.id ? updated : previous);
   };
   const openSavedPlan = id => {
     if (selectedPlan === id) return;
@@ -253,6 +277,16 @@ export default function NewPageWorkspace() {
 
   if (authLoading || loading) return <div role="status" className="flex items-center gap-3 p-8"><LoaderCircle className="size-5 animate-spin" />Loading your saved page ideas…</div>;
   if (!user) return null;
+  if (requestedPlanId !== null) return <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6" aria-label="New page planning workspace" aria-busy={Boolean(busy)}>
+    <header className="space-y-3"><Link href="/generic-keywords" className="inline-block text-sm underline">Back to New page ideas</Link><h1 className="text-3xl font-semibold tracking-tight">New page ideas</h1></header>
+    {error && <div role="alert" className="space-y-3 rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm"><p>{error}</p>{!linkedPlan && <Button variant="outline" onClick={() => setReload(value => value + 1)}>Try loading again</Button>}</div>}
+    {busy && <div role="status" className="flex items-center gap-3 rounded-lg border bg-background p-3 text-sm"><LoaderCircle className="size-4 animate-spin" />{busy}</div>}
+    {linkedPlan && (linkedPlan.readOnly || linkedPlan.status === 'dismissed' ? <section id="selected-new-page-plan" tabIndex={-1} aria-label="Selected page plan" className="scroll-mt-24 rounded-xl border bg-card p-5">
+      <h2 className="text-xl font-semibold">{linkedPlan.status === 'dismissed' ? 'Set-aside page plan' : 'Previous website plan'}</h2>
+      <p className="mt-2 text-sm text-muted-foreground">This saved work is read-only. Your current area and plans have not changed.</p>
+      <HistoryEntry key={linkedPlan.id} record={linkedPlan} act={act} disabled={disabled} expanded />
+    </section> : <NewPagePlan key={`${linkedPlan.id}:${linkedPlan.revision}`} plan={linkedPlan} busy={disabled} enabled={data?.enabled !== false} act={act} updatePlan={updatePlan} onDismiss={() => {}} />)}
+  </main>;
   return <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6" aria-label="New page planning workspace" aria-busy={Boolean(busy)}>
     <header className="space-y-2"><p className="text-xs font-semibold uppercase tracking-widest text-primary">Grow with purpose</p><h1 className="text-3xl font-semibold tracking-tight">New page ideas</h1><p className="text-muted-foreground">Find useful gaps in one area. Create a page only when it adds something worthwhile.</p></header>
     {error && <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm"><p>{error}</p>{!data && <Button variant="outline" className="mt-3" onClick={() => setReload(value => value + 1)}>Try loading again</Button>}</div>}
