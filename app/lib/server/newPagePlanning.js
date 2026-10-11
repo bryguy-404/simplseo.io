@@ -345,7 +345,7 @@ export async function assessNewPageIdeas(userId) {
   if (blockedPages.length) {
     const bundle = buildNewPageBundle({ ...input, research: previous?.research || { status: 'not_requested', sources: [], checkedAt: null } });
     return persistAssessment({ outcome: 'needs_information', summary: 'Some existing pages could already cover a useful topic. Review those pages before adding another.', ideas: [],
-      questions: ['Check the unreadable or unreviewed pages in Website coverage, then refresh the inventory.'] }, bundle);
+      questions: ['Open the links listed in your website review above. After checking them, refresh the website review and check for updates.'] }, bundle);
   }
   return withPlanningJob(scope, 'assessment', async () => {
     await assertInputsCurrent(scope, context);

@@ -23,6 +23,19 @@ async function request(path = '', body, signal, method = 'POST') {
   return result;
 }
 
+function websiteCheckLabel(page) {
+  if (page.reason === 'http_404') return 'Page not found (404)';
+  if (page.reason === 'http_410') return 'Page removed (410)';
+  if (page.reason === 'robots_disallowed') return 'Website rules block our review';
+  if (page.reason === 'redirect_outside_scope') return 'Couldn’t follow this link within the connected website';
+  if (page.reason === 'no_readable_html') return 'No readable page text found';
+  if (['non_html_response', 'non_html_resource', 'file_extension'].includes(page.reason)) return 'Skipped — not a website page';
+  if (['fetched', 'reviewed', 'available'].includes(page.status)) return 'Page read';
+  if (['pending', 'unreviewed'].includes(page.status)) return 'Not reviewed yet';
+  if (/^http_\d{3}$/.test(page.reason || '')) return `Website returned an error (${page.reason.slice(5)})`;
+  return 'Couldn’t read this page — try again';
+}
+
 function Evidence({ research, idea }) {
   return <details className="border-t pt-3 text-sm">
     <summary className="cursor-pointer text-muted-foreground">Why this idea?</summary>
@@ -171,6 +184,9 @@ export default function NewPageWorkspace() {
   const inventory = data?.inventory;
   const inventoryPages = Array.isArray(inventory?.pages) ? inventory.pages : [];
   const reviewed = inventoryPages.filter(page => ['fetched', 'reviewed', 'available'].includes(page.status) || page.content).length;
+  const pagesToCheck = inventoryPages.filter(page => !['fetched', 'reviewed', 'available'].includes(page.status)
+    && !['non_html_response', 'non_html_resource', 'file_extension'].includes(page.reason));
+  const hasMissingPages = pagesToCheck.some(page => ['http_404', 'http_410'].includes(page.reason));
   const selected = plans.find(plan => plan.id === selectedPlan && plan.status !== 'dismissed');
   const disabled = Boolean(busy);
   const generationDisabled = disabled || data?.enabled === false;
@@ -203,9 +219,20 @@ export default function NewPageWorkspace() {
       </CardContent></Card>
 
       <Card><CardContent className="space-y-4 pt-6"><div><h2 className="text-lg font-semibold">2. Check what your website already covers</h2><p className="mt-1 text-sm text-muted-foreground">We review existing pages before suggesting another one—including pages without Google traffic.</p></div>
-        {inventory && <div className="rounded-lg border p-4 text-sm"><p className="font-medium">{inventory.status === 'ready' ? 'Website review saved' : inventory.status === 'unavailable' ? 'Website review unavailable' : 'Website review is partial'}</p><p className="mt-1 text-muted-foreground">{inventoryPages.length} pages discovered{reviewed ? ` · ${reviewed} read` : ''}. {inventory.canContinue ? 'Continue reviewing before checking for gaps.' : 'This is a bounded review, not a complete list of every page.'}</p>{inventory.updatedAt && <p className="mt-1 text-xs text-muted-foreground">Checked {displayDate(inventory.updatedAt)}</p>}
+        {inventory && <div className="rounded-lg border p-4 text-sm"><p className="font-medium">{inventory.status === 'ready' ? 'Website review saved' : inventory.status === 'unavailable' ? 'Website review unavailable' : 'Website review is partial'}</p><p className="mt-1 text-muted-foreground">{inventoryPages.length} links found · {reviewed} pages read{pagesToCheck.length ? ` · ${pagesToCheck.length} to check` : ''}. {inventory.canContinue ? 'Continue reviewing before checking for gaps.' : 'We may not have found every page on your website.'}</p>{inventory.updatedAt && <p className="mt-1 text-xs text-muted-foreground">Checked {displayDate(inventory.updatedAt)}</p>}
+          {pagesToCheck.length > 0 && <section id="website-pages-to-check" aria-label="Pages to check" className="mt-4 space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4">
+            <h3 className="font-medium">Check these links before adding a page</h3>
+            <p>We couldn’t finish reading these pages. They may already cover a topic we would otherwise suggest.</p>
+            <details><summary className="cursor-pointer font-medium">View {pagesToCheck.length} links to check</summary><ul className="mt-3 max-h-64 space-y-3 overflow-y-auto">{pagesToCheck.map((page, index) => <li key={`${page.url || page.pageUrl}-${index}`}>
+              {safeLink(page.url || page.pageUrl) ? <a className="block break-all underline" target="_blank" rel="noopener noreferrer" href={safeLink(page.url || page.pageUrl)}>{page.url || page.pageUrl}</a> : <span className="break-all">{page.url || page.pageUrl}</span>}
+              <span className="mt-1 block text-muted-foreground">{websiteCheckLabel(page)}</span>
+            </li>)}</ul></details>
+            {hasMissingPages && <p>For a “page not found” link: if the page should exist, check its address in your website builder. If you removed it, check for old links in your website and sitemap.</p>}
+            <p>{inventory.canContinue ? 'Click Continue website review to read the next pages.' : `After checking the links, click Refresh website review, then ${assessment ? 'Check for updates' : 'Find useful page ideas'}. If a page opens for you but we still can’t read it, it needs further inspection.`}</p>
+            <p className="text-xs text-muted-foreground">These are SimplSEO website checks, not Google indexing results.</p>
+          </section>}
           {inventory.coverage?.limitations?.length > 0 && <details className="mt-3"><summary className="cursor-pointer">What this review can tell us</summary><ul className="mt-3 list-disc space-y-2 pl-5 text-muted-foreground">{inventory.coverage.limitations.map((limitation, index) => <li key={index}>{limitation}</li>)}</ul></details>}
-          {inventoryPages.length > 0 && <details className="mt-3"><summary className="cursor-pointer">View reviewed pages</summary><ul className="mt-3 max-h-64 space-y-2 overflow-y-auto">{inventoryPages.map((page, index) => <li className="flex flex-wrap gap-2 break-all" key={`${page.url || page.pageUrl}-${index}`}>{safeLink(page.url || page.pageUrl) ? <a className="underline" target="_blank" rel="noopener noreferrer" href={safeLink(page.url || page.pageUrl)}>{page.title || page.url || page.pageUrl}</a> : <span>{page.url || page.pageUrl}</span>}<span className="text-muted-foreground">{page.status || 'Recorded'}</span></li>)}</ul></details>}
+          {inventoryPages.length > 0 && <details className="mt-3"><summary className="cursor-pointer">View reviewed pages</summary><ul className="mt-3 max-h-64 space-y-2 overflow-y-auto">{inventoryPages.map((page, index) => <li className="flex flex-wrap gap-2 break-all" key={`${page.url || page.pageUrl}-${index}`}>{safeLink(page.url || page.pageUrl) ? <a className="underline" target="_blank" rel="noopener noreferrer" href={safeLink(page.url || page.pageUrl)}>{page.title || page.url || page.pageUrl}</a> : <span>{page.url || page.pageUrl}</span>}<span className="text-muted-foreground">{websiteCheckLabel(page)}</span></li>)}</ul></details>}
         </div>}
         <div className="flex flex-wrap gap-3"><Button variant={inventory ? 'outline' : 'default'} disabled={disabled} onClick={() => act('Reviewing your website…', '/inventory', inventory?.canContinue ? {} : { restart: Boolean(inventory) }, result => {
             setData(previous => ({ ...previous, inventory: result.inventory, business: result.workspace?.business || previous.business }));
@@ -223,7 +250,7 @@ export default function NewPageWorkspace() {
 
       {assessment && <section className="space-y-4" aria-label="Page opportunity assessment"><div><h2 className="text-xl font-semibold">Ideas for {areaLabel(assessment.context?.area)}</h2><p className="mt-2 text-sm text-muted-foreground">{assessment.summary}</p></div>
         {assessment.outcome === 'no_opportunity' && <div className="flex items-start gap-3 rounded-xl border border-primary/30 bg-primary/5 p-5"><CheckCircle2 className="mt-1 size-5 shrink-0 text-primary" /><div><h3 className="font-semibold">No new page needed right now</h3><p className="mt-1 text-sm text-muted-foreground">Your existing coverage does not justify another page from the evidence reviewed. You can work on an existing page or choose another area.</p><Link className="mt-3 inline-block text-sm underline" href="/low-ctr">Improve an existing page</Link></div></div>}
-        {assessment.outcome === 'needs_information' && <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 text-sm"><p>We need more information before suggesting a page.</p>{assessment.questions?.length > 0 ? <ul className="mt-3 list-disc space-y-2 pl-5">{assessment.questions.map((question, index) => <li key={index}>{question}</li>)}</ul> : <p className="mt-2">Review the guidance below or add business facts above, then check again.</p>}</div>}
+        {assessment.outcome === 'needs_information' && <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 text-sm"><p>{pagesToCheck.length ? 'Check the existing pages before we suggest another one.' : 'We need more information before suggesting a page.'}</p>{pagesToCheck.length > 0 && <a className="mt-2 inline-block underline" href="#website-pages-to-check">See the links to check</a>}{assessment.questions?.length > 0 ? <ul className="mt-3 list-disc space-y-2 pl-5">{assessment.questions.map((question, index) => <li key={index}>{question === 'Check the unreadable or unreviewed pages in Website coverage, then refresh the inventory.' ? 'Open the links listed in your website review above. After checking them, refresh the website review and check for updates.' : question}</li>)}</ul> : !pagesToCheck.length && <p className="mt-2">Review the guidance below or add business facts above, then check again.</p>}</div>}
         {(assessment.ideas || []).map((idea, index) => {
           const saved = plans.find(plan => plan.idea?.id === idea.id && areaKey(plan.context?.area) === currentArea);
           return <article key={idea.id} aria-label={idea.topic} className="space-y-4 rounded-xl border bg-card p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-medium uppercase tracking-wide text-primary">{idea.outcome === 'new_page' ? `Page idea ${index + 1}` : idea.outcome === 'improve_existing' ? 'Already covered' : 'More information needed'}</p><h3 className="mt-1 text-lg font-semibold">{idea.topic}</h3></div>{saved?.status === 'dismissed' && <span className="text-sm text-muted-foreground">Saved for later</span>}</div><p className="text-sm">{idea.purpose || idea.reason}</p>

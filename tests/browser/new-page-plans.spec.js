@@ -466,3 +466,33 @@ test('an actionable server validation error clears when the owner corrects the a
   await expect(error).toHaveCount(0);
   expect(state.calls.filter(call => call.endpoint === '/context')).toHaveLength(1);
 });
+
+test('partial website coverage names the unreadable URLs and separates this check from Google indexing', async ({ page }) => {
+  const missingUrl = `${property}services/old-drain-page`;
+  const unreadableUrl = `${property}services/blocked-page`;
+  const partial = { ...inventory, status: 'partial', canContinue: false,
+    coverage: { discovered: 3, fetched: 1, failed: 2, pending: 0, excluded: 0, limitations: [] },
+    pages: [{ url: property, title: 'Example Plumbing', status: 'fetched' },
+      { url: missingUrl, title: 'An older service title', status: 'failed', reason: 'http_404' },
+      { url: unreadableUrl, status: 'failed', reason: 'unreadable' }] };
+  const state = await setup(page, { inventory: partial, plans: [], assessments: [makeAssessment({ outcome: 'needs_information', ideas: [], summary: 'Check these existing pages before suggesting another.', questions: ['Check the unreadable or unreviewed pages in Website coverage, then refresh the inventory.'] })] });
+  const checks = page.getByRole('region', { name: 'Pages to check', exact: true });
+  await expect(checks.getByText('Check these links before adding a page', { exact: true })).toBeVisible();
+  await expect(checks.getByText('These are SimplSEO website checks, not Google indexing results.', { exact: true })).toBeVisible();
+  await checks.getByText('View 2 links to check', { exact: true }).click();
+  await expect(checks.getByRole('link', { name: missingUrl, exact: true })).toHaveAttribute('href', missingUrl);
+  await expect(checks.getByRole('link', { name: unreadableUrl, exact: true })).toHaveAttribute('href', unreadableUrl);
+  await expect(checks.getByText('Page not found (404)', { exact: true })).toBeVisible();
+  await expect(checks.getByText('Couldn’t read this page — try again', { exact: true })).toBeVisible();
+  await checks.screenshot({ path: '/private/tmp/simpleseo-phase6-coverage.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await checks.screenshot({ path: '/private/tmp/simpleseo-phase6-coverage-mobile.png' });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);
+  await expect(page.getByRole('link', { name: 'See the links to check', exact: true })).toHaveAttribute('href', '#website-pages-to-check');
+  await expect(page.getByText('Open the links listed in your website review above. After checking them, refresh the website review and check for updates.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Check the unreadable or unreviewed pages in Website coverage, then refresh the inventory.', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Refresh website review', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Plan this page', exact: true })).toHaveCount(0);
+  expect(state.calls.every(call => call.method === 'GET')).toBe(true);
+  expect(state.errors).toEqual([]);
+});
