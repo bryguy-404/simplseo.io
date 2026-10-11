@@ -71,7 +71,7 @@ export async function readMentorWorkspace(uid, { cursor, search = '' } = {}) {
     query = query.startAfter(after);
   }
   const [snapshot, active] = await Promise.all([query.limit(31).get(), workspaceRef(uid, scope).get()]);
-  const documents = snapshot.docs.slice(0, 30), term = String(search).trim().toLowerCase().slice(0, 100);
+  const documents = snapshot.docs.slice(0, 30), term = String(search ?? '').trim().toLowerCase().slice(0, 100);
   const visible = documents.filter(doc => doc.data().status !== 'deleted' && (!term || `${doc.data().title || ''} ${doc.data().searchText || ''} ${(doc.data().messages || []).map(message => message.content || '').join(' ')}`.toLowerCase().includes(term)));
   let activeConversationId = active.data()?.activeConversationId || null;
   if (activeConversationId) {

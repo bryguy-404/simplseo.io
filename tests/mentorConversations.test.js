@@ -40,7 +40,7 @@ import { mentorFeatures } from '../app/lib/server/mentorFeature';
 import { POST as legacyChat } from '../app/api/chatbot/chat/route';
 import { POST as legacyWidget } from '../app/api/seo-assistant/chat/route';
 import { PUT as legacyConversationWrite } from '../app/api/conversations/[id]/route';
-import { POST as legacyConversationCreate } from '../app/api/conversations/route';
+import { GET as legacyConversationList, POST as legacyConversationCreate } from '../app/api/conversations/route';
 const property = 'https://example.test/';
 const answer = { answer: 'Use the saved evidence.', sources: [], metricCards: [], actions: [] };
 const create = async (user = 'alice', requestId = 'create-one') => (await createMentorConversation(user, { requestId })).conversation;
@@ -267,6 +267,24 @@ describe('mentor API integration', () => {
   it('keeps workspace, conversation and turn GETs provider-free', async () => {
     const conversation = await create(); await sendMentorTurn('alice', input(conversation), generate);
     for (const suffix of ['workspace', `conversation&conversationId=${conversation.id}`, `turn&conversationId=${conversation.id}&turnId=first-turn`]) expect((await mentorGET(request(suffix))).status).toBe(200);
+    expect(generateMentorAnswer).not.toHaveBeenCalled(); expect(runMentorCheck).not.toHaveBeenCalled();
+  });
+  it('returns the same saved conversations from both APIs when no search is supplied', async () => {
+    const conversation = await create();
+    await db.collection('conversations').doc('legacy-help').set({ userId: 'alice', title: 'Indexing help', updatedAt: new Date(), messages: [] });
+    const before = [...records.entries()];
+    const modern = await (await mentorGET(request('workspace'))).json();
+    const legacyRequest = suffix => new Request(`http://local/api/conversations${suffix}`, { headers: { authorization: 'Bearer alice' } });
+    for (const suffix of ['', '?search=']) {
+      const response = await legacyConversationList(legacyRequest(suffix));
+      expect(response.status).toBe(200);
+      const saved = await response.json();
+      expect(saved.conversations).toEqual(modern.conversations);
+      expect(saved.conversations.map(item => item.id)).toEqual(expect.arrayContaining([conversation.id, 'legacy-help']));
+    }
+    const searched = await (await legacyConversationList(legacyRequest('?search=Indexing'))).json();
+    expect(searched.conversations.map(item => item.id)).toEqual(['legacy-help']);
+    expect([...records.entries()]).toEqual(before);
     expect(generateMentorAnswer).not.toHaveBeenCalled(); expect(runMentorCheck).not.toHaveBeenCalled();
   });
   it('only runs an explicit bounded selected-page check and keeps generation separate', async () => {

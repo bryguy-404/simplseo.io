@@ -149,38 +149,58 @@ async function main() {
     assert.equal((await request('/api/mentor?userId=phase9-not-owner')).status, 403);
     assert.equal((await request('/api/mentor', 'POST', { userId: 'phase9-not-owner', action: 'check', kind: 'activity', selection: { pageUrl: property } })).status, 403);
 
-    stage = 'saved workspace and context';
+    stage = 'saved mentor workspace response';
     const workspace = await request('/api/mentor');
-    assert.equal(workspace.status, 200); assert(/no-store/.test(workspace.cache));
+    stage = `saved mentor workspace HTTP ${workspace.status}`;
+    assert.equal(workspace.status, 200);
+    stage = 'saved mentor workspace cache control'; assert(/no-store/.test(workspace.cache));
+    stage = 'saved mentor workspace pilot and generation switches';
     assert.equal(workspace.body.enabled, true); assert.equal(workspace.body.generationEnabled, expectedGeneration);
+    stage = 'saved mentor workspace property identity';
     assert.equal(workspace.body.scope.property, property);
+    stage = 'saved mentor workspace website version';
     assert.equal(workspace.body.scope.websiteRunId, setup.revampRunId || null);
+    stage = 'saved mentor workspace website identity';
     assert.equal(workspace.body.scope.websiteUrl, setup.websiteUrl);
+    stage = 'saved mentor workspace page and conversation lists';
     assert(Array.isArray(workspace.body.pageOptions) && Array.isArray(workspace.body.conversations));
+    stage = 'saved conversation listing response';
     const conversations = await request('/api/conversations');
     assert.equal(conversations.status, 200); assert(/no-store/.test(conversations.cache));
+    stage = 'saved conversation listing agreement';
     assert.deepEqual(conversations.body.conversations.map(item => item.id), workspace.body.conversations.map(item => item.id));
     let histories = 0, turnReads = 0;
     for (const conversation of workspace.body.conversations.slice(0, 3)) {
+      stage = `saved conversation history ${histories + 1} response`;
       const history = await request(`/api/mentor?action=conversation&conversationId=${encodeURIComponent(conversation.id)}`);
       assert.equal(history.status, 200); assert(/no-store/.test(history.cache));
       assert.equal(history.body.conversation.id, conversation.id); assert(Array.isArray(history.body.messages)); histories++;
+      stage = `saved conversation history ${histories} legacy agreement`;
       const legacyHistory = await request(`/api/conversations/${encodeURIComponent(conversation.id)}`);
       assert.equal(legacyHistory.status, 200); assert.deepEqual(legacyHistory.body.messages, history.body.messages);
       const turn = history.body.messages.find(item => item.turnId);
       if (turn && turnReads === 0) {
+        stage = 'saved conversation turn restoration';
         const saved = await request(`/api/mentor?action=turn&conversationId=${encodeURIComponent(conversation.id)}&turnId=${encodeURIComponent(turn.turnId)}`);
         assert.equal(saved.status, 200); assert.equal(saved.body.turn.id, turn.turnId); turnReads++;
       }
     }
+    stage = 'saved homepage progress response';
     const progress = await request(`/api/progress?pageUrl=${encodeURIComponent(property)}`);
     assert.equal(progress.status, 200);
+    stage = 'saved homepage plan response';
     const plan = await request(`/api/page-review/plan?pageUrl=${encodeURIComponent(property)}`); assert.equal(plan.status, 200);
+    stage = 'saved business profile response';
     const profile = await request('/api/business-profile'); assert.equal(profile.status, 200);
+    stage = 'saved business profile property identity';
     assert.equal(profile.body.profile.scope.property, property);
+    stage = 'saved business profile website version';
     assert.equal(profile.body.profile.scope.websiteRunId, setup.revampRunId || null);
+    stage = 'saved onboarding workspace response';
     const onboarding = await request('/api/onboarding/workspace'); assert.equal(onboarding.status, 200);
+    stage = 'saved onboarding completed account';
     assert.equal(onboarding.body.legacyCompleted, true);
+    stage = 'saved new-page workspace response';
     const ideas = await request('/api/new-page-plans'); assert.equal(ideas.status, 200);
 
     stage = 'retired legacy writes';

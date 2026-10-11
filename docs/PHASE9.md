@@ -64,7 +64,7 @@ After the quality gate passes:
 1. Deploy private rules/indexes and shared APIs, then stage a production build without assigning the public domain.
 2. Run `scripts/verify-mentor-release.cjs <privateIdentityFile> <stagedOrigin>` using protected-deployment access. Saved reads must preserve account records, dates and usage counts.
 3. Enable Bryan's server-side allowlist first. Compare a real homepage answer against saved numbers/tasks and ask the indexing-misconception question with actual evidence. No fake metrics or publication confirmations.
-4. Bryan reviews the educational/personalized/collecting/unavailable/off-topic experience and widget/full-page continuity, including refresh and sign-in restoration.
+4. Bryan reviews the [isolated five-state preview](phase9-preview.html) (educational, personalized, collecting, unavailable and off-topic examples), then the real widget/full-page continuity, including refresh and sign-in restoration. The static preview contains only synthetic fixtures; creating it does not count as Bryan reviewing it.
 5. Run one requested `--investigate=activity` or `--investigate=technical` check and verify dated observations, usage and unchanged task/publication/progress records. Verify live documentation research separately within the same pilot budget.
 6. Inspect runtime errors and actual spend before broadening enrollment.
 
