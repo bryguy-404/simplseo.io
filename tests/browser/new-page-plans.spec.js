@@ -37,10 +37,10 @@ test.beforeEach(async () => {
   await app.firestore().doc(`users/${uid}`).set({ gscSiteUrl: property });
 });
 
-async function setup(page, overrides = {}) {
+async function setup(page, overrides = {}, { expandSteps = true } = {}) {
   const state = { data: { enabled: true, business: { name: 'Example Plumbing', websiteUrl: property, location: 'South Bend', services: ['Drain cleaning'] },
     context: structuredClone(context), inventory: structuredClone(inventory), assessments: [makeAssessment()], plans: [makePlan()], history: [], ...overrides },
-    calls: [], errors: [], saveFails: false, redirect: false, ready: Promise.resolve(), block: '', analysis: null, nextInventory: null, nextServices: null, contextError: null };
+    calls: [], errors: [], saveFails: false, redirect: false, ready: Promise.resolve(), block: '', analysis: null, nextInventory: null, nextServices: null, contextError: null, analysisError: null, inventoryError: null };
   page.on('pageerror', error => state.errors.push(error.message));
   await page.addInitScript(() => localStorage.setItem('hasSeenChatAssistant', 'true'));
   await page.route('**/*', async route => {
@@ -67,8 +67,9 @@ async function setup(page, overrides = {}) {
         state.data.assessments = state.data.assessments.map(item => ({ ...item, coverageChanged: true }));
         return json({ inventory: state.data.inventory });
       }
-      if (endpoint === '/inventory') { state.data.inventory = state.nextInventory || inventory; if (state.nextServices) state.data.business = { ...state.data.business, services: state.nextServices }; return json({ inventory: state.data.inventory }); }
+      if (endpoint === '/inventory') { if (state.inventoryError) return json({ error: state.inventoryError }, 503); state.data.inventory = state.nextInventory || inventory; if (state.nextServices) state.data.business = { ...state.data.business, services: state.nextServices }; return json({ inventory: state.data.inventory }); }
       if (endpoint === '/analyze') {
+        if (state.analysisError) return json({ error: state.analysisError }, 503);
         const assessment = state.analysis || state.data.assessments.find(item => item.context.area.name === state.data.context.area.name) || makeAssessment({ id: 'assessment-other', context: state.data.context, outcome: 'no_opportunity', ideas: [] });
         state.data.assessments = [assessment, ...state.data.assessments.filter(item => item.id !== assessment.id)];
         return json({ assessment, unchanged: !state.analysis, message: 'Your saved website evidence has not changed. This check did not recrawl your live website.' });
@@ -114,8 +115,17 @@ async function setup(page, overrides = {}) {
   await expect(page).toHaveURL(/dashboard/, { timeout: 20000 });
   await page.goto('/generic-keywords');
   await expect(page.getByRole('heading', { name: 'New page ideas', exact: true })).toBeVisible({ timeout: 20000 });
-  await expect(page.getByLabel('Services offered here')).toBeVisible();
+  await expect(page.getByRole('main', { name: 'New page planning workspace' })).toHaveAttribute('aria-busy', 'false');
+  if (expandSteps) { await openArea(page); await openWebsiteReview(page); }
   return state;
+}
+async function openArea(page) {
+  const control = page.getByRole('button', { name: 'Edit area and services', exact: true });
+  if (await control.isVisible()) await control.click();
+}
+async function openWebsiteReview(page) {
+  const control = page.getByRole('button', { name: 'View website review details', exact: true });
+  if (await control.isVisible()) await control.click();
 }
 async function openPlan(page) {
   await page.getByRole('button', { name: 'Open saved plan', exact: true }).click();
@@ -136,6 +146,7 @@ test('opening and reloading only restores saved work, without paid generation or
   await page.reload();
   await expect(page.getByRole('button', { name: 'Open saved plan' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Page opportunity assessment' })).toContainText(idea.topic);
+  await openArea(page);
   await page.getByText('Add helpful business facts (optional)', { exact: true }).click();
   await expect(page.getByLabel('What should we know about your work in this area?')).toHaveValue(context.facts);
   expect(state.calls.every(call => call.method === 'GET')).toBe(true);
@@ -306,9 +317,11 @@ test('areas keep independent plans and saved areas can be restored without paid 
   await page.getByRole('button', { name: 'Save this area', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'No new page needed right now' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open saved plan', exact: true })).toHaveCount(0);
+  await openArea(page);
   await page.getByLabel('Return to a saved area').selectOption('south bend, indiana, united states');
   await page.getByRole('button', { name: 'Save this area', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Page opportunity assessment' })).toContainText(idea.topic);
+  await openArea(page);
   await page.getByText('Add helpful business facts (optional)', { exact: true }).click();
   await expect(page.getByLabel('What should we know about your work in this area?')).toHaveValue(context.facts);
   await openPlan(page);
@@ -606,4 +619,134 @@ test('a stale retirement is blocked, shows loading, and can reload the latest sa
   await expect(page.getByText('Removed pages (1)', { exact: true })).toBeVisible();
   expect(state.calls.filter(call => call.endpoint === '/inventory/retire').map(call => call.body.inventoryRevision)).toEqual([1, 2]);
   expect(state.calls.filter(call => ['/inventory', '/analyze', '/draft'].includes(call.endpoint))).toHaveLength(0);
+});
+
+test('returning to saved results collapses setup, supports keyboard reopening, and preserves an unsaved draft', async ({ page }) => {
+  const state = await setup(page, {}, { expandSteps: false });
+  const areaToggle = page.getByRole('button', { name: 'Edit area and services', exact: true });
+  const reviewToggle = page.getByRole('button', { name: 'View website review details', exact: true });
+  await expect(areaToggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(reviewToggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByLabel('Services offered here')).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Refresh website review', exact: true })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Check for updates', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Page opportunity assessment' })).toContainText(idea.topic);
+  await page.screenshot({ path: '/private/tmp/simpleseo-phase6-collapsed-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: '/private/tmp/simpleseo-phase6-collapsed-mobile.png', fullPage: true });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);
+  await openPlan(page);
+  await page.getByLabel('SEO title', { exact: true }).fill('Unsaved title survives opening setup');
+  await areaToggle.focus(); await page.keyboard.press('Enter');
+  const hideArea = page.getByRole('button', { name: 'Hide area and services', exact: true });
+  await expect(hideArea).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByLabel('Services offered here')).toHaveValue('Drain cleaning');
+  await hideArea.focus(); await page.keyboard.press('Space');
+  await expect(areaToggle).toHaveAttribute('aria-expanded', 'false');
+  await reviewToggle.focus(); await page.keyboard.press('Enter');
+  const hideReview = page.getByRole('button', { name: 'Hide website review details', exact: true });
+  await expect(hideReview).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('button', { name: 'Refresh website review', exact: true })).toBeVisible();
+  await hideReview.focus(); await page.keyboard.press('Space');
+  await expect(reviewToggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByLabel('SEO title', { exact: true })).toHaveValue('Unsaved title survives opening setup');
+  await page.reload();
+  await expect(areaToggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(reviewToggle).toHaveAttribute('aria-expanded', 'false');
+  expect(state.calls.every(call => call.method === 'GET')).toBe(true);
+  expect(state.data.plans[0].draft.title).toBe(draft.title);
+});
+
+test('first area save collapses only area setup and a completed assessment then collapses the review', async ({ page }) => {
+  const state = await setup(page, { context: null, assessments: [], plans: [] }, { expandSteps: false });
+  await expect(page.getByLabel('Services offered here')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Refresh website review', exact: true })).toBeVisible();
+  await page.getByLabel('State or region').fill('Indiana');
+  await page.getByLabel('Country', { exact: true }).fill('United States');
+  await page.getByRole('checkbox', { name: 'My business offers these services in this area.' }).check();
+  await page.getByRole('button', { name: 'Save this area', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Edit area and services', exact: true })).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('#website-review-heading')).toBeFocused();
+  await expect(page.getByLabel('Services offered here')).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Refresh website review', exact: true })).toBeVisible();
+  expect(state.calls.filter(call => ['/analyze', '/inventory', '/draft'].includes(call.endpoint))).toHaveLength(0);
+  state.analysis = makeAssessment({ context: state.data.context, outcome: 'no_opportunity', ideas: [], summary: 'Existing pages cover the confirmed service.' });
+  await page.getByRole('button', { name: 'Find useful page ideas', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'No new page needed right now' })).toBeVisible();
+  await expect(page.locator('#page-ideas-heading')).toBeFocused();
+  await expect(page.getByRole('button', { name: 'View website review details', exact: true })).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByRole('button', { name: 'Refresh website review', exact: true })).toBeHidden();
+  expect(state.calls.filter(call => call.endpoint === '/analyze')).toHaveLength(1);
+  expect(state.calls.filter(call => call.endpoint === '/draft')).toHaveLength(0);
+});
+
+test('unsaved area changes stay visible and survive opening the website review', async ({ page }) => {
+  const state = await setup(page, {}, { expandSteps: false });
+  await openArea(page);
+  await page.getByLabel('Services offered here').fill('Drain cleaning\nWater heater repairs');
+  await expect(page.getByRole('checkbox', { name: 'My business offers these services in this area.' })).not.toBeChecked();
+  await expect(page.getByRole('button', { name: 'Hide area and services', exact: true })).toHaveCount(0);
+  await openWebsiteReview(page);
+  await expect(page.getByLabel('Services offered here')).toBeVisible();
+  await expect(page.getByLabel('Services offered here')).toHaveValue('Drain cleaning\nWater heater repairs');
+  await expect(page.getByRole('button', { name: 'Save this area', exact: true })).toBeDisabled();
+  expect(state.calls.every(call => call.method === 'GET')).toBe(true);
+});
+
+test('failed area saves and update checks keep the relevant setup open without losing saved work', async ({ page }) => {
+  const state = await setup(page, {}, { expandSteps: false });
+  await openArea(page);
+  await page.getByLabel('Services offered here').fill('Owner-reviewed drain cleaning');
+  await page.getByRole('checkbox', { name: 'My business offers these services in this area.' }).check();
+  state.contextError = 'Please verify these services before saving.';
+  await page.getByRole('button', { name: 'Save this area', exact: true }).click();
+  await expect(page.getByRole('main', { name: 'New page planning workspace' }).getByRole('alert')).toContainText(state.contextError);
+  await expect(page.getByLabel('Services offered here')).toBeVisible();
+  await expect(page.getByLabel('Services offered here')).toHaveValue('Owner-reviewed drain cleaning');
+  expect(state.data.context.services).toEqual(context.services);
+  // Restore the saved screen to exercise a failed quiet check from its summary.
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'View website review details', exact: true })).toBeVisible();
+  state.analysisError = 'The update check is temporarily unavailable. Your saved assessment is unchanged.';
+  state.block = '/analyze'; state.ready = new Promise(resolve => { state.release = resolve; });
+  await page.getByRole('button', { name: 'Check for updates', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Refresh website review', exact: true })).toBeVisible();
+  await expect(page.getByRole('main', { name: 'New page planning workspace' })).toHaveAttribute('aria-busy', 'true');
+  state.release();
+  await expect(page.getByRole('main', { name: 'New page planning workspace' }).getByRole('alert')).toContainText(state.analysisError);
+  await expect(page.getByRole('button', { name: 'Hide website review details', exact: true })).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('region', { name: 'Page opportunity assessment' })).toContainText(idea.topic);
+  expect(state.data.plans[0].draft.title).toBe(draft.title);
+  expect(state.calls.filter(call => call.endpoint === '/draft')).toHaveLength(0);
+});
+
+test('partial and missing-information reviews remain open on return, with business facts reachable', async ({ page }) => {
+  const state = await setup(page, { inventory: missingInventory(), assessments: [makeAssessment({ outcome: 'needs_information', ideas: [], questions: ['Confirm the services you provide before continuing.'] })] }, { expandSteps: false });
+  await expect(page.getByLabel('Services offered here')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Refresh website review', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Pages to check' })).toBeVisible();
+  await page.getByText('Add helpful business facts (optional)', { exact: true }).click();
+  await expect(page.getByLabel('What should we know about your work in this area?')).toHaveValue(context.facts);
+  // Even readable coverage must stay open when the assessment still needs facts.
+  state.data.inventory = structuredClone(inventory);
+  await page.reload();
+  await expect(page.getByLabel('Services offered here')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Refresh website review', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Hide website review details', exact: true })).toHaveCount(0);
+  // A new website review invalidates only the assessment; saved plans remain.
+  state.data.assessments = [makeAssessment({ coverageChanged: true })];
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Website review updated', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Refresh website review', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Saved page plans' })).toBeVisible();
+  state.data.assessments = [makeAssessment()];
+  state.data.inventory = { ...structuredClone(inventory), status: 'unavailable' };
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Refresh website review', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Check for updates', exact: true })).toBeDisabled();
+  state.data.inventory = { ...structuredClone(inventory), status: 'running', canContinue: true };
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Continue website review', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'View website review details', exact: true })).toHaveCount(0);
+  expect(state.calls.every(call => call.method === 'GET')).toBe(true);
 });

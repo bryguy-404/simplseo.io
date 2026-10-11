@@ -112,6 +112,12 @@ Using Bryan's explicit clarification that the discontinued SEO services are irre
 
 Copy follow-up `856d736` adds a short explanation to every **Already covered** card: “You already have a page about this topic. Review it for improvements instead of creating a similar page.” Scoped JSX lint and the production build passed. Deployment `dpl_HwPuX3vKYWEQhEAtPQ82Cy9Dg6MZ` (`https://simplseo-fhpm7xq36-bryan-arambulas-projects.vercel.app`) was staged, smoke-checked for the expected private/no-store API 401, and promoted to the existing public URL. The authenticated live workspace shows the explanation on both saved improvement cards after a reload; no analysis or data mutation was needed.
 
+### Compact setup follow-up
+
+Completed setup appears as two compact summaries above saved recommendations and drafts. Saving a confirmed area collapses the form to its area and service count. A current assessment and a finished website review collapse the review to its page count and check date. Both summaries have keyboard-accessible controls to reopen their details; the review also keeps a quiet **Check for updates** action visible. Returning visits derive the compact view from saved work without making an AI or crawling request.
+
+Unsaved or unconfirmed inputs, incomplete reviews, changed coverage and assessments needing more information stay expanded. Failed actions keep their guidance visible. Toggling sections preserves mounted form and draft state, and a successful save or assessment moves keyboard focus to the next step. This is a presentation change; recommendation eligibility, saved records and monitoring behavior are unchanged.
+
 1. **Inventory and area:** Bryan checks the recognized services, actual target area and existing coverage. Confirming an area does not declare publication.
 2. **Recommendation and draft:** Assess the real site. A supported no-opportunity or improve-existing result is acceptable. Only a qualifying idea becomes a draft; check saved edits survive reload and accounting is recorded.
 3. **Real publication:** After Bryan publishes a worthwhile page himself, verify its actual URL. Do not fabricate a publication to test tracking.

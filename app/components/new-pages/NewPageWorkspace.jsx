@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, CheckCircle2, LoaderCircle, MapPin, RefreshCw, Search } from 'lucide-react';
+import { ArrowRight, CheckCircle2, ChevronDown, ChevronUp, LoaderCircle, MapPin, RefreshCw, Search } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { authenticatedFetch } from '../../lib/authenticatedFetch';
 import { Button } from '@/components/ui/button';
@@ -71,6 +71,9 @@ export default function NewPageWorkspace() {
   const [facts, setFacts] = useState('');
   const [confirmed, setConfirmed] = useState(false);
   const [contextDirty, setContextDirty] = useState(false);
+  const [areaExpanded, setAreaExpanded] = useState(false);
+  const [reviewExpanded, setReviewExpanded] = useState(false);
+  const [focusStep, setFocusStep] = useState('');
   const [nearby, setNearby] = useState([]);
   const [selectedPlan, setSelectedPlan] = useState('');
   const [resolution, setResolution] = useState(null);
@@ -95,6 +98,7 @@ export default function NewPageWorkspace() {
     controller.current?.abort();
     actionActive.current = false;
     setBusy(''); setData(null); setError(''); setNotice(''); setNearby([]); setSelectedPlan(''); setResolution(null); setResolutionConfirmed(false); setResolutionError(''); setResolutionConflict(false);
+    setAreaExpanded(false); setReviewExpanded(false); setFocusStep('');
     if (!user?.id) { setLoading(false); return; }
     const current = new AbortController(); controller.current = current;
     setLoading(true);
@@ -113,6 +117,16 @@ export default function NewPageWorkspace() {
     section?.focus({ preventScroll: true });
     section?.scrollIntoView({ block: 'start' });
   }, [selectedPlan]);
+
+  // Move keyboard focus out of a step only after its successful response has
+  // rendered. Reopening details never reloads or discards the form or draft.
+  useEffect(() => {
+    if (!focusStep) return;
+    const section = document.getElementById(focusStep);
+    section?.focus({ preventScroll: true });
+    section?.scrollIntoView({ block: 'start', behavior: 'instant' });
+    setFocusStep('');
+  }, [focusStep]);
 
   // Only direct user actions enter this helper. Restoring saved work never calls AI.
   const act = async (label, path, body, apply, method) => {
@@ -172,6 +186,7 @@ export default function NewPageWorkspace() {
       setData(previous => ({ ...previous, ...result.workspace, context: result.context, contexts: [result.context,
         ...[...(result.workspace?.contexts || []), previous.context, ...(previous.contexts || [])].filter(context => context && areaKey(context.area) !== areaKey(result.context.area)),
       ] })); fillContext(result.context); setSelectedPlan('');
+      setAreaExpanded(false); setReviewExpanded(false); setFocusStep('website-review-heading');
       setNotice('Area saved. Your other areas and plans are still available.');
     });
   };
@@ -215,6 +230,26 @@ export default function NewPageWorkspace() {
   const selected = plans.find(plan => plan.id === selectedPlan && plan.status !== 'dismissed');
   const disabled = Boolean(busy);
   const generationDisabled = disabled || data?.enabled === false;
+  const needsInformation = assessment?.outcome === 'needs_information' && !assessment.coverageChanged;
+  const areaComplete = Boolean(savedContext?.confirmed) && !contextDirty && !needsInformation;
+  const reviewComplete = areaComplete && Boolean(assessment) && !assessment.coverageChanged
+    && inventory?.status === 'ready' && !inventory.canContinue && pagesToCheck.length === 0;
+  const showArea = !areaComplete || areaExpanded;
+  const showReview = !reviewComplete || reviewExpanded;
+  const checkIdeas = () => {
+    setReviewExpanded(true);
+    return act(assessment ? 'Checking for useful updates…' : 'Checking for useful gaps…', '/analyze', {}, result => {
+      if (result.assessment) {
+        setData(previous => ({ ...previous, assessments: [result.assessment, ...(previous.assessments || []).filter(item => item.id !== result.assessment.id)] }));
+        setReviewExpanded(false);
+        setAreaExpanded(false);
+        setFocusStep('page-ideas-heading');
+      }
+      if (result.unchanged) setNotice(result.message || 'Your saved assessment is unchanged. No draft was replaced.');
+    });
+  };
+  const checkIdeasDisabled = generationDisabled || !savedContext?.confirmed || contextDirty
+    || !inventory || Boolean(inventory.canContinue) || inventory.status === 'unavailable';
 
   if (authLoading || loading) return <div role="status" className="flex items-center gap-3 p-8"><LoaderCircle className="size-5 animate-spin" />Loading your saved page ideas…</div>;
   if (!user) return null;
@@ -225,8 +260,14 @@ export default function NewPageWorkspace() {
     {busy && <div role="status" className="sticky top-20 z-10 flex items-center gap-3 rounded-lg border bg-background p-3 text-sm shadow-sm"><LoaderCircle className="size-4 animate-spin" />{busy}</div>}
     {data?.enabled === false && <p className="rounded-lg border p-4 text-sm">New research is temporarily paused. Your saved drafts, editing and tracking remain available.</p>}
     {data && <>
-      <Card><CardContent className="space-y-5 pt-6">
-        <div><h2 className="text-lg font-semibold">1. Where would you like more customers?</h2><p className="mt-1 text-sm text-muted-foreground">Choose an area you actually serve and the services you offer there.</p></div>
+      <Card className={showArea ? undefined : 'py-4'}><CardContent className={showArea ? 'space-y-5 pt-6' : 'px-4 sm:px-6'}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0"><h2 className="text-lg font-semibold">{showArea ? '1. Where would you like more customers?' : '1. Area and services'}</h2>
+            {showArea ? <p className="mt-1 text-sm text-muted-foreground">Choose an area you actually serve and the services you offer there.</p> : <p className="mt-1 flex items-start gap-2 text-sm"><CheckCircle2 aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" /><span>{areaLabel(savedContext.area)} · {savedContext.services.length} {savedContext.services.length === 1 ? 'service' : 'services'} saved</span></p>}
+          </div>
+          {areaComplete && <Button type="button" variant="ghost" size="sm" disabled={disabled} aria-expanded={showArea} aria-controls="area-and-services-details" onClick={() => setAreaExpanded(value => !value)}>{showArea ? 'Hide area and services' : 'Edit area and services'}{showArea ? <ChevronUp aria-hidden="true" className="size-4" /> : <ChevronDown aria-hidden="true" className="size-4" />}</Button>}
+        </div>
+        <div id="area-and-services-details" hidden={!showArea} className="space-y-5">
         {savedAreas.length > 1 && <label className="block space-y-2 text-sm"><span>Return to a saved area</span><select className={fieldClass} value="" disabled={disabled} onChange={event => { const context = savedAreas.find(item => areaKey(item.area) === event.target.value); if (context) { fillContext(context); setContextDirty(true); setSelectedPlan(''); } }}><option value="">Choose a saved area</option>{savedAreas.map(context => <option key={areaKey(context.area)} value={areaKey(context.area)}>{areaLabel(context.area)}</option>)}</select></label>}
         <form onSubmit={saveContext} className="space-y-4">
           <fieldset disabled={disabled} className="grid gap-4 sm:grid-cols-3">
@@ -241,9 +282,20 @@ export default function NewPageWorkspace() {
           <div className="flex flex-wrap gap-3"><Button type="submit" disabled={disabled || !confirmed || !services.trim()}><MapPin className="size-4" />{savedContext && !contextDirty ? 'Area saved' : 'Save this area'}</Button><Button type="button" variant="ghost" disabled={generationDisabled || !savedContext?.confirmed || contextDirty} onClick={() => act('Looking for nearby areas…', '/areas', {}, result => { setNearby(result.areas || []); if (!result.areas?.length) setNotice('No supported nearby areas found. You can enter an area you serve.'); })}>Suggest nearby areas</Button></div>
         </form>
         {nearby.length > 0 && <div className="space-y-3 border-t pt-4"><p className="text-sm text-muted-foreground">Choose only an area your business serves.</p>{nearby.map((candidate, index) => <div key={`${areaLabel(candidate)}-${index}`} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3"><div className="min-w-0 text-sm"><p className="font-medium">{areaLabel(candidate)}</p><p className="text-muted-foreground">{candidate.reason}</p>{safeLink(candidate.sourceUrl) && <a className="underline" href={safeLink(candidate.sourceUrl)} target="_blank" rel="noopener noreferrer">Source</a>}</div><Button size="sm" variant="outline" disabled={disabled} onClick={() => { changeArea({ name: candidate.name, region: candidate.region, country: candidate.country }); setNearby([]); setSelectedPlan(''); }}>Choose this area</Button></div>)}</div>}
+        </div>
       </CardContent></Card>
 
-      <Card><CardContent className="space-y-4 pt-6"><div><h2 className="text-lg font-semibold">2. Check what your website already covers</h2><p className="mt-1 text-sm text-muted-foreground">We review existing pages before suggesting another one—including pages without Google traffic.</p></div>
+      <Card className={showReview ? undefined : 'py-4'}><CardContent className={showReview ? 'space-y-4 pt-6' : 'px-4 sm:px-6'}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0"><h2 id="website-review-heading" tabIndex={-1} className="scroll-mt-24 text-lg font-semibold">{showReview ? '2. Check what your website already covers' : '2. Website review'}</h2>
+            {showReview ? <p className="mt-1 text-sm text-muted-foreground">We review existing pages before suggesting another one—including pages without Google traffic.</p> : <p className="mt-1 flex items-start gap-2 text-sm"><CheckCircle2 aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" /><span>{reviewed} {reviewed === 1 ? 'page' : 'pages'} reviewed{inventory.updatedAt ? ` · Checked ${displayDate(inventory.updatedAt)}` : ''}</span></p>}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {reviewComplete && <Button type="button" variant="ghost" size="sm" disabled={disabled} aria-expanded={showReview} aria-controls="website-review-details" onClick={() => setReviewExpanded(value => !value)}>{showReview ? 'Hide website review details' : 'View website review details'}{showReview ? <ChevronUp aria-hidden="true" className="size-4" /> : <ChevronDown aria-hidden="true" className="size-4" />}</Button>}
+            {!showReview && <Button type="button" variant="ghost" size="sm" disabled={checkIdeasDisabled} onClick={checkIdeas}><RefreshCw aria-hidden="true" className="size-4" />Check for updates</Button>}
+          </div>
+        </div>
+        <div id="website-review-details" hidden={!showReview} className="space-y-4">
         {inventory && <div className="rounded-lg border p-4 text-sm"><p className="font-medium">{inventory.status === 'ready' ? 'Website review saved' : inventory.status === 'unavailable' ? 'Website review unavailable' : 'Website review is partial'}</p><p className="mt-1 text-muted-foreground">{inventoryPages.length} links found · {reviewed} pages read{pagesToCheck.length ? ` · ${pagesToCheck.length} to check` : ''}{retiredPages.length ? ` · ${retiredPages.length} marked removed` : ''}. {inventory.canContinue ? 'Continue reviewing before checking for gaps.' : 'We may not have found every page on your website.'}</p>{inventory.updatedAt && <p className="mt-1 text-xs text-muted-foreground">Checked {displayDate(inventory.updatedAt)}</p>}
           {pagesToCheck.length > 0 && <section id="website-pages-to-check" aria-label="Pages to check" className="mt-4 space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4">
             <h3 className="font-medium">Check these links before adding a page</h3>
@@ -268,15 +320,13 @@ export default function NewPageWorkspace() {
               if (observed.length) { setServices([...new Set(observed)].join('\n')); setContextDirty(true); }
             }
           })}><Search className="size-4" />{inventory?.canContinue ? 'Continue website review' : inventory ? 'Refresh website review' : 'Review my website'}</Button>
-          <Button disabled={generationDisabled || !savedContext?.confirmed || contextDirty || !inventory || Boolean(inventory.canContinue) || inventory.status === 'unavailable'} variant={assessment ? 'ghost' : 'default'} onClick={() => act(assessment ? 'Checking for useful updates…' : 'Checking for useful gaps…', '/analyze', {}, result => {
-            if (result.assessment) setData(previous => ({ ...previous, assessments: [result.assessment, ...(previous.assessments || []).filter(item => item.id !== result.assessment.id)] }));
-            if (result.unchanged) setNotice(result.message || 'Your saved assessment is unchanged. No draft was replaced.');
-          })}>{assessment ? <RefreshCw className="size-4" /> : <ArrowRight className="size-4" />}{assessment ? 'Check for updates' : 'Find useful page ideas'}</Button></div>
+          <Button disabled={checkIdeasDisabled} variant={assessment ? 'ghost' : 'default'} onClick={checkIdeas}>{assessment ? <RefreshCw className="size-4" /> : <ArrowRight className="size-4" />}{assessment ? 'Check for updates' : 'Find useful page ideas'}</Button></div>
         {contextDirty && <p className="text-sm text-muted-foreground">Save your area and services before continuing.</p>}
+        </div>
       </CardContent></Card>
 
       {assessment?.coverageChanged && <section aria-label="Updated website review" className="space-y-2 rounded-xl border border-primary/30 bg-primary/5 p-5"><h2 className="font-semibold">Website review updated</h2><p className="text-sm text-muted-foreground">{inventory?.canContinue ? 'Continue website review, then use Check for updates to assess your current pages.' : 'Use Check for updates above to assess your current pages.'} Your saved plans stay available.</p></section>}
-      {assessment && !assessment.coverageChanged && <section className="space-y-4" aria-label="Page opportunity assessment"><div><h2 className="text-xl font-semibold">Ideas for {areaLabel(assessment.context?.area)}</h2><p className="mt-2 text-sm text-muted-foreground">{assessment.summary}</p></div>
+      {assessment && !assessment.coverageChanged && <section className="space-y-4" aria-label="Page opportunity assessment"><div><h2 id="page-ideas-heading" tabIndex={-1} className="scroll-mt-24 text-xl font-semibold">Ideas for {areaLabel(assessment.context?.area)}</h2><p className="mt-2 text-sm text-muted-foreground">{assessment.summary}</p></div>
         {assessment.outcome === 'no_opportunity' && <div className="flex items-start gap-3 rounded-xl border border-primary/30 bg-primary/5 p-5"><CheckCircle2 className="mt-1 size-5 shrink-0 text-primary" /><div><h3 className="font-semibold">No new page needed right now</h3><p className="mt-1 text-sm text-muted-foreground">Your existing coverage does not justify another page from the evidence reviewed. You can work on an existing page or choose another area.</p><Link className="mt-3 inline-block text-sm underline" href="/low-ctr">Improve an existing page</Link></div></div>}
         {assessment.outcome === 'needs_information' && <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 text-sm"><p>{pagesToCheck.length ? 'Check the existing pages before we suggest another one.' : 'We need more information before suggesting a page.'}</p>{pagesToCheck.length > 0 && <a className="mt-2 inline-block underline" href="#website-pages-to-check">See the links to check</a>}{assessment.questions?.length > 0 ? <ul className="mt-3 list-disc space-y-2 pl-5">{assessment.questions.map((question, index) => <li key={index}>{question === 'Check the unreadable or unreviewed pages in Website coverage, then refresh the inventory.' ? 'Open the links listed in your website review above. After checking them, refresh the website review and check for updates.' : question}</li>)}</ul> : !pagesToCheck.length && <p className="mt-2">Review the guidance below or add business facts above, then check again.</p>}</div>}
         {(assessment.ideas || []).map((idea, index) => {
