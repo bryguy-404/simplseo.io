@@ -161,13 +161,38 @@ export async function mutateMentorConversation(uid, { action, conversationId, ex
 }
 
 export async function sendMentorTurn(uid, input, generate) {
+  // Bound the entire request, including Firestore reads, validation, persistence
+  // and cleanup. A provider-only race cannot bound a stalled database request.
+  const deadline = Date.now() + 120000, controller = new AbortController();
+  const abort = () => controller.abort();
+  input.signal?.addEventListener('abort', abort, { once: true });
+  if (input.signal?.aborted) abort();
+  const timer = setTimeout(abort, Math.max(1, deadline - Date.now()));
+  const stopped = new Promise((_, reject) => {
+    const stop = () => reject(new RequestError('The mentor could not finish in time. Check this conversation for your saved question before retrying.', 503));
+    if (controller.signal.aborted) stop(); else controller.signal.addEventListener('abort', stop, { once: true });
+  });
+  try {
+    return await Promise.race([sendMentorTurnWithinDeadline(uid, { ...input, signal: controller.signal }, generate, deadline), stopped]);
+  } finally {
+    clearTimeout(timer); input.signal?.removeEventListener('abort', abort);
+  }
+}
+
+async function sendMentorTurnWithinDeadline(uid, input, generate, deadline) {
+  const ensureTime = () => {
+    if (input.signal.aborted || Date.now() >= deadline) throw Object.assign(new Error('Mentor deadline or cancellation'), { name: 'AbortError' });
+  };
+  ensureTime();
   const conversationRef = ref(input.conversationId), turnId = id(input.turnId, 'turn'), selection = inputSelection(input.selection);
   if (typeof input.message !== 'string' || !input.message.trim() || input.message.length > 12000) throw new RequestError('Enter a question of up to 12,000 characters.');
   const message = input.message.trim(), scope = await readMentorAccountScope(uid), turnRef = conversationRef.collection('turns').doc(turnId);
-  const fingerprint = hash(JSON.stringify([message, selection])), token = randomUUID(), deadline = Date.now() + 120000;
+  ensureTime();
+  const fingerprint = hash(JSON.stringify([message, selection])), token = randomUUID();
   const start = await db.runTransaction(async tx => {
     await assertMentorAccountScope(uid, scope, tx);
     const [conversation, previous, lease] = await Promise.all([tx.get(conversationRef), tx.get(turnRef), tx.get(leaseRef(uid))]);
+    ensureTime();
     const data = owned(conversation, uid);
     if (previous.exists) {
       if (previous.data().fingerprint !== fingerprint) throw new RequestError('This question identifier was already used. Start a new question.', 409);
@@ -197,23 +222,28 @@ export async function sendMentorTurn(uid, input, generate) {
 
   const controller = new AbortController();
   const abort = () => controller.abort(); input.signal?.addEventListener('abort', abort, { once: true });
-  const timeout = setTimeout(abort, Math.max(1, deadline - Date.now()));
+  // Stop generation early enough to save a completed answer or a retryable
+  // failure inside the outer 120-second boundary.
+  const generationDeadline = deadline - 6000;
+  const timeout = setTimeout(abort, Math.max(1, generationDeadline - Date.now()));
   let result, failure;
   try {
     const historyResult = await conversationRef.collection('messages').orderBy('sequence', 'desc').limit(21).get();
+    ensureTime();
     const history = historyResult.docs.reverse().map(doc => doc.data()).filter(item => item.turnId !== turnId).map(item => ({ role: item.role, content: item.content })).slice(-20);
     if (input.signal?.aborted) controller.abort();
     const stopped = new Promise((_, reject) => {
       const stop = () => reject(Object.assign(new Error('Mentor deadline or cancellation'), { name: 'AbortError' }));
       if (controller.signal.aborted) stop(); else controller.signal.addEventListener('abort', stop, { once: true });
     });
-    result = await Promise.race([generate({ uid, scope, conversationId: input.conversationId, turnId, message, history, selection, signal: controller.signal, deadline }), stopped]);
+    result = await Promise.race([generate({ uid, scope, conversationId: input.conversationId, turnId, message, history, selection, signal: controller.signal, deadline: generationDeadline }), stopped]);
     if (controller.signal.aborted || Date.now() >= deadline) throw Object.assign(new Error('deadline'), { name: 'AbortError' });
     if (typeof result?.answer !== 'string' || !result.answer.trim() || result.answer.length > 60000) throw new Error('Invalid saved answer');
     await db.runTransaction(async tx => {
       await assertMentorAccountScope(uid, scope, tx);
       if (result.provenance?.evidenceRevisions?.length) await assertMentorEvidenceRevisions(uid, scope, result.provenance.evidenceRevisions, { tx });
       const [conversation, lease, turn] = await Promise.all([tx.get(conversationRef), tx.get(leaseRef(uid)), tx.get(turnRef)]);
+      ensureTime();
       const data = owned(conversation, uid);
       if (!sameScope(data, scope) || data.activeTurnId !== turnId || lease.data()?.token !== token || turn.data()?.status !== 'pending' || Date.now() >= deadline) throw new RequestError('This conversation changed while the answer was being prepared. Your question is saved.', 409);
       requireGeneration(uid);
@@ -232,6 +262,7 @@ export async function sendMentorTurn(uid, input, generate) {
     await db.runTransaction(async tx => {
       await assertMentorAccountScope(uid, scope, tx);
       const [conversation, lease, turn] = await Promise.all([tx.get(conversationRef), tx.get(leaseRef(uid)), tx.get(turnRef)]);
+      ensureTime();
       const data = owned(conversation, uid);
       if (turn.data()?.status !== 'pending' || lease.data()?.token !== token) return;
       const unknown = failure.name === 'AbortError' || failure.status === 409;

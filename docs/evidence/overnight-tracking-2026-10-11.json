@@ -1,0 +1,253 @@
+{
+  "checkedAt": "2026-10-11T15:19:00.374Z",
+  "production": {
+    "id": "dpl_4GcdF3NFCAhrMboFtuhzfHfYY9Sf",
+    "url": "simplseo-1o0vmpeqq-bryan-arambulas-projects.vercel.app",
+    "state": "READY"
+  },
+  "cronConfiguration": {
+    "enabledAt": 1752773601710,
+    "disabledAt": null,
+    "updatedAt": 1791703313631,
+    "deploymentId": "dpl_4GcdF3NFCAhrMboFtuhzfHfYY9Sf",
+    "definitions": [
+      {
+        "host": "simplseo-1o0vmpeqq-bryan-arambulas-projects.vercel.app",
+        "path": "/api/cron/check-revamp-gsc",
+        "schedule": "0 3 * * *"
+      },
+      {
+        "host": "simplseo-1o0vmpeqq-bryan-arambulas-projects.vercel.app",
+        "path": "/api/cron/check-success-stories",
+        "schedule": "0 2 * * *"
+      }
+    ]
+  },
+  "scheduledHeaderRuns": [
+    {
+      "job": "progress",
+      "trigger": "vercel_cron_header",
+      "runId": "37ec65a0-ff6b-4da2-8182-5509ff4b1615",
+      "startedAt": "2026-10-11T02:14:02.517Z",
+      "finishedAt": "2026-10-11T02:14:04.232Z",
+      "status": "completed",
+      "deploymentId": "dpl_97zz6HWYs9uvECDB7gVSGT5sRCrT",
+      "counts": {
+        "skipped": 6
+      },
+      "checked": 6,
+      "pagesChecked": 0,
+      "moreRecords": false,
+      "errorCode": null,
+      "notificationsSent": 0,
+      "durationMs": 1713
+    },
+    {
+      "job": "website-monitoring",
+      "trigger": "vercel_cron_header",
+      "runId": "e47e37a1-0eae-4b49-9193-b89173b5a417",
+      "startedAt": "2026-10-11T03:41:46.218Z",
+      "finishedAt": "2026-10-11T03:41:48.929Z",
+      "status": "completed",
+      "deploymentId": "dpl_HwPuX3vKYWEQhEAtPQ82Cy9Dg6MZ",
+      "counts": {
+        "usable": 1
+      },
+      "checked": 1,
+      "pagesChecked": 29,
+      "moreRecords": false,
+      "errorCode": null,
+      "collectors": {
+        "newPages": {
+          "moreRecords": false,
+          "counts": {},
+          "checked": 0,
+          "pagesChecked": 0
+        },
+        "existingPages": {
+          "moreRecords": false,
+          "counts": {
+            "usable": 1
+          },
+          "checked": 1,
+          "pagesChecked": 29
+        }
+      },
+      "notificationsSent": 0,
+      "durationMs": 2709
+    }
+  ],
+  "manualInvocationsDuringAudit": 0,
+  "preservation": {
+    "savedPlans": 1,
+    "archivedDocuments": 18,
+    "activePublishedChanges": 0
+  },
+  "providerCorrelation": {
+    "status": "unverified",
+    "cliHistoricalQueries": "Both failed with HTTP 400",
+    "connectorHistoricalQueries": "Both failed with HTTP 403",
+    "recentCliQuery": "Succeeded",
+    "retentionNote": "Hobby retains one hour of logs; overnight windows are outside that range. Query failures must not be represented as zero invocation records.",
+    "source": "https://vercel.com/docs/logs/runtime"
+  },
+  "phase7": {
+    "firstExpectedScheduledProgress": "2026-10-12T02:00:00Z",
+    "scheduledCycleCollectionVerified": false,
+    "reason": "October 11 runs used Phase 6 deployments before Phase 7 promotion."
+  },
+  "savedWorkAudit": {
+    "homepage": {
+      "plans": [
+        {
+          "recordFingerprint": "23533426a084a1774495ea12b6ec1527a0707d8b942f994a9b5ac0377059e18f",
+          "revision": 1,
+          "updatedAt": "2026-10-10T22:00:13.934Z",
+          "taskStatuses": {
+            "todo": 3
+          },
+          "tasks": [
+            {
+              "taskFingerprint": "2ae1c17fc31890b8851072ace0d9ccb0fb2e341807c3016bc4be04a965f43160",
+              "status": "todo",
+              "type": "heading",
+              "priority": "first",
+              "title": "Make both main services clear in the hero heading",
+              "confirmedAt": null
+            },
+            {
+              "taskFingerprint": "ee6b5ea8167b886690fd666bae46f5363f8f43e76e3018ab1e3c73270df41cf2",
+              "status": "todo",
+              "type": "content",
+              "priority": "next",
+              "title": "Clarify how website estimates and ongoing costs work",
+              "confirmedAt": null
+            },
+            {
+              "taskFingerprint": "af5a6a11f10e69dab9ee62eae36d33906be0d5b45c3383226e6ac1802389af76",
+              "status": "todo",
+              "type": "internal_link",
+              "priority": "optional",
+              "title": "Link the Web Design summary to its service details",
+              "confirmedAt": null
+            }
+          ]
+        }
+      ],
+      "activeCycles": 0,
+      "ownerConfirmedChanges": []
+    },
+    "currentAccount": {
+      "activeCycles": 0,
+      "allCycles": 0,
+      "currentCycles": 0,
+      "currentImplementedRecords": 0,
+      "archivedImplementationRecords": 6,
+      "newPagePublications": 0,
+      "allNewPagePublications": 0,
+      "trackingPublications": 0,
+      "newPageWorkspaceCount": 1,
+      "newPageAssessmentOutcomes": {
+        "improve_existing": 1
+      },
+      "newPagePlanStatuses": {}
+    },
+    "jobRecords": [
+      {
+        "path": "progressJobs/daily-progress",
+        "exists": true,
+        "lastStartedAt": "2026-10-11T02:14:03.314Z",
+        "lastFinishedAt": "2026-10-11T02:14:03.800Z",
+        "lastErrorAt": null,
+        "leaseUntil": null,
+        "leaseActive": false,
+        "cursorPresent": true,
+        "cursorFingerprint": "c57163abcb6ce20ab80d0c4f26bbab804f4b449246e3aff64a05e279b4dd4c8b",
+        "counts": {
+          "skipped": 6
+        },
+        "checked": null,
+        "pagesChecked": null,
+        "moreRecords": null,
+        "updatedAt": "2026-10-11T02:14:04.143Z"
+      },
+      {
+        "path": "progressJobs/daily-website-monitoring",
+        "exists": true,
+        "lastStartedAt": "2026-10-11T03:41:46.781Z",
+        "lastFinishedAt": "2026-10-11T03:41:48.689Z",
+        "lastErrorAt": null,
+        "leaseUntil": null,
+        "leaseActive": false,
+        "cursorPresent": false,
+        "cursorFingerprint": null,
+        "counts": {
+          "usable": 1
+        },
+        "checked": 1,
+        "pagesChecked": 29,
+        "moreRecords": false,
+        "updatedAt": "2026-10-11T03:41:48.838Z"
+      },
+      {
+        "path": "newPageJobs/daily-new-page-monitoring",
+        "exists": true,
+        "lastStartedAt": "2026-10-11T03:41:46.781Z",
+        "lastFinishedAt": "2026-10-11T03:41:47.238Z",
+        "lastErrorAt": null,
+        "leaseUntil": null,
+        "leaseActive": false,
+        "cursorPresent": false,
+        "cursorFingerprint": null,
+        "counts": {},
+        "checked": 0,
+        "pagesChecked": 0,
+        "moreRecords": false,
+        "updatedAt": "2026-10-11T03:41:47.531Z"
+      }
+    ],
+    "separateLeases": {
+      "separateDocuments": true,
+      "noActiveLease": true,
+      "progressUsesDocumentCursor": true,
+      "websiteUsesAccountAndPageCursors": true,
+      "newPagesUsesOldestNextCheckAt": true
+    },
+    "backlog": {
+      "observedAt": "2026-10-11T15:24:42.513Z",
+      "dueActiveCyclesGlobal": 0,
+      "dueActiveCyclesPilot": 0,
+      "dueNewPagePublicationsGlobal": 0,
+      "dueNewPagePublicationsPilot": 0,
+      "existingWebsiteMonitoringAccounts": 1,
+      "legacyQueueRecords": 6,
+      "legacyArchivedRecords": 6,
+      "note": "Legacy archived entries are skipped history, not an unpublished change or an eligible review. Existing website monitoring repeats without a due-date field; the latest run reports its backlog."
+    },
+    "pilotWebsiteMonitoring": {
+      "enabled": true,
+      "pageCount": 29,
+      "lastCheckedAt": "2026-10-11T03:41:47.297Z",
+      "pageCursorPresent": true,
+      "pageCursorFingerprint": "d56704792377d5f2214e2928a1f8c7020fdc193f39cdeb77bb7538251d774da8",
+      "pageSearchStatuses": {
+        "no_data": 25,
+        "has_data": 4
+      },
+      "pagesWithLastError": 0,
+      "observationEarliest": "2026-10-11T03:41:47.297Z",
+      "observationLatest": "2026-10-11T03:41:47.297Z"
+    },
+    "boundaries": {
+      "firestoreWrites": 0,
+      "apiCollectorsInvoked": 0,
+      "crawls": 0,
+      "modelCalls": 0,
+      "publicationConfirmations": 0,
+      "usageLedgerRead": false,
+      "schedulerVerification": "Persisted authenticated cron-header evidence only. Root must correlate Vercel invocation logs independently."
+    },
+    "preservedDocuments": 64,
+    "unchanged": true
+  }
+}

@@ -54,7 +54,7 @@ beforeEach(async () => {
   }
   generate = vi.fn(async () => answer); assertMentorEvidenceRevisions.mockReset().mockResolvedValue(undefined); generateMentorAnswer.mockClear(); runMentorCheck.mockReset().mockResolvedValue({ cached: true, result: {} });
 });
-afterEach(() => { for (const key of ['MENTOR_ENABLED', 'MENTOR_PILOT_UIDS', 'MENTOR_GENERATION_ENABLED', 'MENTOR_RESEARCH_ENABLED']) delete process.env[key]; vi.useRealTimers(); });
+afterEach(() => { for (const key of ['MENTOR_ENABLED', 'MENTOR_PILOT_UIDS', 'MENTOR_GENERATION_ENABLED', 'MENTOR_RESEARCH_ENABLED']) delete process.env[key]; vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe('mentor append-only conversations', () => {
   it('resolves independent server flags without exposing the allowlist', () => {
@@ -181,12 +181,36 @@ describe('mentor append-only conversations', () => {
   });
   it('enforces the absolute deadline even when a provider ignores cancellation', async () => {
     vi.useFakeTimers(); const conversation = await create();
-    generate.mockImplementation(() => new Promise(() => {}));
+    let finish; generate.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    const startedAt = Date.now();
     const pending = sendMentorTurn('alice', input(conversation), generate);
     await vi.waitFor(() => expect(generate).toHaveBeenCalledTimes(1));
-    await vi.advanceTimersByTimeAsync(120000);
+    expect(generate.mock.calls[0][0].deadline).toBe(startedAt + 114000);
+    await vi.advanceTimersByTimeAsync(114000);
     const result = await pending; expect(result.turn.status).toBe('unknown'); expect(result.messages).toHaveLength(1);
+    expect(generate.mock.calls[0][0].signal.aborted).toBe(true);
+    finish(answer); await Promise.resolve();
+    expect(records.has(`conversations/${conversation.id}/messages/first-turn-assistant`)).toBe(false);
     expect(generate).toHaveBeenCalledTimes(1);
+  });
+  it('bounds a stalled initial transaction without starting a provider call', async () => {
+    vi.useFakeTimers(); const conversation = await create();
+    vi.spyOn(db, 'runTransaction').mockImplementationOnce(() => new Promise(() => {}));
+    const pending = expect(sendMentorTurn('alice', input(conversation), generate)).rejects.toMatchObject({ status: 503 });
+    await vi.advanceTimersByTimeAsync(120000); await pending;
+    expect(generate).not.toHaveBeenCalled();
+    expect(records.has(`conversations/${conversation.id}/messages/first-turn-user`)).toBe(false);
+  });
+  it.each(['save', 'cleanup'])('bounds a stalled %s transaction and preserves the saved question', async phase => {
+    vi.useFakeTimers(); const conversation = await create(), original = db.runTransaction.bind(db);
+    vi.spyOn(db, 'runTransaction').mockImplementationOnce(original).mockImplementationOnce(() => new Promise(() => {}));
+    if (phase === 'cleanup') generate.mockRejectedValueOnce(Error('Provider unavailable'));
+    const pending = expect(sendMentorTurn('alice', input(conversation), generate)).rejects.toMatchObject({ status: 503 });
+    await vi.advanceTimersByTimeAsync(120000); await pending;
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(records.get(`conversations/${conversation.id}/messages/first-turn-user`).content).toBe(input(conversation).message);
+    expect(records.has(`conversations/${conversation.id}/messages/first-turn-assistant`)).toBe(false);
+    expect((await readMentorTurn('alice', conversation.id, 'first-turn')).turn.status).toBe('unknown');
   });
   it('never saves invalid model output and keeps the original question retryable', async () => {
     const conversation = await create(); generate.mockResolvedValue({ answer: '' });

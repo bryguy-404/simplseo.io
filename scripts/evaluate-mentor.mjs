@@ -8,13 +8,15 @@ import OpenAI from 'openai';
 import { mentorQualityScenarios, syntheticEvidence } from './fixtures/mentor-quality.mjs';
 dotenv.config({ path: '.env.local', quiet: true });
 const [identityFile, outputFile, countArg = '32', repairId] = process.argv.slice(2);
-const citationRecheck = repairId === 'citation-recheck';
+const citationRecheck = ['citation-recheck', 'citation-recheck-retry-failed'].includes(repairId);
+const retryFailedCitation = repairId === 'citation-recheck-retry-failed';
 if (!identityFile || !outputFile || process.env.FIRESTORE_EMULATOR_HOST || process.env.FIREBASE_PROJECT_ID !== 'simpleseo-90570') throw new Error('Explicit pilot identity and report path required.');
 const identities = fs.readFileSync(identityFile, 'utf8').trim().split('\n').map(JSON.parse);
 if (identities.length !== 1 || identities[0].property !== 'https://bryandevelops.com/') throw new Error('Wrong pilot scope.');
 const uid = identities[0].uid;
 const saved = fs.existsSync(outputFile) ? fs.readFileSync(outputFile, 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse) : [];
 let attempts = saved.reduce((sum, row) => sum + row.providerAttempts, 0), startedAnswers = 0;
+const previousCitationAttempts = saved.filter(row => row.id.endsWith('-citation-recheck')).length;
 const vite = await createServer({ server: { middlewareMode: true, hmr: false, ws: false, watch: null }, appType: 'custom', logLevel: 'error' });
 try {
   const { generateMentorAnswer } = await vite.ssrLoadModule('/app/lib/server/mentorGeneration.js');
@@ -27,14 +29,17 @@ try {
     if (citationRecheck && scenario.id !== 'general-no-google') continue;
     const id = `${scenario.id}-${repeat + 1}${citationRecheck ? '-citation-recheck' : ''}`;
     const previous = saved.filter(row => row.id === id).at(-1);
-    if (previous && !(repairId === id && previous.outcome === 'failed') || startedAnswers >= Number(countArg)) continue;
+    const explicitRetry = previous?.outcome === 'failed' && (repairId === id || retryFailedCitation);
+    if ((previous && !explicitRetry) || startedAnswers >= Number(countArg)) continue;
+    if (citationRecheck && previousCitationAttempts + startedAnswers >= 4) throw new Error('Owner-authorized supplemental answer limit reached.');
     if (attempts >= 128) throw new Error('Evaluation attempt ceiling reached.');
     startedAnswers++;
     const start = Date.now(), turnId = `phase9eval-${randomUUID()}`, usage = [], callsBefore = attempts;
     let row;
     try {
       const answer = await generateMentorAnswer({ uid, scope, conversationId: 'isolated-quality-evaluation', turnId,
-        message: scenario.question, selection: scenario.facts.ambiguous ? {} : { pageUrl: scenario.pageUrl }, deadline: Date.now() + 120000 }, {
+        message: scenario.question, selection: scenario.facts.ambiguous ? {} : { pageUrl: scenario.pageUrl },
+        deadline: Date.now() + 120000, signal: AbortSignal.timeout(120000) }, {
         evaluation: true, researchEnabled: false,
         executeEvidence: async (_uid, _scope, name, args) => syntheticEvidence(scenario, name, args),
         provider: { create: async (request, options) => {

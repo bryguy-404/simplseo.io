@@ -3,6 +3,9 @@
 // no AI generation, publication, task edit, or fabricated observation.
 require('dotenv').config({ path: '.env.local', quiet: true });
 const fs = require('node:fs');
+// This installed Firestore SDK emits listCollections debug arguments through
+// console.log, including document paths. Print only our sanitized final report.
+console.log = () => {};
 const admin = require('firebase-admin');
 const assert = require('node:assert/strict');
 const { createHash, randomUUID } = require('node:crypto');
@@ -218,13 +221,13 @@ async function main() {
         status: check.lastError ? 'unavailable_or_partial' : 'available', lastAttemptAt: check.lastAttemptAt,
         lastSuccessAt: check.lastSuccessAt, tasksAndPublicationDatesUnchanged: true, generatedAnswers: 0 };
     }
-    console.log(JSON.stringify({ verifiedAt: new Date().toISOString(), origin, pilotEnabledForOwner: workspace.body.enabled,
+    process.stdout.write(JSON.stringify({ verifiedAt: new Date().toISOString(), origin, pilotEnabledForOwner: workspace.body.enabled,
       generationEnabled: workspace.body.generationEnabled, anonymousChecks: anonymous.length, crossAccountChecks: 2,
       requests, historiesRead: histories, savedTurnsRead: turnReads, preservedDocuments: original.size,
       savedReadDatabaseMutationsObserved: 0, savedReadUsageLedgerChangesObserved: 0,
       homepagePlanPresent: Boolean(plan.body.plan), activeHomepageCycles: progress.body.ongoing?.records?.length || 0,
       legacyWriteResponses: [410, 410, 410, 410], publicationsConfirmed: 0, generatedAnswers: 0,
-      investigation, providerCallVerification: 'Stored-read provider-free behavior is covered by isolated tests; live account and usage records remained unchanged.' }, null, 2));
+      investigation, providerCallVerification: 'Stored-read provider-free behavior is covered by isolated tests; live account and usage records remained unchanged.' }, null, 2) + '\n');
   } finally { await app.delete(); }
 }
 main().catch(() => { console.error(`Mentor release verification failed during ${stage}. Credentials, private identities and provider payloads are omitted.`); process.exit(1); });

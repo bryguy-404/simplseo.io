@@ -57,7 +57,7 @@
   ],
   "recommendedCorrection": {
     "required": "Retrieve official snippet/meta-description documentation and the explicit Google ranking-factor guidance for this topic; provide relevant excerpts instead of unrelated title-only evidence. Require source support for each material Google-guidance claim.",
-    "evaluationStatus": "Original results remain unchanged and failed. Further real-model evaluation would require a separately authorized bounded run because the planned 32 completed answers have been consumed."
+    "evaluationStatus": "Correction verified by two explicitly authorized supplemental answers. The original two citation failures remain recorded; see supplementalCitationReview and currentQualityGate."
   },
   "limitations": [
     "This quality review does not replace account-isolation, concurrent budget, UI or persistence tests.",
@@ -804,5 +804,130 @@
       "providerAttempts": 1,
       "durationMs": 4054
     }
-  ]
+  ],
+  "supplementalCitationReview": {
+    "reviewedAt": "2026-10-11T15:22:20.024021+00:00",
+    "authorization": "Owner explicitly approved up to four additional citation recheck answers within the existing monthly and evaluation budgets.",
+    "inputSha256": "cd10a55d48057c10c762851cf7311829537803a25d3fe89c821b2ea4a26255c1",
+    "policyVersion": "mentor-9.2",
+    "authorizedAttemptLimit": 4,
+    "attemptsUsed": 3,
+    "completedAnswers": 2,
+    "passed": 2,
+    "failedAnswers": 0,
+    "failedAttemptsPreserved": [
+      {
+        "id": "general-no-google-1-citation-recheck",
+        "outcome": "failed",
+        "providerAttempts": 2,
+        "reportedUsageCalls": 1,
+        "durationMs": 480447,
+        "error": "The mentor could not finish this answer. Your question and conversation are saved. Please try again."
+      }
+    ],
+    "recovery": "Before retry, verified no evaluator process remained. Preserved the interrupted failed attempt. Ran one explicit two-answer citation-recheck-retry-failed command; no automatic retries.",
+    "sourceVerification": [
+      {
+        "url": "https://developers.google.com/search/blog/2009/09/google-does-not-use-keywords-meta-tag",
+        "checkedAt": "2026-10-11T15:22:20.024021+00:00",
+        "finding": "The section about other meta tags expressly distinguishes snippet usage from ranking and says the description meta tag is not used in ranking."
+      },
+      {
+        "url": "https://developers.google.com/search/docs/appearance/snippet",
+        "checkedAt": "2026-10-11T15:22:20.024021+00:00",
+        "finding": "The current snippet guide explains that Google primarily uses page content and may use the meta description when it describes the page better."
+      },
+      {
+        "url": "https://developers.google.com/search/docs/appearance/title-link",
+        "checkedAt": "2026-10-11T15:22:20.024021+00:00",
+        "finding": "The current title-link guide supports concise, descriptive titles, natural branding and avoiding repeated keywords."
+      }
+    ],
+    "results": [
+      {
+        "id": "general-no-google-1-citation-recheck",
+        "rechecks": "general-no-google-1",
+        "status": "pass",
+        "policyVersion": "mentor-9.2",
+        "accuracy": true,
+        "relevance": true,
+        "beginnerReadability": true,
+        "citationGrounding": true,
+        "releaseBlocking": false,
+        "rationale": "The answer remains useful without Google access, labels drafts as suggestions instead of a page review, uses only confirmed business/service/area facts, and now cites all three relevant official documents. The meta-description ranking claim is explicitly supported by the cited Google article; the snippets document supports alternate page-text selection. No invented metrics, business claims or ranking promise.",
+        "sourceUrls": [
+          "/low-ctr?page=https%3A%2F%2Fexample.com%2F",
+          "https://developers.google.com/search/docs/appearance/title-link",
+          "https://developers.google.com/search/blog/2009/09/google-does-not-use-keywords-meta-tag",
+          "https://developers.google.com/search/docs/appearance/snippet"
+        ],
+        "providerAttempts": 2,
+        "durationMs": 14184
+      },
+      {
+        "id": "general-no-google-2-citation-recheck",
+        "rechecks": "general-no-google-2",
+        "status": "pass",
+        "policyVersion": "mentor-9.2",
+        "accuracy": true,
+        "relevance": true,
+        "beginnerReadability": true,
+        "citationGrounding": true,
+        "releaseBlocking": false,
+        "rationale": "The answer remains useful without Google access, labels drafts as suggestions instead of a page review, uses only confirmed business/service/area facts, and now cites all three relevant official documents. The meta-description ranking claim is explicitly supported by the cited Google article; the snippets document supports alternate page-text selection. No invented metrics, business claims or ranking promise.",
+        "sourceUrls": [
+          "/low-ctr?page=https%3A%2F%2Fexample.com%2F",
+          "https://developers.google.com/search/docs/appearance/title-link",
+          "https://developers.google.com/search/blog/2009/09/google-does-not-use-keywords-meta-tag",
+          "https://developers.google.com/search/docs/appearance/snippet"
+        ],
+        "providerAttempts": 2,
+        "durationMs": 12460
+      }
+    ],
+    "costs": {
+      "supplementalProviderAttempts": 6,
+      "successfulRecheckProviderAttempts": 4,
+      "successfulRecheckKnownCostUsd": 0.021143,
+      "allSupplementalReportedKnownCostUsd": 0.025152,
+      "unknownUsageCalls": 1,
+      "totalEvaluationProviderAttempts": 77,
+      "totalEvaluationReportedKnownCostUsd": 0.292344,
+      "aggregateLedger": {
+        "observedAt": "2026-10-11T15:22:20.024021+00:00",
+        "month": "2026-10",
+        "spentUsd": 0.288345,
+        "reservedUsd": 0.78,
+        "evaluationSpentUsd": 0.288345,
+        "evaluationReservedUsd": 0.78,
+        "committedAndReservedUsd": 1.068345
+      },
+      "explanation": "The failed interrupted attempt has one response with known token usage and one unknown provider outcome. Its full $0.78 conservative reservation remains held; it is not released or counted as free. Reported-known token cost includes that partial usage, so do not add it again to ledger spend plus reservations."
+    },
+    "limitations": [
+      "The interrupted attempt took 480447 ms in the standalone evaluator, which previously lacked its own abort signal. Its exact wait stage is unknown. The explicit recheck passes a 120-second abort signal. Review also found production database reads/persistence were outside the provider-only race; this was corrected with a whole-send 120-second race and a six-second generation/persistence margin.",
+      "This is a targeted correction check, not a rerun of all 16 scenarios on policy mentor-9.2. Original results and initial failures remain unchanged below."
+    ],
+    "deadlineVerification": {
+      "reviewedAt": "2026-10-11T15:25:06.770116+00:00",
+      "route": "app/api/mentor/route.js passes request.signal into sendMentorTurn; the service supplies an abort signal and remaining absolute generation deadline to the model service.",
+      "provider": "mentorGeneration passes remaining timeout and abort signal to provider.create, with additional six-second save/validation margin.",
+      "wholeRequest": "sendMentorTurn bounds scope reads, user-message transaction, history, generation, final persistence, cleanup and final read with a 120-second race. Generation cancellation begins by 114 seconds, leaving time for retryable-state persistence.",
+      "lateWork": "Deadline checks before transaction writes prevent delayed reads from starting new generation or writing a late answer. Existing committed writes remain authoritative and can be restored by saved-turn reads if an acknowledgement times out.",
+      "tests": "52 tests passed across mentorConversations, mentorGeneration and mentorBudget, including provider ignoring cancellation, stalled initial/save/cleanup transactions, signal propagation, save margin and late-result suppression.",
+      "accounting": "The unknown interrupted provider outcome retains its original $0.78 reservation; no release or estimate-as-zero performed."
+    }
+  },
+  "currentQualityGate": {
+    "reviewedAt": "2026-10-11T15:22:20.024021+00:00",
+    "status": "pass_after_targeted_recheck",
+    "releaseQualityGatePassed": true,
+    "basis": "The initial complete suite passed 30/32 (93.75%) and the two citation-grounding failures were both corrected and passed explicitly authorized supplemental rechecks. No unresolved critical quality findings remain in the reviewed cases.",
+    "initialPassRate": 0.9375,
+    "latestReviewedCasePassRate": 1.0,
+    "latestReviewedCaseCount": 32,
+    "initialFailureRecordsPreserved": true,
+    "remainingCriticalFindings": [],
+    "caveat": "Other automated, browser, operational and live pilot gates remain separate; this result alone does not authorize deployment."
+  }
 }

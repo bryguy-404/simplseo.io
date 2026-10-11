@@ -2,7 +2,7 @@
 
 ## Implementation and release status
 
-Implemented in the shared workspace on October 11, 2026. The public deployment has **not** been updated. The real-model quality gate is blocked by two documentation-grounding failures; a bounded repair evaluation is awaiting Bryan's approval because the initial 32-answer limit has been reached. No additional generation is permitted by the evaluation runner without an explicit operator action.
+Implemented in the shared workspace on October 11, 2026. The public deployment has **not** been updated. The initial two documentation-grounding failures passed the explicitly authorized supplemental citation rechecks. Original failed results remain in the quality report. Final timeout regression checks and gated deployment follow; supplemental evaluation never runs automatically.
 
 The widget and `/chatbot` now share one conversation service, account-evidence reader, policy, model configuration and renderer. The mentor explains SEO, interprets saved account records and offers explicit observation checks. It cannot edit a profile or plan, publish, request indexing, confirm a task, change a publication date or reset a progress cycle. New attachments are hidden; historical attachments remain readable.
 
@@ -48,12 +48,14 @@ Initial real evaluation used 71 provider attempts, including one stopped by the 
 
 ## Verification and remaining checkpoints
 
-- Full unit/security regression suite: 1,114 tests passed across 62 files, including documentation and input-accounting repair tests.
+- Full unit/security regression suite: 1,117 tests passed across 62 files, including documentation and input-accounting repair tests.
 - 12 distinct mentor browser scenarios passed on desktop/mobile, including continuity, reduced motion, retry restoration, scoped drafts, legacy history, explicit checks and paused generation. Two development-server authentication-start interruptions passed on isolated rerun.
 - 98 onboarding/new-page/progress/actual Firestore-rules browser regressions passed.
 - Production build passed. Lint has no errors and seven existing warnings outside the new mentor components.
 - Independent real-model review: 30/32 pass (93.75%). No fabricated account facts, unsupported penalty claims, cross-account disclosure or unauthorized changes. Two accurate meta-description answers did not retrieve supporting snippet/ranking documentation, which blocks release despite the overall percentage. See `phase9-quality-review.json`.
-- The retrieval fix has mechanical tests and was checked against the actual official documents without an AI call. The corrected real-model answers still require the authorized bounded recheck.
+- The retrieval fix has mechanical tests and was checked against the actual official documents without an AI call. Both corrected real-model answers passed independent review under policy `mentor-9.2`, citing the actual supporting Google documents.
+
+Supplemental checks added two completed answers and one interrupted failed attempt, for 77 provider attempts in total. The current ledger estimate is **$0.288345 spent plus $0.78 held** for an unknown provider outcome. The held amount is not counted as free. The initial 30/32 result and both original failures remain unchanged in the report; all 32 latest reviewed scenario results pass after the targeted fixes. The complete send path now has a 120-second deadline, including slow database operations, with generation stopped earlier to allow persistence.
 
 No synthetic observations, published edits or conversations were added to Bryan's account. Only explicit evaluation accounting and shared public-document caches were written. All scenario data lives in the isolated evaluator.
 

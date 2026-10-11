@@ -1,6 +1,6 @@
 # SimpleSEO master roadmap
 
-Latest implementation status, October 11: Phase 9 unifies the Mentor and widget. Automated and browser checks passed; the public release is held for a bounded citation-quality recheck after the initial evaluation. See [Phase 9](PHASE9.md). This does not confirm any website edit or SEO result on Bryan's behalf.
+Latest implementation status, October 11: Phase 9 unifies the Mentor and widget. Automated and browser checks passed. Both authorized citation-quality rechecks passed; the account-restricted live release is being staged. See [Phase 9](PHASE9.md). This does not confirm any website edit or SEO result on Bryan's behalf.
 
 Status on October 10 2026: Bryan accepted the recovery, Phase 2 and Phase 4 usability checkpoints, including version 8's loading and stable update checks, and authorized moving to Phase 5. Phase 5 pilot preparation is now active. The existing-page workflow is deployed and verified; measurement of real published website edits and resulting business value remains open. Automatic outcome decisions and notifications remain disabled, and actual scheduled collector invocations still need verification. See [recovery operations](RECOVERY.md), [Phase 2 release](PHASE2.md), [Phase 3 release](PHASE3.md) and [Phase 4 scope and release](PHASE4.md).
 
@@ -152,4 +152,4 @@ See [Phase 8](PHASE8.md) for architecture, pilot switches, rollback and live che
 
 The full Mentor and widget share authoritative saved account evidence, retrieved official Google guidance, protected conversations and explicit one-page observation checks. General SEO help works without Google access; personalized statements must remain tied to available evidence and dates. Chat cannot change the business profile, tasks, publication confirmations or tracking cycles.
 
-The implementation, controls, initial evaluation results and remaining release checkpoints are in [Phase 9](PHASE9.md). The model is GPT-6.1 Sol with a $25 monthly pilot budget, including at most $10 for evaluation. No automatic model fallback, fine-tuning, Firecrawl dependency or background generation is added. The live pilot must pass citation-quality repair checks before deployment and before broader enrollment.
+The implementation, controls, initial evaluation results and remaining release checkpoints are in [Phase 9](PHASE9.md). The model is GPT-6.1 Sol with a $25 monthly pilot budget, including at most $10 for evaluation. No automatic model fallback, fine-tuning, Firecrawl dependency or background generation is added. Citation-quality repair checks passed; production access remains restricted to Bryan until the real-account checkpoints are reviewed.

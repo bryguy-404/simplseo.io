@@ -65,3 +65,19 @@ node scripts/verify-pilot-readiness.cjs <uid> <exact-property>
 Add `--run-collectors` only for an intentional authenticated manual test of both normal collectors. It never sends the scheduler user-agent, generates an AI review, publishes an edit or marks a task complete. The script checks that saved plans and historical records remain unchanged, reports active change count and reads recent aggregate execution evidence. Only the existing production project and URL are accepted; credentials stay in memory and are not printed.
 
 The release record must distinguish automated schedule observation, manual route checks, local tests and real published website work. The current rollback target is Phase 4 version 8 (`dpl_EFPhcv6ELWPbbCYcwbakdXoLwaQZ`, source `9fadf5b`). Rolling back the app should not downgrade Firebase's retired functions or restore legacy writers.
+
+
+## Single overnight follow-up — October 11, 2026
+
+Read-only verification at approximately 15:19 UTC found both expected October 11 scheduled-header records completed. No collector was invoked manually during this audit.
+
+- Progress: started **02:14:02.517 UTC**, finished **02:14:04.232 UTC**, deployment `dpl_97zz6HWYs9uvECDB7gVSGT5sRCrT`. Six archived implementation records were skipped; no active published edit was measured. No reported errors, notifications or remaining backlog.
+- Website monitoring: started **03:41:46.218 UTC**, finished **03:41:48.929 UTC**, deployment `dpl_HwPuX3vKYWEQhEAtPQ82Cy9Dg6MZ`. `existingPages` checked one account and 29 pages, with a usable result. `newPages` checked zero URLs, with no backlog. The empty new-page queue is valid and does not verify tracking of a real published page.
+
+The project API confirms both schedules remain enabled on the current READY production deployment `dpl_4GcdF3NFCAhrMboFtuhzfHfYY9Sf`: progress at 02:00 UTC and website/new-page monitoring at 03:00 UTC. The public alias still points to that deployment.
+
+Independent provider-log correlation remains **unverified**. Both historical CLI queries failed with HTTP 400, and both connector queries failed with HTTP 403 before returning results. A recent CLI log query succeeded. These are query failures, not evidence of zero invocations; the overnight period is also outside [Hobby's documented one-hour log retention](https://vercel.com/docs/logs/runtime). Durable authenticated run records carrying the scheduler header are the available completion evidence.
+
+The scheduled runs used Phase 6 deployments. Phase 7 was promoted after both runs, so they do not verify its recurring-cycle collector. Its first expected invocation remains **October 12 at 02:00 UTC**, subject to Hobby's execution window. No fictional edit or new-page publication was created to exercise a collector.
+
+The read-only script preserved the saved homepage plan and all 18 archive documents, with zero active published changes. Additional saved-work, queue and lease findings are recorded in [the audit evidence](evidence/overnight-tracking-2026-10-11.json). No concrete collector failure required maintenance. This was the authorized single follow-up; its schedule was not changed or extended.
