@@ -12,6 +12,7 @@ This release does not publish websites, verify Google properties, submit indexin
 
 - `users/{uid}/onboardingSessions/current`: pinned setup version, revision, separate website/Google/profile/readiness state, request IDs, server save times and a bounded readiness lease. Previous website scopes are archived below session history.
 - Browser legacy drafts can seed editable business fields only. They cannot supply tokens, a property, completion state or a replacement website identity.
+- Required email verification has explicit send and retry controls. Verification refreshes the Firebase identity token and rechecks server access; it does not bypass existing account approval. Local-only business/location/service drafts survive migration, and a missing customer goal requires an explicit choice.
 - Setup writes require authenticated identity, expected revision and an idempotency key. Failed saves keep the form visible; repeated successful submissions reuse saved results.
 - OAuth credentials are held privately in `pendingGscConnections`, bound to the account, setup session, scope and connection version. A pending grant expires after 30 minutes; OAuth state expires after 10 minutes. Expiring a grant does not delete business input.
 - Allowed property choices are validated against the entered website using Domain or URL-prefix boundaries. Restricted matches are explained separately. Refreshing the property list returns a new saved revision. The owner must select a property explicitly.
@@ -71,11 +72,11 @@ Deploy with production environment variables and `--skip-domain`; verify the sta
 
 ## Validation and live checkpoints
 
-Isolated production compilation passed. All 155 distinct browser/API/rules scenarios passed: 148 in the first full run, then eight recovery/access cases after seeding missing demo users (one overlapping pass). The initial seven failures were absent synthetic Auth fixtures, not application errors. New coverage includes 20 onboarding UI cases and six compiled API cases against Firebase emulators. No demo observations were written to production.
+Isolated production compilation passed. All 160 distinct browser/API/rules scenarios passed: 148 in the initial full run, eight recovery/access cases after seeding missing demo users (one overlapping pass), and five additional onboarding cases in the final patch. The initial seven failures were absent synthetic Auth fixtures, not application errors. The final optimized build passed all 25 onboarding UI cases, including verification retries, local-draft authority boundaries and the explicit customer goal. Six compiled API cases ran against Firebase emulators. No demo observations were written to production.
 
 Focused tests cover property boundaries, durable grants, denied consent/cancellation, expired staged sessions, atomic saves, scope changes/deletion during external work, quotas/cache behavior, partial native review, grounded extraction, legacy reads and unchanged task/progress history. The staged begin→exchange→select→confirm→complete integration uses real service helpers with provider responses controlled; duplicate completion performs no provider work. Seven readiness races and profile changes during existing-page/new-page/follow-up analysis preserve previous results. Four isolated visual examples cover successful readiness, Google help, partial coverage and optional existing profile review; mobile and keyboard checks are included.
 
-Final unit/API gate: **1,018 tests across 55 files passed**. Production build passed. Full lint completed with zero errors and nine existing warnings. `git diff --check` passed. The isolated browser preview is `/private/tmp/simpleseo-phase8-preview.html`; it is explicitly labeled and contains no live account data.
+Final unit/API gate: **1,020 tests across 56 files passed**. Production build passed. Full lint completed with zero errors and nine existing warnings. `git diff --check` passed. The isolated browser preview is `/private/tmp/simpleseo-phase8-preview.html`; it is explicitly labeled and contains no live account data.
 
 Live checkpoints remain distinct from automated tests:
 

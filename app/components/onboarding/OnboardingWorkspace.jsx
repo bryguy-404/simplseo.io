@@ -103,7 +103,11 @@ export default function OnboardingWorkspace({ existing = false }) {
     return result;
   };
   const begin = async () => {
-    const result = await act('Opening your saved setup…', 'begin', { legacyDraft: { businessName: legacy.businessName, businessType: legacy.customBusinessType || legacy.businessType, cmsPlatform: legacy.cmsPlatform } }, { hydrate: true });
+    const result = await act('Opening your saved setup…', 'begin', { legacyDraft: {
+      businessName: legacy.businessName, businessType: legacy.customBusinessType || legacy.businessType, cmsPlatform: legacy.cmsPlatform,
+      baseLocation: { city: legacy.baseLocation?.city || legacy.businessLocation || '', region: legacy.baseLocation?.region || '', country: legacy.baseLocation?.country || '' },
+      services: legacy.services || [], serviceAreas: legacy.serviceAreas?.length ? legacy.serviceAreas : legacy.serviceCities || [], goal: legacy.goal || '',
+    } }, { hydrate: true });
     if (result) setEditing(true);
   };
   const confirm = async () => {

@@ -88,7 +88,7 @@ async function main() {
     for (const before of snapshots) {
       const after = await before.ref.get(); assert(after.exists && after.updateTime.isEqual(before.updateTime));
     }
-    for (const collection of ['pageProgressCycles', 'aiUsageEvents']) {
+    for (const collection of ['pageReviewPlans', 'implementedSeoTips', 'pageProgressCycles', 'newPagePlans', 'newPagePublications', 'aiUsageEvents', 'onboardingInventories', 'onboardingExtractions', 'onboardingUsageEvents']) {
       const after = (await db.collection(collection).where('userId', '==', uid).get()).docs;
       assert.equal(after.length, snapshots.filter(item => item.ref.parent.id === collection).length);
     }

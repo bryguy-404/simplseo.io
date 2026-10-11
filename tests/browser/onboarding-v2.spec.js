@@ -27,10 +27,11 @@ test.beforeAll(async () => {
 test.afterAll(async () => { await app?.delete(); });
 
 async function setup(page, value = workspace(), options = {}) {
-  const state = { workspace: structuredClone(value), posts: [], unknownPosts: [], propertyReads: 0, refreshedProperties: [], failAction: null, delayAction: null };
+  const state = { workspace: structuredClone(value), posts: [], unknownPosts: [], propertyReads: 0, refreshedProperties: [], failAction: null, delayAction: null, verificationGate: false, gateApproved: false };
   await app.firestore().doc(`users/${uid}`).set({ gscSiteUrl: website });
   await app.firestore().doc(`onboarding/${uid}`).set({ isComplete: Boolean(options.completed), businessName: 'Legacy business', websiteUrl: website,
     gscProperty: website, postOnboardingStep: options.oldStep || (options.completed ? 'complete' : null), revampRunId: 'unchanged-version', revampStatus: 'idle' });
+  if (options.localOnly) await app.firestore().doc(`onboarding/${uid}`).delete();
   await page.addInitScript(() => { localStorage.setItem('hasSeenChatAssistant', 'true'); });
   await page.route('**/*', async route => {
     const req = route.request(), url = new URL(req.url());
@@ -38,12 +39,16 @@ async function setup(page, value = workspace(), options = {}) {
     if (url.port !== '3100' || !url.pathname.startsWith('/api/')) return route.continue();
     const send = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
     if (url.pathname === '/api/onboarding/workspace') {
-      if (req.method() === 'GET') return send(state.workspace);
+      if (req.method() === 'GET') {
+        if (state.verificationGate && !(await app.auth().getUser(uid)).emailVerified) return send({ error: 'Verify your email before continuing.' }, 403);
+        if (state.verificationGate && !state.gateApproved) return send({ error: 'Your account is awaiting access approval.' }, 403);
+        return send(state.workspace);
+      }
       const body = req.postDataJSON(); state.posts.push(body);
       if (state.delayAction === body.action) await new Promise(resolve => setTimeout(resolve, 400));
       if (state.failAction?.action === body.action) return send({ error: state.failAction.message }, state.failAction.status || 503);
       const saved = state.workspace;
-      if (body.action === 'begin') { saved.pinned = true; saved.session ||= session({ mode: options.completed ? 'existing' : 'new', currentStep: options.completed ? 'business' : 'website', websiteUrl: options.completed ? website : '', profileDraft: options.completed ? profile() : { businessName: '', businessType: '', services: [], baseLocation: {}, serviceAreas: [], goal: 'inquiries', cmsPlatform: '' } }); }
+      if (body.action === 'begin') { saved.pinned = true; saved.session ||= session({ mode: options.completed ? 'existing' : 'new', currentStep: options.completed ? 'business' : 'website', websiteUrl: options.completed ? website : '', profileDraft: options.completed ? profile() : { businessName: '', businessType: '', services: [], baseLocation: {}, serviceAreas: [], goal: 'inquiries', cmsPlatform: '', ...(options.localOnly ? body.legacyDraft : {}) } }); }
       else {
         if (body.expectedRevision !== saved.session.revision) return send({ error: 'Your setup changed in another window. Reload to see the latest saved details.' }, 409);
         if (body.action === 'save' || body.action === 'confirmProfile') {
@@ -331,4 +336,80 @@ test('isolated visual examples cover the four setup steps without provider work'
     await page.screenshot({ path: `/private/tmp/simpleseo-phase8-preview-${index + 1}.png`, fullPage: true });
   }
   expect(state.posts).toHaveLength(0); expect(state.propertyReads).toBe(0); expect(state.unknownPosts).toHaveLength(0);
+});
+
+test('email verification sends only on request, refreshes identity, and still requires access approval', async ({ page, request }) => {
+  await app.auth().updateUser(uid, { emailVerified: false });
+  const state = await setup(page); state.verificationGate = true;
+  const codes = async () => (await (await request.get('http://127.0.0.1:9099/emulator/v1/projects/demo-simpleseo/oobCodes')).json()).oobCodes.filter(item => item.email === `${uid}@example.test`);
+  const before = (await codes()).length;
+  await login(page); await expect(page.getByRole('heading', { name: 'Verify your email', exact: true })).toBeVisible();
+  expect((await codes()).length).toBe(before);
+  await page.getByRole('button', { name: 'I’ve verified my email' }).click();
+  await expect(page.locator('p[role=alert]')).toContainText('Your email is not verified yet');
+  await page.getByRole('button', { name: 'Send verification email', exact: true }).click();
+  await expect(page.getByRole('status')).toContainText('Verification email sent');
+  expect((await codes()).length).toBe(before + 1);
+  await app.auth().updateUser(uid, { emailVerified: true });
+  await page.getByRole('button', { name: 'I’ve verified my email' }).click();
+  await expect(page.locator('p[role=alert]')).toHaveText('Your account is awaiting access approval.');
+  await expect(page.getByRole('button', { name: 'Get started', exact: true })).not.toBeVisible();
+  state.gateApproved = true; await page.getByRole('button', { name: 'Retry loading setup' }).click();
+  await expect(page.getByRole('button', { name: 'Get started', exact: true })).toBeVisible();
+  expect(state.posts).toHaveLength(0);
+});
+
+test('verification email rate limits remain retryable without advancing setup', async ({ page }) => {
+  await app.auth().updateUser(uid, { emailVerified: false });
+  const state = await setup(page); state.verificationGate = true; await login(page);
+  await page.route('**/accounts:sendOobCode?*', route => route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: { message: 'TOO_MANY_ATTEMPTS_TRY_LATER' } }) }));
+  await page.getByRole('button', { name: 'Send verification email', exact: true }).click();
+  await expect(page.locator('p[role=alert]')).toHaveText('Please wait a little before requesting another verification email.');
+  await expect(page.getByRole('button', { name: 'Send verification email', exact: true })).toBeEnabled();
+  expect(state.posts).toHaveLength(0);
+});
+
+test('leaving during verification cannot write a stale result into the next auth screen', async ({ page }) => {
+  await app.auth().updateUser(uid, { emailVerified: false });
+  const state = await setup(page); state.verificationGate = true; await login(page);
+  let release;
+  await page.route('**/accounts:sendOobCode?*', async route => { await new Promise(resolve => { release = resolve; }); await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ email: `${uid}@example.test` }) }); });
+  await page.getByRole('button', { name: 'Send verification email', exact: true }).click();
+  await expect(page.getByRole('status')).toContainText('Sending verification email');
+  await expect.poll(() => typeof release).toBe('function');
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await expect(page).toHaveURL(/auth/); release();
+  await expect(page.getByText(/Verification email sent/)).not.toBeVisible(); expect(state.posts).toHaveLength(0);
+});
+
+test('browser drafts restore only editable business facts and cannot complete or connect an account', async ({ page }) => {
+  const state = await setup(page, workspace(), { localOnly: true });
+  await page.addInitScript(({ uid }) => localStorage.setItem(`onboarding_draft_${uid}`, JSON.stringify({ businessName: 'Local owner details', businessType: 'Plumber', businessLocation: 'Riverton, Wyoming', services: ['Heating, cooling and ventilation'], serviceCities: ['Riverton', 'Lakeside'], cmsPlatform: 'WordPress', goal: 'quotes', isComplete: true, hasGSC: true, gscProperty: 'sc-domain:malicious.test', websiteUrl: 'https://malicious.test', gscAccessToken: 'browser-token', privacyPolicyAccepted: true, revampRunId: 'forged' })), { uid });
+  await login(page);
+  await expect(page.getByRole('button', { name: 'Get started', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Get started', exact: true }).click();
+  await expect(page.getByLabel('Website address')).toHaveValue('');
+  await business(page);
+  await expect(page.getByLabel('Business name', { exact: true })).toHaveValue('Local owner details');
+  await expect(page.getByLabel('City', { exact: true })).toHaveValue('Riverton, Wyoming');
+  await expect(page.getByLabel('Which areas do you actually serve?')).toHaveValue('Riverton\nLakeside');
+  await expect(page.getByLabel('What services do you offer?')).toHaveValue('Heating, cooling and ventilation');
+  await expect(page.getByRole('checkbox', { name: /These services/ })).not.toBeChecked();
+  expect(state.posts[0].legacyDraft).toMatchObject({ businessName: 'Local owner details', baseLocation: { city: 'Riverton, Wyoming', region: '', country: '' }, services: ['Heating, cooling and ventilation'], serviceAreas: ['Riverton', 'Lakeside'], goal: 'quotes' });
+  expect(JSON.stringify(state.posts)).not.toMatch(/malicious|browser-token|forged|gscProperty|isComplete/);
+});
+
+test('a missing customer goal is an explicit choice before business confirmation', async ({ page }) => {
+  const state = await setup(page, workspace({ pinned: true, session: session({ profileDraft: { ...profile(), goal: '' } }) })); await login(page);
+  const goal = page.getByLabel('What would you like customers to do?');
+  await expect(goal).toHaveValue('');
+  await expect(goal.locator('option:checked')).toHaveText('Choose an action');
+  await page.getByRole('checkbox', { name: /These services/ }).check();
+  await page.getByRole('button', { name: 'Confirm business details', exact: true }).click();
+  expect(await goal.evaluate(element => element.validity.valueMissing)).toBe(true); expect(state.posts).toHaveLength(0);
+  await goal.selectOption('quotes');
+  await page.getByRole('checkbox', { name: /These services/ }).check();
+  await page.getByRole('button', { name: 'Confirm business details', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Get started', exact: true })).toBeVisible();
+  expect(state.posts[0].profileDraft.goal).toBe('quotes');
 });

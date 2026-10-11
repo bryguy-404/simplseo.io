@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import { saveOnboardingData, getOnboardingData } from "../lib/firestoreHelpers";
 import { useAuth } from "./AuthContext";
 import { authenticatedFetch } from '../lib/authenticatedFetch';
+import { editableOnboardingDraft } from '../lib/onboardingDraft';
 
 const initialData = {
   businessName: "",
@@ -146,7 +147,7 @@ export const OnboardingProvider = ({ children }) => {
           const draftData = loadDraftFromLocalStorage(userId);
           if (draftData) {
             console.log("📝 Restoring draft from localStorage");
-            setData(draftData);
+            setData({ ...initialData, ...editableOnboardingDraft(draftData) });
           } else {
             setData(initialData);
           }
@@ -157,7 +158,7 @@ export const OnboardingProvider = ({ children }) => {
         // On error, try to load from localStorage
         const draftData = loadDraftFromLocalStorage(userId);
         if (draftData) {
-          setData(draftData);
+          setData({ ...initialData, ...editableOnboardingDraft(draftData) });
         } else {
           setData(initialData);
         }
