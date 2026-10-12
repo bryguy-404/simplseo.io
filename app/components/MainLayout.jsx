@@ -233,9 +233,9 @@ const MainLayout = ({
           <PopoverContent
             side="top"
             align="end"
-            className="p-0 rounded-xl shadow-xl backdrop-blur-md bg-white/1 border border-white/10 ring-1 ring-white/20 mr-2 mb-2 z-[60]"
+            collisionPadding={16}
+            className="w-[calc(100vw-2rem)] max-w-[442px] p-0 rounded-xl shadow-xl backdrop-blur-md bg-white/1 border border-white/10 ring-1 ring-white/20 mb-2 z-[60]"
             sideOffset={16}
-            style={{ width: 'auto', minWidth: '320px', maxWidth: '100vw' }}
           >
             <div className="overflow-hidden rounded-xl">
               <ChatAssistant

@@ -67,7 +67,7 @@ export default function MentorWorkspace({ compact = false, onClose }) {
   const pendingShown = session.pending && !session.messages.some(message => message.turnId === session.pending.turnId || message.id === `${session.pending.turnId}-user`);
   const terminalFailure = ['failed', 'unknown', 'not_saved'].includes(session.pending?.status);
   const newChat = async () => { await session.createConversation(); setShowHistory(false); draftRef.current?.focus(); };
-  return <section aria-label="SEO Mentor workspace" className={`flex min-w-0 flex-col bg-background ${compact ? 'w-[min(440px,calc(100vw-28px))] h-[min(660px,75dvh)]' : 'h-[calc(100dvh-130px)] min-h-[440px] max-h-[1000px] rounded-2xl border border-border overflow-hidden'}`}>
+  return <section aria-label="SEO Mentor workspace" className={`flex min-w-0 flex-col bg-background ${compact ? 'w-full h-[min(660px,75dvh)]' : 'h-[calc(100dvh-130px)] min-h-[440px] max-h-[1000px] rounded-2xl border border-border overflow-hidden'}`}>
     <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border p-3 sm:p-4">
       <div className="min-w-32 flex-1"><h1 className={`${compact ? 'text-base' : 'text-xl'} font-semibold`}>SEO Mentor</h1><p className="text-xs text-muted-foreground">SEO guidance for your business</p></div>
       <div className="ml-auto flex shrink-0 items-center gap-1">
