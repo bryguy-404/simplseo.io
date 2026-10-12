@@ -73,7 +73,7 @@ export default function WorkspaceHeader({ pathname, businessName, websiteUrl, is
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-          <Link href="/dashboard" aria-label="SimplSEO dashboard" className="block w-[92px] shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-[156px]">
+          <Link href="/dashboard" aria-label="SimplSEO dashboard" className="block w-[100px] shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-[360px]:w-[128px] sm:w-[192px]">
             <img src={isDarkMode ? "/dark.png" : "/light.png"} alt="SimplSEO" className="block h-auto w-full" />
           </Link>
         </div>
