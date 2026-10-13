@@ -211,6 +211,8 @@ export async function acceptInvitation(uid, token) {
     if (!record || record.status !== 'pending' || !Number.isFinite(Date.parse(record.expiresAt)) || Date.parse(record.expiresAt) <= Date.now()) throw new RequestError('This invitation has expired or was already accepted. Use Sign in if you have already joined.', 410);
     const requestRef = db.collection('accessRequests').doc(record.requestId), request = await tx.get(requestRef);
     if (!request.exists || request.data().invitationId !== id || request.data().status !== 'invited') throw new RequestError('This invitation is no longer available.', 410);
+    const noticeRef = db.collection('earlyAccessMail').doc(request.data().adminMailId || `request-${request.id}`);
+    const notice = await tx.get(noticeRef);
     const acceptedAt = new Date().toISOString();
     tx.update(ref, { status: 'accepted', userId: uid, acceptedAt });
     tx.set(db.collection('earlyAccessGrants').doc(uid), { userId: uid, invitationId: id, acceptedAt, source: 'invitation' });
@@ -218,6 +220,9 @@ export async function acceptInvitation(uid, token) {
     tx.set(db.collection('users').doc(uid), { earlyAccessSetupVersion: 2 }, { merge: true });
     tx.update(requestRef, { status: 'joined', userId: uid, acceptedAt });
     tx.update(db.collection('earlyAccessMail').doc(id), { userId: uid });
+    // The request inbox can differ from the chosen sign-in address. Associate
+    // its admin notice too so deleting this account removes all linked mail.
+    if (notice.exists) tx.update(noticeRef, { userId: uid });
   });
   return { success: true };
 }

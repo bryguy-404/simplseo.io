@@ -65,6 +65,14 @@ it('accepts a different verified sign-in email once, binding access to UID for l
   auth.getUser.mockImplementation(async id => ({ ...account(id), email: 'changed@example.test' }));
   expect((await readEarlyAccess(uid)).approved).toBe(true);
 });
+it('attributes the original admin notice to the accepted account when the invitation inbox differs', async () => {
+  await requestEarlyAccess({ email, name: 'Owner' });
+  const noticeId = records.get(`accessRequests/${hash(email)}`).adminMailId;
+  const id = await issue();
+  await acceptInvitation(uid, invitationToken(id));
+  expect(records.get(`earlyAccessMail/${noticeId}`).userId).toBe(uid);
+  expect(records.get(`earlyAccessMail/${id}`).userId).toBe(uid);
+});
 it('blocks tampered, expired, revoked and unverified redemptions', async () => {
   const id = await issue(), token = invitationToken(id);
   await expect(inspectInvitation(`${id}.${'a'.repeat(43)}`)).rejects.toMatchObject({ status: 400 });
