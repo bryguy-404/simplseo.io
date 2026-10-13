@@ -41,6 +41,7 @@ Invitation grants, links, delivery payloads and limits are server-owned. Tokens 
 - No invitations were sent to real users during automated verification. Test identities and invitations exist only in the local emulators.
 - Before release, all four production Firebase identities predate the rollout cutoff. Bryan's 368 saved records were fingerprinted for the live read-only preservation check.
 - Staged production verification passed on `dpl_Dqko8tLD54sBsntRwehpqBgbft8J` (runtime commit `f177e24`): Bryan retains administrator access and the dashboard destination; anonymous requests are denied; all 368 saved records exactly match the pre-release fingerprint. See `docs/evidence/early-access-release-2026-10-13.json`.
+- Promoted to `https://simplseo-io.vercel.app` on October 13, 2026. Public access checks passed at 17:51 UTC, including Bryan's regular sign-in/admin access and the mobile Get started → request form → Sign in journey. A valid-origin empty form returned validation error 400, while a cross-origin request returned 403; neither created a request or sent mail.
 
 ## Rollback
 

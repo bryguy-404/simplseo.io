@@ -51,5 +51,29 @@
   },
   "preReleaseFingerprintMatched": true,
   "realInvitationsSent": 0,
-  "liveRecipientCheckpointPending": true
+  "liveRecipientCheckpointPending": true,
+  "liveAccess": {
+    "checkedAt": "2026-10-13T17:51:17.942Z",
+    "origin": "https://simplseo-io.vercel.app",
+    "passed": true,
+    "existingOwnerApproved": true,
+    "adminAccess": true,
+    "returningUserDestination": "/dashboard",
+    "savedAdminListReadable": true,
+    "privateInvitationFieldsAbsent": true,
+    "publicScreensAvailable": true,
+    "anonymousApplicationRequestsDenied": true,
+    "noInvitationSent": true
+  },
+  "liveMobileEntry": {
+    "requestForm": true,
+    "regularGoogleSignIn": true,
+    "noOverflowAt390px": true,
+    "noRealSubmissions": true
+  },
+  "liveOriginCheck": {
+    "sameOriginInvalidForm": 400,
+    "crossOrigin": 403,
+    "noAccessRequestCreated": true
+  }
 }
