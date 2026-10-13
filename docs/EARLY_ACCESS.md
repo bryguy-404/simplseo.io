@@ -35,11 +35,12 @@ Invitation grants, links, delivery payloads and limits are server-owned. Tokens 
 
 ## Verification
 
-- Unit suite: 73 files, 1,310 tests passed, including access policy, email failure/retry limits, shared email dispatch, token tampering, single-use acceptance, deletion, legacy accounts and unchanged saved work.
+- Unit suite: 73 files, 1,311 tests passed, including access policy, email failure/retry limits, shared email dispatch, token tampering, single-use acceptance, deletion across different invitation and sign-in emails, legacy accounts and unchanged saved work.
 - Browser and Firestore emulator checks: 19 cases passed, including two-account claim races, request UI at desktop/390px/320px, logout/sign-in restoration, direct-write denial, admin routing and access-check retry.
 - Production build passed. Lint has no errors; existing image and hook warnings remain.
 - No invitations were sent to real users during automated verification. Test identities and invitations exist only in the local emulators.
 - Before release, all four production Firebase identities predate the rollout cutoff. Bryan's 368 saved records were fingerprinted for the live read-only preservation check.
+- Staged production verification passed on `dpl_Dqko8tLD54sBsntRwehpqBgbft8J` (runtime commit `f177e24`): Bryan retains administrator access and the dashboard destination; anonymous requests are denied; all 368 saved records exactly match the pre-release fingerprint. See `docs/evidence/early-access-release-2026-10-13.json`.
 
 ## Rollback
 
