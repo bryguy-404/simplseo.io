@@ -147,6 +147,10 @@ export async function rejectAccessRequest(id) {
 export async function sendAccessMail(id) {
   configuration();
   const ref = db.collection('earlyAccessMail').doc(id), now = Date.now();
+  // Share the actual dispatch lane with progress emails, not just a per-feature
+  // quota. A slow notification request must not overlap an invitation send.
+  const paceRef = db.collection('notificationJobs').doc('resend-send-lane');
+  const leaseToken = randomBytes(16).toString('hex');
   const selected = await db.runTransaction(async tx => {
     const doc = await tx.get(ref), mail = doc.data();
     if (!mail) throw new RequestError('This saved email is unavailable.', 404);
@@ -160,13 +164,12 @@ export async function sendAccessMail(id) {
     }
     const dayRef = db.collection('earlyAccessLimits').doc(`day-${new Date(now).toISOString().slice(0, 10)}`);
     const monthRef = db.collection('earlyAccessLimits').doc(`month-${new Date(now).toISOString().slice(0, 7)}`);
-    const paceRef = db.collection('earlyAccessLimits').doc('pace');
     const [day, month, pace] = await Promise.all([tx.get(dayRef), tx.get(monthRef), tx.get(paceRef)]);
     if ((day.data()?.attempts || 0) >= 50 || (month.data()?.attempts || 0) >= 500) throw new RequestError('The invitation email limit has been reached. Try again later.', 429);
-    if (pace.data()?.nextAt > now) throw new RequestError('Please wait a moment before sending another invitation.', 429);
+    if (Math.max(Date.parse(pace.data()?.leaseUntil || '') || 0, Number(pace.data()?.nextRequestAt) || 0) > now) throw new RequestError('Please wait a moment before sending another invitation.', 429);
     tx.set(dayRef, { attempts: (day.data()?.attempts || 0) + 1 });
     tx.set(monthRef, { attempts: (month.data()?.attempts || 0) + 1 });
-    tx.set(paceRef, { nextAt: now + 1100 });
+    tx.set(paceRef, { leaseToken, leaseUntil: new Date(now + 60000).toISOString(), nextRequestAt: now + 1000 });
     tx.update(ref, { status: 'sending', firstAttemptAt: mail.firstAttemptAt || now, lastAttemptAt: now, attempts: (mail.attempts || 0) + 1, leaseUntil: now + 60000 });
     return { mail };
   });
@@ -181,8 +184,9 @@ export async function sendAccessMail(id) {
     else if (response.status >= 400 && response.status < 500 && response.status !== 408) status = 'failed';
   } catch { /* Unknown outcomes retain the identical key/payload and retry window. */ }
   await db.runTransaction(async tx => {
-    const doc = await tx.get(ref);
+    const [doc, lane] = await Promise.all([tx.get(ref), tx.get(paceRef)]);
     if (doc.exists) tx.update(ref, { status, providerId, leaseUntil: null }); // Never recreate deleted records.
+    if (lane.data()?.leaseToken === leaseToken) tx.update(paceRef, { leaseToken: null, leaseUntil: null, nextRequestAt: Date.now() + 1000 });
   });
   return status;
 }

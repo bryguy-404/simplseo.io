@@ -29,13 +29,13 @@ Uses the verified Resend sender, reply-to address and production origin already 
 
 The admin list distinguishes saved requests, invited users and joined users. **Retry saved email** retains the same payload and idempotency key. **Send replacement link** explicitly revokes the previous invitation; it does not revoke an already joined account. Failed admin notices can be retried from the request card. Expired or declined requests can be submitted again after 24 hours.
 
-Provider attempts are reserved atomically, with limits of 50 daily and 500 monthly for early-access email, three attempts per frozen email, and application pacing. Unknown outcomes are retried only within 23 hours of the first attempt, respecting [Resend's 24-hour idempotency retention](https://resend.com/docs/dashboard/emails/idempotency-keys). After that, inspect Resend before explicitly replacing an invitation. Provider acceptance is shown as acceptance, not guaranteed delivery. There is no new cron or automatic retry loop.
+Provider attempts are reserved atomically, with limits of 50 daily and 500 monthly for early-access email, three attempts per frozen email, and a shared dispatch lane with progress emails. Unknown outcomes are retried only within 23 hours of the first attempt, respecting [Resend's 24-hour idempotency retention](https://resend.com/docs/dashboard/emails/idempotency-keys). After that, inspect Resend before explicitly replacing an invitation. Provider acceptance is shown as acceptance, not guaranteed delivery. There is no new cron or automatic retry loop.
 
 Invitation grants, links, delivery payloads and limits are server-owned. Tokens travel in the email URL fragment and the acceptance POST, not URL query logs. Account deletion removes linked grants, requests, invitations and mail; finishing provider work cannot recreate deleted records. Listing uses bounded document-ID pagination with no additional composite index.
 
 ## Verification
 
-- Unit suite: 73 files, 1,309 tests passed, including access policy, email failure/retry limits, token tampering, single-use acceptance, deletion, legacy accounts and unchanged saved work.
+- Unit suite: 73 files, 1,310 tests passed, including access policy, email failure/retry limits, shared email dispatch, token tampering, single-use acceptance, deletion, legacy accounts and unchanged saved work.
 - Browser and Firestore emulator checks: 19 cases passed, including two-account claim races, request UI at desktop/390px/320px, logout/sign-in restoration, direct-write denial, admin routing and access-check retry.
 - Production build passed. Lint has no errors; existing image and hook warnings remain.
 - No invitations were sent to real users during automated verification. Test identities and invitations exist only in the local emulators.

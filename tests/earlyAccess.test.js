@@ -16,7 +16,7 @@ const email = 'invited@example.test', uid = 'alice';
 const account = id => ({ uid: id, email: `${id}@different.test`, emailVerified: true, disabled: false, metadata: { creationTime: '2026-10-14T00:00:00Z' } });
 const request = (path, token, data) => new Request(`https://app.example.test${path}`, { method: data ? 'POST' : 'GET', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), 'Content-Type': 'application/json' }, ...(data ? { body: JSON.stringify(data) } : {}) });
 const invitation = () => [...records.entries()].find(([path]) => path.startsWith('earlyAccessInvitations/'));
-const pace = () => records.delete('earlyAccessLimits/pace');
+const pace = () => records.delete('notificationJobs/resend-send-lane');
 const issue = async () => { pace(); await issueInvitation('admin', { email, name: 'Owner' }); return invitation()[0].split('/')[1]; };
 beforeEach(() => {
   reset(); vi.clearAllMocks();
@@ -128,6 +128,17 @@ it('reserves attempt limits before provider work and preserves the invitation at
   records.set(`earlyAccessLimits/day-${new Date().toISOString().slice(0, 10)}`, { attempts: 50 });
   await expect(issue()).rejects.toMatchObject({ status: 429 }); expect(fetch).not.toHaveBeenCalled();
   expect(invitation()[1].status).toBe('pending');
+});
+it('shares the provider lane with progress emails and leaves a second invitation saved for retry', async () => {
+  records.set('notificationJobs/resend-send-lane', { leaseToken: 'notification-send', leaseUntil: new Date(Date.now() + 30000).toISOString() });
+  await expect(issueInvitation('admin', { email })).rejects.toMatchObject({ status: 429 });
+  expect(fetch).not.toHaveBeenCalled();
+  const id = invitation()[0].split('/')[1];
+  expect(records.get(`earlyAccessMail/${id}`).status).toBe('pending');
+  pace(); await sendAccessMail(id);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(records.get('notificationJobs/resend-send-lane').leaseToken).toBe(null);
+  expect(records.get('notificationJobs/resend-send-lane').nextRequestAt).toBeGreaterThan(Date.now());
 });
 it('cannot resend a cancelled or already accepted invitation', async () => {
   const id = await issue(); records.get(`earlyAccessMail/${id}`).status = 'unknown';
