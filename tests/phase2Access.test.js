@@ -83,18 +83,16 @@ describe('signup and administration boundaries', () => {
     process.env.ADMIN_UIDS='alice';
     expect((await adminRequests(request('admin/approve','GET'))).status).toBe(200);
   });
-  it('never discloses invitation codes through the public approval lookup and limits repeated requests', async () => {
+  it('requires identity for membership reads and retires caller-supplied email lookup', async () => {
     await db.collection('approvedUsers').doc('alice@example.test').set({invitationCode:'ABCD-EFGH',approvedAt:'private-time'});
-    const read = () => approval(request('check-approval?email=alice%40example.test','GET',{},null));
-    expect(await (await read()).json()).toEqual({approved:true,email:'alice@example.test'});
-    for(let i=1;i<60;i++) expect((await read()).status).toBe(200);
-    expect((await read()).status).toBe(429);
+    const response = await approval(request('check-approval?email=alice%40example.test','GET',{},null));
+    expect(response.status).toBe(401);
+    expect(JSON.stringify(await response.json())).not.toContain('ABCD-EFGH');
   });
-  it('consumes an invitation once without logging or returning its code', async () => {
+  it('retires anonymous code redemption without modifying legacy approval history', async () => {
     await db.collection('invitationCodes').doc('ABCD-EFGH').set({ email:'alice@example.test', expiresAt:new Date(Date.now()+60000).toISOString(), used:false });
-    expect((await verifyCode(request('verify-code','POST',{code:'ABCD-EFGH'},null))).status).toBe(200);
-    expect((await verifyCode(request('verify-code','POST',{code:'ABCD-EFGH'},null))).status).toBe(400);
-    expect(records.get('invitationCodes/ABCD-EFGH').used).toBe(true);
+    expect((await verifyCode(request('verify-code','POST',{code:'ABCD-EFGH'},null))).status).toBe(410);
+    expect(records.get('invitationCodes/ABCD-EFGH').used).toBe(false);
   });
   it('retires the anonymous Google exchange and forwards only code/state on legacy callbacks', async () => {
     expect((await legacyExchange()).status).toBe(410);

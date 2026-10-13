@@ -21,6 +21,7 @@ export const ACCOUNT_OWNED_COLLECTIONS = [
   'notificationPreferences', 'notificationEvents', 'notificationIssueEpisodes',
   'notificationDeliveries', 'notificationRequestLimits', 'notificationJobs', 'notificationWebhookEvents',
   'notificationConnectionObservations', 'notificationTestLimits',
+  'earlyAccessGrants', 'earlyAccessInvitations', 'earlyAccessMail', 'accessRequests',
 ];
 const PREFIXED_COLLECTIONS = [
   'implementedSeoTips', 'contentAuditResults', 'aiSuggestions',
@@ -85,7 +86,7 @@ export async function deleteAccountFirestore(db, uid, verifiedEmail) {
     const email = verifiedEmail.trim().toLowerCase();
     if (email && !email.includes('/')) {
       await remove(db.collection('approvedUsers').doc(email));
-      for (const name of ['accessRequests', 'invitationCodes']) {
+      for (const name of ['accessRequests', 'invitationCodes', 'earlyAccessInvitations', 'earlyAccessMail']) {
         deletedRoots += await deleteMatching(db, db.collection(name).where('email', '==', email));
       }
     }

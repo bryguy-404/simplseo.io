@@ -29,7 +29,7 @@ function websiteLabel(value) {
   } catch { return value; }
 }
 
-export default function WorkspaceHeader({ pathname, businessName, websiteUrl, isDarkMode, toggleTheme, onLogout }) {
+export default function WorkspaceHeader({ pathname, businessName, websiteUrl, isDarkMode, toggleTheme, onLogout, isAdmin = false }) {
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
@@ -104,7 +104,8 @@ export default function WorkspaceHeader({ pathname, businessName, websiteUrl, is
               <p className="break-words text-sm font-semibold">{name}</p>
               <p className="break-all text-xs font-normal text-muted-foreground">{websiteLabel(websiteUrl)}</p>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
+            {isAdmin && <DropdownMenuItem asChild><Link href="/admin/access-requests"><Mail aria-hidden="true" className="size-4" />Early-access invitations</Link></DropdownMenuItem>}
+              <DropdownMenuSeparator />
             <DropdownMenuItem asChild className="min-h-11 rounded-lg px-3">
               <Link href="/settings" aria-current={active("/settings") ? "page" : undefined}><Settings aria-hidden="true" />Settings</Link>
             </DropdownMenuItem>

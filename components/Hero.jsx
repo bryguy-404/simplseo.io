@@ -155,7 +155,7 @@ const Hero = () => {
           </h1>
 
           <h2 className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto mb-12 animate-fade-up" style={{ animationDelay: "0.1s" }}>
-          Understand why customers aren't finding your business on Google and know exactly what to fix.
+          Understand why customers aren&apos;t finding your business on Google and know exactly what to fix.
           </h2>
           <div className="flex flex-col items-center gap-3 animate-fade-up" style={{ animationDelay: "0.2s" }}>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -163,13 +163,13 @@ const Hero = () => {
                 ref={buttonRef}
                 className="hero-button relative overflow-hidden font-semibold text-white bg-primary flex items-center justify-center gap-2"
                 style={getButtonStyles()}
-                onClick={() => router.push('/auth')}
+                onClick={() => router.push('/request-access')}
               >
                 <span 
                   className="whitespace-nowrap transition-opacity duration-300"
                   style={{ opacity: buttonState === "complete" ? 1 : 0 }}
                 >
-                  Try Free Access
+                  Get started
                 </span>
                 <ArrowRight 
                   className="w-4 h-4 transition-opacity duration-300"

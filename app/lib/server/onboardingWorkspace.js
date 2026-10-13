@@ -8,10 +8,10 @@ import { recentObservationWindow } from '../progressAssessment';
 import { accountHash } from './accountDeletion';
 
 export const setupSessionRef = uid => db.collection('users').doc(uid).collection('onboardingSessions').doc('current');
-export function onboardingV2Eligible(uid) {
+export function onboardingV2Eligible(uid, user = {}) {
   if (process.env.ONBOARDING_V2_ENABLED !== 'true') return false;
   const allowed = (process.env.ONBOARDING_V2_PILOT_UIDS || '').split(',').map(value => value.trim());
-  return allowed.includes('*') || allowed.includes(uid);
+  return user.earlyAccessSetupVersion === 2 || allowed.includes('*') || allowed.includes(uid);
 }
 const cleanUrl = raw => {
   try {
@@ -64,7 +64,7 @@ export async function readOnboardingWorkspace(uid) {
   const { readOnboardingExtraction } = await import('./onboardingExtraction');
   const inventory = current ? await readOnboardingInventory(uid, current) : null;
   const extraction = current ? await readOnboardingExtraction(uid, current) : null;
-  return { extractionEnabled: process.env.ONBOARDING_EXTRACTION_ENABLED !== 'false', eligible: onboardingV2Eligible(uid), enabled: onboardingV2Eligible(uid) || !!current,
+  return { extractionEnabled: process.env.ONBOARDING_EXTRACTION_ENABLED !== 'false', eligible: onboardingV2Eligible(uid, value.user), enabled: onboardingV2Eligible(uid, value.user) || !!current,
     pinned: !!current || value.setup.setupVersion === 2, legacyCompleted: value.setup.isComplete === true,
     session: publicSetupSession(current), profile, inventory, extraction, readiness: current?.readiness || null };
 }
@@ -78,7 +78,7 @@ export async function beginOnboarding(uid, input = {}) {
     if (value.user.deletionInProgress || deletionGuard.data()?.blocked) throw new RequestError('Your account is being deleted.', 409);
     const scope = accountWebsiteScope(value.setup, value.user, value.legacy), old = sessionDoc.data();
     if (old && sameBusinessScope(old.originalScope, scope)) return;
-    if (!onboardingV2Eligible(uid)) throw new RequestError('The new setup is not enabled for this account yet.', 403);
+    if (!onboardingV2Eligible(uid, value.user)) throw new RequestError('The new setup is not enabled for this account yet.', 403);
     if (value.setup.revampArchivePending || value.setup.revampStatus === 'in-progress') throw new RequestError('Finish your website update before changing these details.', 409);
     const completed = value.setup.isComplete === true;
     const existingProfile = (await tx.get(businessProfileRef(uid, scope))).data();

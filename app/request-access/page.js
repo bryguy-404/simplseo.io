@@ -1,226 +1,36 @@
 "use client";
-
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import MainLayout from "../components/MainLayout";
-import { isAccessRequestEnabled } from "../lib/accessRequestConfig";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
-import { Mail, Send, CheckCircle } from "lucide-react";
-
+import { useState } from 'react';
+import Link from 'next/link';
+import { useAuth } from '../contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 export default function RequestAccessPage() {
-  const router = useRouter();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [formData, setFormData] = useState({
-    email: "",
-    name: "",
-    company: "",
-    reason: "",
-  });
-
-  const handleInputChange = (field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!formData.email.trim()) {
-      toast.error("Email is required");
-      return;
-    }
-
-    if (!formData.email.includes("@")) {
-      toast.error("Please enter a valid email address");
-      return;
-    }
-
-    setIsSubmitting(true);
+  const { access } = useAuth();
+  const [form, setForm] = useState({ name: '', email: '', company: '', reason: '' });
+  const [busy, setBusy] = useState(false), [sent, setSent] = useState(false), [error, setError] = useState('');
+  const submit = async e => {
+    e.preventDefault(); if (busy) return; setBusy(true); setError('');
     try {
-      const response = await fetch("/api/access-request", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to submit request");
-      }
-
-      const result = await response.json();
-      
-      if (result.success) {
-        setIsSubmitted(true);
-        toast.success("Request submitted successfully!", {
-          description: "We'll review your request and send you an invitation code via email if approved.",
-        });
-      }
-    } catch (error) {
-      console.error("Error submitting access request:", error);
-      toast.error("Failed to submit request", {
-        description: "Please try again in a moment.",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+      const response = await fetch('/api/access-request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+      const data = await response.json(); if (!response.ok) throw new Error(data.error || 'We couldn’t save your request. Please try again.');
+      setSent(true);
+    } catch (failure) { setError(failure.message); } finally { setBusy(false); }
   };
-
-  // Redirect to auth if access request is disabled
-  useEffect(() => {
-    if (!isAccessRequestEnabled()) {
-      router.push("/auth");
-      return;
-    }
-
-    // Check if user is already approved
-    const checkApproval = async () => {
-      const storedEmail = localStorage.getItem("approvedEmail");
-      if (storedEmail) {
-        try {
-          const response = await fetch(`/api/check-approval?email=${encodeURIComponent(storedEmail)}`);
-          const data = await response.json();
-          if (data.approved) {
-            router.push("/auth");
-          }
-        } catch (error) {
-          console.error("Error checking approval:", error);
-        }
-      }
-    };
-    checkApproval();
-  }, [router]);
-
-  return (
-    <MainLayout>
-      <div className="min-h-screen bg-background relative overflow-hidden">
-        {/* Animated Background Orbs - Full Width, Fixed to Viewport */}
-        <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-20 left-10 w-96 h-96 bg-teal-500/20 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute top-40 right-20 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
-          <div className="absolute bottom-20 left-1/3 w-72 h-72 bg-purple-500/20 rounded-full blur-3xl animate-pulse delay-2000"></div>
-          <div className="absolute bottom-40 right-1/4 w-96 h-96 bg-pink-500/20 rounded-full blur-3xl animate-pulse delay-3000"></div>
-        </div>
-
-        {/* Header */}
-        <div className="relative z-10 px-6 py-12 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-3">
-            Request Access
-          </h1>
-          <p className="text-lg text-muted-foreground">
-            SimplSEO is currently in private beta. Request access to get started.
-          </p>
-        </div>
-
-        {/* Main Content */}
-        <div className="relative z-10 px-6 pb-12 max-w-2xl mx-auto">
-          {isSubmitted ? (
-            <Card className="backdrop-blur-xl bg-background/40 border border-white/10 rounded-2xl shadow-2xl">
-              <CardContent className="pt-6">
-                <div className="text-center py-8">
-                  <div className="bg-green-500/20 inline-flex items-center justify-center w-16 h-16 rounded-full mb-4">
-                    <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
-                  </div>
-                  <h2 className="text-2xl font-bold mb-2">Request Submitted!</h2>
-                  <p className="text-muted-foreground mb-4">
-                    We&apos;ve received your access request. We&apos;ll review it and send you an invitation code via email if approved.
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Check your email ({formData.email}) for updates.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="backdrop-blur-xl bg-background/40 border border-white/10 rounded-2xl shadow-2xl">
-              <CardHeader>
-                <CardTitle>Request Access to SimplSEO</CardTitle>
-                <CardDescription>
-                  Tell us a bit about yourself and why you&apos;d like to use SimplSEO.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email Address *</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => handleInputChange("email", e.target.value)}
-                      placeholder="your.email@example.com"
-                      required
-                      className="bg-white/5 border-white/10 backdrop-blur-sm"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Name</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => handleInputChange("name", e.target.value)}
-                      placeholder="Your name"
-                      className="bg-white/5 border-white/10 backdrop-blur-sm"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="company">Company / Business</Label>
-                    <Input
-                      id="company"
-                      value={formData.company}
-                      onChange={(e) => handleInputChange("company", e.target.value)}
-                      placeholder="Your company or business name"
-                      className="bg-white/5 border-white/10 backdrop-blur-sm"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="reason">Why do you want access? (Optional)</Label>
-                    <Textarea
-                      id="reason"
-                      value={formData.reason}
-                      onChange={(e) => handleInputChange("reason", e.target.value)}
-                      placeholder="Tell us about your business and how SimplSEO can help..."
-                      rows={4}
-                      className="bg-white/5 border-white/10 backdrop-blur-sm resize-none"
-                    />
-                  </div>
-
-                  <Button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        Submitting...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4" />
-                        Submit Request
-                      </>
-                    )}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
-    </MainLayout>
-  );
+  return <main className="min-h-screen bg-background px-5 py-12"><div className="mx-auto max-w-lg space-y-6"><Link href="/home" className="text-sm text-muted-foreground">← Back to home</Link><Card>
+    <CardHeader><p className="text-sm font-semibold text-primary">SIMPLSEO · EARLY ACCESS</p><CardTitle className="text-2xl">{sent ? 'Your request is saved' : 'Request early access'}</CardTitle><CardDescription>{sent ? 'We’ll review your request and email you an invitation link if approved. Check your spam folder too.' : 'We’re inviting a small group of business owners to try SimplSEO and help shape it.'}</CardDescription></CardHeader>
+    <CardContent className="space-y-5">
+      {access.status === 'approved' ? <><p>You already have access. Your saved work is ready for you.</p><Button asChild><Link href={access.nextPath || '/dashboard'}>Continue to your account</Link></Button></> : !sent && <form onSubmit={submit} className="space-y-4">
+        <div className="space-y-2"><Label htmlFor="request-name">Your name</Label><Input id="request-name" autoComplete="name" required maxLength={120} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
+        <div className="space-y-2"><Label htmlFor="request-email">Where should we send your invitation?</Label><Input id="request-email" type="email" autoComplete="email" required maxLength={254} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /><p className="text-xs text-muted-foreground">Use an inbox you check. It doesn’t need to be your Search Console email.</p></div>
+        <div className="space-y-2"><Label htmlFor="request-company">Business name (optional)</Label><Input id="request-company" maxLength={200} value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} /></div>
+        <div className="space-y-2"><Label htmlFor="request-reason">What would you like help with? (optional)</Label><Textarea id="request-reason" maxLength={2000} value={form.reason} onChange={e => setForm({ ...form, reason: e.target.value })} /></div>
+        <p className="text-xs text-muted-foreground">We’ll use these details to review your request and contact you about access. <Link href="/privacy" className="underline">Privacy policy</Link></p>
+        {error && <p role="alert" className="text-sm">{error}</p>}<Button type="submit" className="w-full" disabled={busy}>{busy ? 'Saving your request…' : 'Request invitation'}</Button>
+      </form>}
+      {sent && <p role="status">No code to enter. Your invitation will have an Accept invitation button.</p>}
+      <p className="text-sm text-muted-foreground">Already joined? <Link href="/auth" className="underline text-primary">Sign in</Link></p>
+    </CardContent></Card></div></main>;
 }
-

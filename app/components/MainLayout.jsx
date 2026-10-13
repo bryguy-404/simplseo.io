@@ -28,7 +28,7 @@ const MainLayout = ({
   lowCtrPages = [],
   impressionTrends = [],
 }) => {
-  const { logout, user, isLoading } = useAuth();
+  const { logout, user, isLoading, access } = useAuth();
   const { data, isLoaded: isOnboardingLoaded } = useOnboarding();
   const { isDarkMode, toggleTheme } = useTheme();
   const pathname = usePathname();
@@ -50,13 +50,18 @@ const MainLayout = ({
     if (
       !isLoading &&
       user &&
+      access?.status === 'approved' &&
       isOnboardingLoaded &&
       !data?.isComplete &&
       pathname !== "/onboarding"
     ) {
       router.push(notificationAuthPath("/onboarding", notificationReturnFromLocation(window.location)));
     }
-  }, [isLoading, user, isOnboardingLoaded, data?.isComplete, pathname, router]);
+  }, [isLoading, user, isOnboardingLoaded, data?.isComplete, pathname, router, access?.status]);
+
+  useEffect(() => {
+    if (user && access?.status === 'pending') router.replace('/auth');
+  }, [user, access?.status, router]);
 
   // Keep the daily workspace focused. Chat opens only when requested, including
   // a deliberate contextual-help action; a first visit must not send AI work.
@@ -74,9 +79,7 @@ const MainLayout = ({
     clearNotificationCache();
     await logout();
     
-    // After logout, always go to auth page
-    // Users can log in if they have an account, or try to create one
-    // If they try to create account with non-approved email, they'll be redirected to request-access
+    // Returning members use regular sign-in; their invitation grant stays saved.
     router.push("/auth");
   };
 
@@ -126,8 +129,8 @@ const MainLayout = ({
   }, [isChatOpen]);
 
   // Don't render anything while loading to prevent hook ordering issues
-  if (isLoading) {
-    return null;
+  if (isLoading || (user && access?.status !== 'approved')) {
+    return <div role="status" className="p-8">{access?.status === 'error' ? <><p>{access.error}</p><a className="underline" href="/auth">Retry sign-in</a></> : 'Checking your access…'}</div>;
   }
 
   // Check if user is in post-onboarding flow or revamp flow
@@ -141,6 +144,7 @@ const MainLayout = ({
     <div className="min-h-screen bg-background flex flex-col">
       {!isPublicPage && (
         <WorkspaceHeader
+          isAdmin={access?.isAdmin}
           pathname={pathname}
           businessName={data?.businessName || user?.displayName || user?.email}
           websiteUrl={data?.websiteUrl}

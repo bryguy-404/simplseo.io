@@ -13,8 +13,8 @@ const Navbar = () => {
       <style dangerouslySetInnerHTML={{__html: `
         @media (max-width: 767px) {
           .navbar-logo-force {
-            width: 150px !important;
-            min-width: 150px !important;
+            width: clamp(100px, calc(100vw - 210px), 150px) !important;
+            min-width: clamp(100px, calc(100vw - 210px), 150px) !important;
             max-width: none !important;
             height: auto !important;
           }
@@ -27,7 +27,7 @@ const Navbar = () => {
         }
       `}} />
       <nav className="floating-nav flex items-center gap-1">
-        <div className="flex items-center gap-2 px-4">
+        <div className="flex items-center gap-2 px-1 sm:px-4">
           <img
             src={isDarkMode ? "./dark.png" : "./light.png"}
             alt="SimplSEO Logo"
@@ -86,12 +86,13 @@ const Navbar = () => {
           FAQ
         </button>
       </div>
+      <Button variant="ghost" size="sm" onClick={() => router.push('/auth')}>Sign in</Button>
       <Button 
-        className="ml-2 rounded-full px-6" 
+        className="rounded-full px-3 sm:px-6"
         size="sm"
-        onClick={() => router.push('/auth')}
+        onClick={() => router.push('/request-access')}
       >
-        Try Free Access
+        Get started
       </Button>
     </nav>
     </>

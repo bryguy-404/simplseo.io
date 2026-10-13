@@ -200,6 +200,10 @@ service cloud.firestore {
     match /appConfig/{path=**} { allow read, write: if false; }
     match /accessRequests/{path=**} { allow read, write: if false; }
     match /approvedUsers/{path=**} { allow read, write: if false; }
+    match /earlyAccessGrants/{path=**} { allow read, write: if false; }
+    match /earlyAccessInvitations/{path=**} { allow read, write: if false; }
+    match /earlyAccessMail/{path=**} { allow read, write: if false; }
+    match /earlyAccessLimits/{path=**} { allow read, write: if false; }
     match /invitationCodes/{path=**} { allow read, write: if false; }
     match /contactMessages/{path=**} { allow read, write: if false; }
     match /deletedUsers/{path=**} { allow read, write: if false; }

@@ -81,9 +81,9 @@ export const OnboardingProvider = ({ children }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [setupWorkspace, setSetupWorkspace] = useState(null);
   const [setupError, setSetupError] = useState('');
-  const { user } = useAuth();
+  const { user, access } = useAuth();
   const dataRef = useRef(data);
-  const userId = user?.id;
+  const userId = access?.status === 'approved' ? user?.id : null;
   const accountRef = useRef(userId);
   accountRef.current = user?.id;
   dataRef.current = data;

@@ -136,13 +136,13 @@ const CTA = () => {
             ref={buttonRef}
             className="cta-button relative overflow-hidden font-semibold text-white bg-primary flex items-center justify-center gap-2 mx-auto"
             style={getButtonStyles()}
-            onClick={() => router.push('/auth')}
+            onClick={() => router.push('/request-access')}
           >
             <span 
               className="whitespace-nowrap transition-opacity duration-300"
               style={{ opacity: buttonState === "complete" ? 1 : 0 }}
             >
-              Try Free Access
+              Get started
             </span>
             <ArrowRight 
               className="w-4 h-4 transition-opacity duration-300"

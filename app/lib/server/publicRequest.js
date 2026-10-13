@@ -6,7 +6,12 @@ export function publicRoute(handler, { limit = 10, windowMs = 3600000 } = {}) {
   return async request => {
     try {
       const origin = request.headers.get('origin');
-      if (origin && origin !== new URL(request.url).origin) throw new RequestError('Request origin is not allowed.', 403);
+      const url = new URL(request.url);
+      // Next may use its loopback hostname in request.url. Host retains the
+      // browser-facing authority; never use an arbitrary forwarded host.
+      const host = request.headers.get('host');
+      const browserOrigin = host && !/[\\/\s]/.test(host) ? `${url.protocol}//${host}` : url.origin;
+      if (origin && origin !== browserOrigin) throw new RequestError('Request origin is not allowed.', 403);
       const ip = request.headers.get('x-vercel-forwarded-for') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
       const bucket = Math.floor(Date.now() / windowMs);
       const key = createHash('sha256').update(`${new URL(request.url).pathname}:${ip}:${bucket}`).digest('hex');
