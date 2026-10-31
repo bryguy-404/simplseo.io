@@ -13,7 +13,15 @@ export const metadata = {
     type: "website",
     locale: "en_US",
   },
-  twitter: { card: "summary", title, description },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+    images: [{
+      url: "/home/opengraph-image",
+      alt: "SimplSEO — SEO, in plain English.",
+    }],
+  },
 };
 
 export default function HomeLayout({ children }) {
