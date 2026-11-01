@@ -1,250 +1,140 @@
 "use client";
 
-import { useState } from "react";
-import { X, Search, MousePointerClick } from "lucide-react";
+import { createContext, useContext, useRef, useState } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
+import { ArrowRight, Check, Globe2, MousePointerClick, Search, X } from "lucide-react";
+import styles from "./HomepageExplainer.module.css";
 
-const KeywordModal = ({ isOpen, onClose }) => {
-  if (!isOpen) return null;
+const ExplanationContext = createContext(null);
 
+const explanations = {
+  seo: {
+    title: "What is SEO?",
+    icon: Globe2,
+    description: "SEO stands for search engine optimization. It helps people find your website when they search for what you offer.",
+    takeaway: "Think of it as a clearer sign for your business. Your pages explain what you do, where you work, and who you can help.",
+  },
+  keyword: {
+    title: "What is a keyword?",
+    icon: Search,
+    description: "A keyword is a word or phrase someone types into Google. It can be a whole question, not just one word.",
+    takeaway: "The useful keywords connect what people are looking for with what your business actually offers.",
+  },
+  ctr: {
+    title: "What is CTR?",
+    icon: MousePointerClick,
+    description: "Click-through rate is the percentage of people who see your page in search results and click through to your website.",
+    takeaway: "Your title and description help people decide whether to visit. CTR helps you understand how often they take that next step.",
+  },
+};
+
+function SearchExample() {
   return (
-    <>
-      {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 animate-fade-in"
-        onClick={onClose}
-      />
-      
-      {/* Modal */}
-      <div className="fixed inset-0 flex items-center justify-center z-50 p-4 pointer-events-none">
-        <div 
-          className="bg-background border border-border rounded-2xl shadow-2xl max-w-md w-full p-6 pointer-events-auto animate-scale-in"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <Search className="w-5 h-5 text-primary" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground">What is a Keyword?</h3>
-            </div>
-            <button 
-              onClick={onClose}
-              className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-lg hover:bg-muted"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          
-          {/* Content */}
-          <div className="space-y-4 text-muted-foreground">
-            <p className="text-base leading-relaxed">
-              A <span className="text-foreground font-medium">keyword</span> is simply a word or phrase that people type into Google when they&apos;re looking for something.
-            </p>
-            
-            <div className="bg-muted/50 rounded-xl p-4 space-y-2">
-              <p className="text-sm font-medium text-foreground">For example:</p>
-              <ul className="text-sm space-y-1.5">
-                <li className="flex items-start gap-2">
-                  <span className="text-primary">•</span>
-                  <span>&quot;best pizza in New York&quot;</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary">•</span>
-                  <span>&quot;personal trainer Columbus, Ohio&quot;</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary">•</span>
-                  <span>&quot;gift shop in Charleston, SC&quot;</span>
-                </li>
-              </ul>
-            </div>
-            
-            <p className="text-base leading-relaxed">
-              When your website shows up for keywords related to your business, that&apos;s how new customers find you. The goal of SEO is to help your pages rank higher for the <span className="text-foreground font-medium">right keywords</span>, the ones your ideal customers are actually searching for.
-            </p>
-          </div>
-          
-          {/* Footer */}
-          <div className="mt-6 pt-4 border-t border-border">
-            <button
-              onClick={onClose}
-              className="w-full bg-primary text-white font-medium py-2.5 px-4 rounded-xl hover:bg-primary/90 transition-colors"
-            >
-              Got it!
-            </button>
-          </div>
-        </div>
+    <div>
+      <div className={styles.searchQuery}><Search size={15} aria-hidden="true" /><span>kitchen remodeling in Austin</span></div>
+      <div className={styles.searchResult}>
+        <div className={styles.resultBusiness}><span aria-hidden="true">o<span>p</span></span><div>Oak &amp; Pine<small>oakandpine.example</small></div></div>
+        <p className={styles.resultTitle}>Kitchen Remodeling in Austin</p>
+        <p className={styles.resultDescription}>Thoughtful kitchen renovations, from design to installation.</p>
       </div>
-      
-      {/* Animations */}
-      <style jsx global>{`
-        @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes scale-in {
-          from { 
-            opacity: 0;
-            transform: scale(0.95) translateY(10px);
-          }
-          to { 
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.2s ease-out forwards;
-        }
-        .animate-scale-in {
-          animation: scale-in 0.3s ease-out forwards;
-        }
-      `}</style>
-    </>
+      <div className={styles.exampleCaption}><Check size={14} aria-hidden="true" />A relevant search. A business that can help.</div>
+    </div>
   );
-};
+}
 
-// CTR Modal
-const CTRModal = ({ isOpen, onClose }) => {
-  if (!isOpen) return null;
-
+function KeywordExample() {
   return (
-    <>
-      {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 animate-fade-in"
-        onClick={onClose}
-      />
-      
-      {/* Modal */}
-      <div className="fixed inset-0 flex items-center justify-center z-50 p-4 pointer-events-none">
-        <div 
-          className="bg-background border border-border rounded-2xl shadow-2xl max-w-md w-full p-6 pointer-events-auto animate-scale-in"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <MousePointerClick className="w-5 h-5 text-primary" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground">What is CTR?</h3>
-            </div>
-            <button 
-              onClick={onClose}
-              className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-lg hover:bg-muted"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          
-          {/* Content */}
-          <div className="space-y-4 text-muted-foreground">
-            <p className="text-base leading-relaxed">
-              <span className="text-foreground font-medium">CTR</span> stands for <span className="text-foreground font-medium">Click-Through Rate</span>. It&apos;s the percentage of people who see your page in Google and actually click on it.
-            </p>
-            
-            <div className="bg-muted/50 rounded-xl p-4 space-y-2">
-              <p className="text-sm font-medium text-foreground">Here&apos;s how it works:</p>
-              <ul className="text-sm space-y-1.5">
-                <li className="flex items-start gap-2">
-                  <span className="text-primary">•</span>
-                  <span>100 people see your page in search results</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary">•</span>
-                  <span>5 people click on it</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary">•</span>
-                  <span>Your CTR = 5%</span>
-                </li>
-              </ul>
-            </div>
-            
-            <p className="text-base leading-relaxed">
-              A low CTR means your page is showing up but people aren&apos;t clicking. Usually, this is because your <span className="text-foreground font-medium">title or description</span> isn&apos;t compelling enough. The good news? It&apos;s one of the easiest things to fix!
-            </p>
-          </div>
-          
-          {/* Footer */}
-          <div className="mt-6 pt-4 border-t border-border">
-            <button
-              onClick={onClose}
-              className="w-full bg-primary text-white font-medium py-2.5 px-4 rounded-xl hover:bg-primary/90 transition-colors"
-            >
-              Got it!
-            </button>
-          </div>
-        </div>
+    <div className={styles.keywordExample}>
+      <p className={styles.exampleLabel}>Different searches. All keywords.</p>
+      <ul>
+        {["kitchen remodeling in Austin", "how much does a kitchen remodel cost?", "small kitchen design ideas"].map((query) => (
+          <li key={query}><Search size={15} aria-hidden="true" /><span>{query}</span><ArrowRight size={14} aria-hidden="true" /></li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function CTRExample() {
+  return (
+    <figure className={styles.ctrExample}>
+      <div className={styles.ctrVisual}>
+        <div className={styles.dotGrid} aria-hidden="true">{Array.from({ length: 100 }, (_, index) => <i key={index} data-clicked={index < 5} />)}</div>
+        <div className={styles.ctrMetric}><strong>5<span>%</span></strong><span>click-through rate</span><p><b>5 clicks</b> from 100 views</p></div>
       </div>
-    </>
+      <figcaption><span className={styles.legendDot} aria-hidden="true" />Each green dot is someone who clicked.</figcaption>
+    </figure>
   );
-};
+}
 
-// Shared modal state - singleton pattern for the modals
-let globalSetKeywordModalOpen = null;
-let globalSetCTRModalOpen = null;
+export function KeywordModalProvider({ children }) {
+  const [topic, setTopic] = useState("seo");
+  const [isOpen, setIsOpen] = useState(false);
+  const openerRef = useRef(null);
+  const explanation = explanations[topic];
+  const Icon = explanation.icon;
 
-export const openKeywordModal = () => {
-  if (globalSetKeywordModalOpen) {
-    globalSetKeywordModalOpen(true);
-  }
-};
+  const openExplanation = (nextTopic, opener) => {
+    openerRef.current = opener;
+    setTopic(nextTopic);
+    setIsOpen(true);
+  };
 
-export const openCTRModal = () => {
-  if (globalSetCTRModalOpen) {
-    globalSetCTRModalOpen(true);
-  }
-};
-
-// Provider component to be placed once in layout
-export const KeywordModalProvider = ({ children }) => {
-  const [isKeywordOpen, setIsKeywordOpen] = useState(false);
-  const [isCTROpen, setIsCTROpen] = useState(false);
-  
-  // Register the global setters
-  globalSetKeywordModalOpen = setIsKeywordOpen;
-  globalSetCTRModalOpen = setIsCTROpen;
-  
   return (
-    <>
+    <ExplanationContext.Provider value={openExplanation}>
       {children}
-      <KeywordModal isOpen={isKeywordOpen} onClose={() => setIsKeywordOpen(false)} />
-      <CTRModal isOpen={isCTROpen} onClose={() => setIsCTROpen(false)} />
-    </>
+      <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className={styles.overlay} />
+          <Dialog.Content
+            className={styles.dialog}
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              openerRef.current?.focus({ preventScroll: true });
+            }}
+          >
+            <Dialog.Close className={styles.close} aria-label="Close explanation"><X size={19} aria-hidden="true" /></Dialog.Close>
+            <div className={styles.eyebrow}><span className={styles.icon}><Icon size={18} strokeWidth={1.7} aria-hidden="true" /></span>In plain English</div>
+            <Dialog.Title className={styles.title}>{explanation.title}</Dialog.Title>
+            <Dialog.Description className={styles.description}>{explanation.description}</Dialog.Description>
+            <div className={styles.example}>
+              <span className={styles.exampleTag}>A simple example</span>
+              {topic === "seo" && <SearchExample />}
+              {topic === "keyword" && <KeywordExample />}
+              {topic === "ctr" && <CTRExample />}
+            </div>
+            <p className={styles.takeaway}>{explanation.takeaway}</p>
+            <div className={styles.footer}>
+              <span>A little clarity goes a long way.</span>
+              <Dialog.Close className={styles.done}>Got it<Check size={15} aria-hidden="true" /></Dialog.Close>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+    </ExplanationContext.Provider>
   );
-};
+}
 
-// The clickable keyword span
-export const KeywordTooltip = ({ children, className = "" }) => {
+function ExplanationTrigger({ topic, children, className = "" }) {
+  const openExplanation = useContext(ExplanationContext);
+
   return (
-    <span
-      onClick={(e) => {
-        e.stopPropagation();
-        openKeywordModal();
+    <button
+      type="button"
+      aria-haspopup="dialog"
+      onClick={(event) => {
+        event.stopPropagation();
+        openExplanation?.(topic, event.currentTarget);
       }}
-      className={`underline decoration-primary/50 underline-offset-4 cursor-pointer hover:decoration-primary hover:text-primary transition-colors ${className}`}
+      className={`${topic === "seo" ? "" : styles.term} ${className}`}
     >
       {children}
-    </span>
+    </button>
   );
-};
+}
 
-// The clickable CTR span
-export const CTRTooltip = ({ children, className = "" }) => {
-  return (
-    <span
-      onClick={(e) => {
-        e.stopPropagation();
-        openCTRModal();
-      }}
-      className={`underline decoration-primary/50 underline-offset-4 cursor-pointer hover:decoration-primary hover:text-primary transition-colors ${className}`}
-    >
-      {children}
-    </span>
-  );
-};
+export const KeywordTooltip = (props) => <ExplanationTrigger topic="keyword" {...props} />;
+export const CTRTooltip = (props) => <ExplanationTrigger topic="ctr" {...props} />;
+export const SeoTooltip = (props) => <ExplanationTrigger topic="seo" {...props} />;
 
 export default KeywordTooltip;
-
