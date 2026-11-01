@@ -1,6 +1,8 @@
 "use client";
 
-import { Search, TrendingUp, FileText, MessageSquare, Sparkles, Target } from "lucide-react";
+import Image from "next/image";
+import { useEffect, useRef } from "react";
+import { Search, TrendingUp, MessageSquare, Sparkles, Target } from "lucide-react";
 import { useTheme } from "@/app/contexts/ThemeContext";
 import { KeywordTooltip, CTRTooltip } from "./KeywordTooltip";
 
@@ -36,7 +38,8 @@ const stackingCards = [
     description: "Your page shows up in Google but nobody clicks? We'll tell you exactly why and how to fix it. Usually it's the title we'll help you write better ones that people actually want to click.",
     lightColor: "hsl(45, 50%, 92%)",
     darkColor: "hsl(40, 35%, 32%)", // Soft warm beige
-    image: "/Google-2.png",
+    image: "/images/homepage/search-clicks.webp",
+    imageAlt: "A cursor clicks a highlighted search result with an improved title.",
   },
   {
     icon: MessageSquare,
@@ -45,7 +48,8 @@ const stackingCards = [
     description: "Ask your SEO mentor anything in plain English. It's trained on YOUR website content, so it knows your business and the keywords you care about. No more decoding SEO jargon. Think of it as your own SEO professional available 24/7.",
     lightColor: "hsl(145, 40%, 92%)",
     darkColor: "hsl(160, 30%, 32%)", // Soft sage
-    image: "/2.png",
+    image: "/images/homepage/seo-mentor.webp",
+    imageAlt: "A website connected to a helpful conversation with a personal SEO mentor.",
   },
   {
     icon: Sparkles,
@@ -54,7 +58,8 @@ const stackingCards = [
     description: "Found a keyword opportunity but not sure what to write? We'll generate a complete content outline for you. Just add your expertise and hit publish. We do the SEO thinking, you do the writing.",
     lightColor: "hsl(260, 30%, 94%)",
     darkColor: "hsl(260, 25%, 35%)",
-    image: "/6.png",
+    image: "/images/homepage/content-outlines.webp",
+    imageAlt: "An organized article outline with section headings, writing prompts, and a pencil.",
   },
 
 
@@ -65,7 +70,8 @@ const stackingCards = [
     description: "See your rankings in real time with accurate data from Google. We notify you the moment a new page starts ranking and show side-by-side progress so you can see what's improving. Watch clicks rise, rankings climb, and know exactly what's working and what's not.",
     lightColor: "hsl(200, 40%, 92%)",
     darkColor: "hsl(210, 30%, 35%)", // Soft steel blue
-    image: "/5.png",
+    image: "/images/homepage/track-progress.webp",
+    imageAlt: "A rising chart with a checkmark shows SEO performance improving over time.",
   },
   {
     icon: Search,
@@ -74,7 +80,8 @@ const stackingCards = [
     description: "We'll show you keywords people are searching for that lead to your site even if you don't have a page for them yet. It's like finding money in your couch cushions, but for SEO.",
     lightColor: "hsl(320, 30%, 94%)",
     darkColor: "hsl(330, 25%, 35%)", // Soft dusty rose
-    image: "/1.png",
+    image: "/images/homepage/keyword-discovery.webp",
+    imageAlt: "A magnifying glass reveals a highlighted keyword in a list of search results.",
     skipTitleKeyword: true, // Don't underline "Keywords" in title - it's self-explanatory here
   },
 
@@ -82,8 +89,24 @@ const stackingCards = [
 
 const StackingCards = () => {
   const { isDarkMode } = useTheme();
+  const sectionRef = useRef(null);
+
+  useEffect(() => {
+    const cards = sectionRef.current?.querySelectorAll('[data-stacking-card]');
+    if (!cards) return;
+
+    // Let tall cards scroll fully into view before they join the stack.
+    const observer = new ResizeObserver((entries) => {
+      entries.forEach(({ target }) => {
+        target.style.setProperty('--card-height', `${target.getBoundingClientRect().height}px`);
+      });
+    });
+    cards.forEach((card) => observer.observe(card));
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <section id="stacking-cards" className="relative">
+    <section ref={sectionRef} id="stacking-cards" className="relative">
       {/* Section header */}
       <div className="text-center pb-16 px-4">
         <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-6">
@@ -100,18 +123,21 @@ const StackingCards = () => {
           {stackingCards.map((card, index) => (
             <div
               key={card.title}
-              className="sticky mb-8 last:mb-0"
+              data-stacking-card
+              className="stacking-card sticky mb-8 last:mb-0"
               style={{
                 '--mobile-top': `${100 + index * 16}px`,
                 '--desktop-top': `${150 + index * 24}px`,
-                top: 'var(--mobile-top)',
                 zIndex: index + 1,
               }}
             >
               <style jsx>{`
+                .stacking-card {
+                  top: min(var(--mobile-top), calc(100svh - var(--card-height, 0px) - 24px));
+                }
                 @media (min-width: 768px) {
-                  div {
-                    top: var(--desktop-top) !important;
+                  .stacking-card {
+                    top: min(var(--desktop-top), calc(100svh - var(--card-height, 0px) - 24px));
                   }
                 }
               `}</style>
@@ -142,12 +168,15 @@ const StackingCards = () => {
                   {renderDescription(card.description)}
                 </p>
               </div>
-              <div className="flex-1 flex items-center justify-center">
+              <div className="w-full min-w-0 flex-1 flex items-center justify-center">
                 {card.image ? (
-                  <img 
-                    src={card.image} 
-                    alt={card.title}
-                    className="w-full max-w-sm rounded-2xl shadow-lg object-cover"
+                  <Image
+                    src={card.image}
+                    alt={card.imageAlt}
+                    width={1024}
+                    height={1024}
+                    sizes="(min-width: 1280px) 432px, (min-width: 1024px) 40vw, (min-width: 768px) 36vw, (min-width: 480px) 384px, calc(100vw - 96px)"
+                    className="h-auto w-full max-w-sm lg:max-w-[27rem] object-contain"
                   />
                 ) : (
                   <div className={`w-full max-w-md aspect-video rounded-2xl shadow-inner flex items-center justify-center ${isDarkMode ? 'bg-white/10' : 'bg-background/50'}`}>

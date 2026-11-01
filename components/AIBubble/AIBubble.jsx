@@ -1,178 +1,214 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Bot } from 'lucide-react';
-import TypingDots from './TypingDots';
-import { SparkleGroup } from './Sparkles';
-import { SEO_RECOMMENDATIONS, AI_LOADING_TEXTS } from './constants';
+import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useInView, useReducedMotion } from "framer-motion";
+import { ArrowUpRight, Check, Globe2, RotateCcw, Search, Sparkles } from "lucide-react";
+import styles from "./AIBubble.module.css";
 
-// Animation stages
-const AnimationStage = {
-  HIDDEN: 0,
-  TYPING: 1,
-  PRE_TEXT: 2,
-  REFINING: 3,
-  FINAL: 4,
-  EXIT: 5
-};
+const steps = [
+  {
+    label: "Understand",
+    duration: 3200,
+    heading: "First, I get to know your business.",
+    message: "You remodel kitchens in Austin. That’s useful context for the advice I give you.",
+    status: "Getting to know your page",
+  },
+  {
+    label: "Find",
+    duration: 4200,
+    heading: "Your title leaves something out.",
+    message: "“Services” doesn’t tell people what you offer or where you work. Let’s make that clearer.",
+    status: "One opportunity spotted",
+  },
+  {
+    label: "Guide",
+    duration: 4000,
+    heading: "Say what you do. And where.",
+    message: "Try “Kitchen Remodeling in Austin.” Now people can see if you’re a match, before they click.",
+    status: "A clear next step",
+  },
+];
 
 const AIBubble = () => {
-  const [stage, setStage] = useState(AnimationStage.HIDDEN);
-  const [recIndex, setRecIndex] = useState(0);
-  const [loadingTextIndex, setLoadingTextIndex] = useState(0);
+  const previewRef = useRef(null);
+  const inView = useInView(previewRef, { amount: 0.45 });
+  const reducedMotion = useReducedMotion();
+  const [step, setStep] = useState(0);
+  const [playing, setPlaying] = useState(true);
+  const [finished, setFinished] = useState(false);
 
   useEffect(() => {
-    const timeouts = [];
-
-    const runSequence = () => {
-      timeouts.forEach(t => clearTimeout(t));
-      timeouts.length = 0;
-
-      setStage(AnimationStage.TYPING);
-
-      // Typing dots - 2.5 seconds
-      timeouts.push(setTimeout(() => {
-        setStage(AnimationStage.PRE_TEXT);
-      }, 2500));
-
-      // Loading text - show for 3 seconds
-      timeouts.push(setTimeout(() => {
-        setStage(AnimationStage.REFINING);
-      }, 5500));
-
-      // Blur transition - 0.5 seconds
-      timeouts.push(setTimeout(() => {
-        setStage(AnimationStage.FINAL);
-      }, 6000));
-
-      // Show recommendation - 7 seconds to read
-      timeouts.push(setTimeout(() => {
-        setStage(AnimationStage.EXIT);
-      }, 13000));
-
-      // Exit transition - 1 second, then loop
-      timeouts.push(setTimeout(() => {
-        setRecIndex((prev) => (prev + 1) % SEO_RECOMMENDATIONS.length);
-        setLoadingTextIndex((prev) => (prev + 1) % AI_LOADING_TEXTS.length);
-        runSequence();
-      }, 14000));
-    };
-
-    runSequence();
-
-    return () => {
-      timeouts.forEach(t => clearTimeout(t));
-    };
-  }, []);
-
-  const renderContent = () => {
-    if (stage === AnimationStage.TYPING) {
-      return (
-        <motion.div
-          key="typing"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="flex items-center justify-center py-2"
-        >
-          <TypingDots />
-        </motion.div>
-      );
+    if (reducedMotion) {
+      setStep(2);
+      setPlaying(false);
+      setFinished(true);
     }
+  }, [reducedMotion]);
 
-    if (stage === AnimationStage.PRE_TEXT || stage === AnimationStage.REFINING) {
-      return (
-        <motion.div
-          key="pre-text"
-          initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
-          animate={{ 
-            opacity: stage === AnimationStage.REFINING ? 0 : 1, 
-            y: 0, 
-            filter: stage === AnimationStage.REFINING ? 'blur(8px)' : 'blur(0px)' 
-          }}
-          exit={{ opacity: 0, y: -10 }}
-          className="text-muted-foreground font-medium text-sm sm:text-base flex items-center gap-2"
-        >
-          <Sparkles className="w-4 h-4 text-primary" />
-          {AI_LOADING_TEXTS[loadingTextIndex]}
-        </motion.div>
-      );
-    }
+  useEffect(() => {
+    if (!inView || !playing || reducedMotion) return;
 
-    if (stage === AnimationStage.FINAL) {
-      return (
-        <motion.div
-          key="final-text"
-          initial={{ opacity: 0, scale: 0.95, filter: 'blur(8px)' }}
-          animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-          className="flex flex-col gap-2"
-        >
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg shadow-primary/20">
-              <Bot className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-xs font-semibold text-primary uppercase tracking-wider">SEO Mentor</span>
-          </div>
-          <p className="text-foreground font-medium text-sm sm:text-lg leading-relaxed">
-            {SEO_RECOMMENDATIONS[recIndex]}
-          </p>
-        </motion.div>
-      );
-    }
+    const timer = window.setTimeout(() => {
+      if (step < steps.length - 1) {
+        setStep((current) => current + 1);
+      } else {
+        setPlaying(false);
+        setFinished(true);
+      }
+    }, steps[step].duration);
 
-    return null;
+    return () => window.clearTimeout(timer);
+  }, [inView, playing, reducedMotion, step]);
+
+  const selectStep = (index) => {
+    setStep(index);
+    setPlaying(false);
+    setFinished((hasFinished) => hasFinished || index === steps.length - 1);
   };
 
+  const replay = () => {
+    setStep(0);
+    setFinished(false);
+    setPlaying(true);
+  };
+
+  const transition = { duration: reducedMotion ? 0 : 0.35, ease: [0.22, 1, 0.36, 1] };
+  const enter = { opacity: 0, y: reducedMotion ? 0 : 6 };
+  const exit = { opacity: 0, y: reducedMotion ? 0 : -4 };
+
   return (
-    <div className="relative w-full max-w-lg mx-auto px-6">
-      {/* Fixed height container to prevent layout shift */}
-      <div className="min-h-[180px] flex items-center justify-center">
+    <div
+      ref={previewRef}
+      className={styles.preview}
+      data-mentor-demo
+      data-step={step}
+      data-playing={playing && inView && !reducedMotion}
+    >
+      <div className={styles.intro}>
+        <h2 id="mentor-preview-title">See your mentor at work</h2>
+        <span className={styles.example}>A quick example</span>
+      </div>
+
+      <div className={styles.scene} aria-labelledby="mentor-preview-title">
+        <div className={styles.ambientGlow} aria-hidden="true" />
+
         <motion.div
-          key="bubble-container"
-          initial={{ opacity: 0, y: 20, scale: 0.9 }}
-          animate={{ 
-            opacity: stage === AnimationStage.EXIT ? 0 : 1, 
-            y: stage === AnimationStage.EXIT ? -10 : 0, 
-            scale: stage === AnimationStage.EXIT ? 0.95 : 1 
-          }}
-          transition={{ duration: 0.5, type: "spring", stiffness: 200, damping: 20 }}
-          className="relative w-full"
+          className={styles.searchCard}
+          initial={false}
+          animate={{ y: step === 2 && !reducedMotion ? -4 : 0 }}
+          transition={transition}
         >
-          {/* Gradient glow behind the card */}
-          <div className="absolute -inset-4 bg-gradient-to-r from-primary/20 via-teal-500/10 to-primary/20 rounded-3xl blur-2xl opacity-60" />
-          
-          {/* Main card */}
-          <div className="relative bg-background/80 backdrop-blur-xl rounded-2xl p-6 sm:p-8 min-h-[120px] shadow-xl">
-            {/* Sparkles decoration */}
-            <div className="absolute inset-0 overflow-visible pointer-events-none">
-              <SparkleGroup isActive={stage === AnimationStage.FINAL} />
+          <div className={styles.browserBar}>
+            <div className={styles.windowDots} aria-hidden="true"><i /><i /><i /></div>
+            <span><Globe2 size={12} aria-hidden="true" /> oakandpine.example</span>
+            <span className={styles.windowSpacer} aria-hidden="true" />
+          </div>
+
+          <div className={styles.searchContent}>
+            <div className={styles.searchLabel}>
+              <Search size={14} aria-hidden="true" />
+              {step === 2 ? "Suggested search preview" : "How your page appears in search"}
             </div>
-            
-            {/* Content */}
-            <div className="relative z-10">
-              <AnimatePresence mode="wait">
-                {renderContent()}
+            <div className={styles.business}>
+              <span className={styles.businessMark} aria-hidden="true">o<span>p</span></span>
+              <div><strong>Oak &amp; Pine</strong><span>oakandpine.example / services</span></div>
+            </div>
+
+            <div className={styles.titleArea} data-highlight={step === 1}>
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.p
+                  key={step === 2 ? "suggested" : "original"}
+                  className={styles.searchTitle}
+                  initial={enter}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={exit}
+                  transition={transition}
+                >
+                  {step === 2 ? <>Kitchen Remodeling in Austin <span>| Oak &amp; Pine</span></> : "Services | Oak & Pine"}
+                </motion.p>
+              </AnimatePresence>
+              {step === 1 && <motion.span className={styles.titleUnderline} initial={{ scaleX: reducedMotion ? 1 : 0 }} animate={{ scaleX: 1 }} transition={{ duration: reducedMotion ? 0 : 0.6 }} aria-hidden="true" />}
+            </div>
+
+            <p className={styles.searchDescription}>
+              Custom kitchen renovations, from design to installation. Serving Austin homeowners.
+            </p>
+
+            <div className={styles.pageNote} data-step={step}>
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span key={step} initial={enter} animate={{ opacity: 1, y: 0 }} exit={exit} transition={transition}>
+                  {step === 0 && <><span className={styles.smallDot} /> Your service. Your city. Your context.</>}
+                  {step === 1 && <><span className={styles.smallDot} /> A vague title is easy to overlook.</>}
+                  {step === 2 && <><Check size={13} aria-hidden="true" /> Suggested title · ready for you to use</>}
+                </motion.span>
               </AnimatePresence>
             </div>
-            
-            {/* Subtle inner gradient */}
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent rounded-2xl pointer-events-none" />
+          </div>
+
+          {step === 0 && playing && inView && !reducedMotion && (
+            <motion.div
+              className={styles.scanLine}
+              initial={{ top: "24%", opacity: 0 }}
+              animate={{ top: ["24%", "44%", "85%"], opacity: [0, 0.65, 0] }}
+              transition={{ duration: 2.7, times: [0, 0.25, 1], ease: "easeInOut" }}
+              aria-hidden="true"
+            />
+          )}
+        </motion.div>
+
+        <div className={styles.connection} aria-hidden="true">
+          <svg viewBox="0 0 160 90" fill="none">
+            <path d="M2 2H66C84 2 92 12 92 30V52C92 70 104 80 122 80H158" />
+            {playing && inView && !reducedMotion && (
+              <motion.path
+                d="M2 2H66C84 2 92 12 92 30V52C92 70 104 80 122 80H158"
+                className={styles.connectionSignal}
+                initial={{ pathLength: 0, opacity: 0 }}
+                animate={{ pathLength: [0, 1], opacity: [0, 0.8, 0] }}
+                transition={{ duration: 2, repeat: 1, ease: "easeInOut" }}
+              />
+            )}
+          </svg>
+        </div>
+
+        <motion.div className={styles.mentorCard} initial={false} animate={{ y: step > 0 && !reducedMotion ? -4 : 0 }} transition={transition}>
+          <div className={styles.mentorHeader}>
+            <span className={styles.mentorMark}><Sparkles size={17} strokeWidth={1.7} aria-hidden="true" /></span>
+            <span>Your SEO mentor<small>Advice with your business in mind</small></span>
+          </div>
+
+          <div className={styles.message} aria-live={playing ? "off" : "polite"} aria-atomic="true">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div key={step} initial={enter} animate={{ opacity: 1, y: 0 }} exit={exit} transition={transition}>
+                <h3>{steps[step].heading}</h3>
+                <p>{steps[step].message}</p>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          <div className={styles.mentorStatus} data-complete={step === 2}>
+            {step === 2 ? <ArrowUpRight size={14} aria-hidden="true" /> : <span className={styles.statusDot} />}
+            <span>{steps[step].status}</span>
           </div>
         </motion.div>
       </div>
-      
-      {/* Status text */}
-      <motion.div 
-        animate={{ opacity: stage === AnimationStage.EXIT ? 0 : 1 }}
-        transition={{ duration: 0.5 }}
-        className="text-center mt-6"
-      >
-        {/* <span className="inline-flex items-center gap-2 text-muted-foreground text-sm font-medium">
-          <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-          Analysing 
-        </span> */}
-      </motion.div>
+
+      <div className={styles.controls}>
+        <div className={styles.steps} aria-label="Explore the mentor example">
+          {steps.map((item, index) => (
+            <button key={item.label} type="button" onClick={() => selectStep(index)} aria-pressed={step === index} aria-label={(index + 1) + ". " + item.label} className={styles.step} data-active={step === index} data-complete={step > index}>
+              <span className={styles.stepNumber}>{step > index ? <Check size={11} aria-hidden="true" /> : index + 1}</span>
+              <span className={styles.stepLabel}>{item.label}</span>
+            </button>
+          ))}
+        </div>
+        {finished && !reducedMotion && (
+          <button type="button" onClick={replay} className={styles.playback} aria-label="Replay mentor example">
+            <RotateCcw size={13} aria-hidden="true" /><span>Replay</span>
+          </button>
+        )}
+      </div>
+      <p className={styles.footnote}>Your website informs the advice. You choose what to change.</p>
     </div>
   );
 };

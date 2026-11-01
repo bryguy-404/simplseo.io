@@ -45,8 +45,8 @@ export default function HomePage() {
 
         <Features />
 
-        {/* AI Bubble Animation Section */}
-        <section className="py-30 px-4">
+        {/* A short, illustrative mentor walkthrough */}
+        <section id="mentor-preview" aria-labelledby="mentor-preview-title" className="py-24 md:py-28 px-5 scroll-mt-24">
           <AIBubble />
         </section>
 
