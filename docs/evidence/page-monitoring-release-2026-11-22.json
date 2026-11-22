@@ -1,5 +1,5 @@
 {
-  "verifiedAt": "2026-11-22T07:36:29.859Z",
+  "verifiedAt": "2026-11-22T07:38:38.359Z",
   "branch": "codex/monitor-this-page",
   "baseCommit": "e5e424a05919192dce2d0c73240508c6b28d38c6",
   "application": {
@@ -30,10 +30,10 @@
     "rules": "compiled and released",
     "indexesSubmitted": true,
     "indexes": {
-      "checkedAt": "2026-11-22T07:35:54.649Z",
+      "checkedAt": "2026-11-22T07:37:43.473Z",
       "indexes": [
         {
-          "state": "CREATING",
+          "state": "READY",
           "fields": [
             "userId",
             "lifecycle",
@@ -43,7 +43,7 @@
           ]
         },
         {
-          "state": "CREATING",
+          "state": "READY",
           "fields": [
             "lifecycle",
             "nextCheckAt",
@@ -52,7 +52,8 @@
           ]
         }
       ]
-    }
+    },
+    "indexesReady": true
   },
   "savedWork": {
     "capturedAt": "2026-11-22T07:35:34.983Z",
@@ -75,9 +76,9 @@
   },
   "remaining": [
     "Authorize reviewed GitHub upload and pilot application deployment",
-    "Verify new indexes are READY",
     "Deploy and run read-only live application checks",
     "Verify actual scheduled monitoring after real owner enrollment",
     "Observe later completed periods and real monthly reminders"
-  ]
+  ],
+  "sourceCommit": "1e5901d30730b8f1e94ee92c8da98ad0063a8ed8"
 }
