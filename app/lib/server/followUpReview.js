@@ -13,6 +13,8 @@ import { consumePageReviewQuota } from './requestQuota';
 import { recordPageReviewResponse } from './aiUsage';
 import { PAGE_REVIEW_MODEL, PAGE_REVIEW_TIMELINE, buildResearchRequest, parseWebResearch, responseText } from '../pageReviewPolicy';
 import { FOLLOW_UP_VERSION, buildFollowUpRequest, followUpComparisons, validateFollowUpDecision, stableFollowUpInputs, freshResearchCheck, technicalBlockers } from '../followUpReviewPolicy';
+import { isMonitoringCycle } from '../pageMonitoring';
+import { cycleCollectionEnabled } from './pageMonitoringFeature';
 
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const nowISO = () => new Date().toISOString();
@@ -60,7 +62,7 @@ async function assertWritable(userId, input, { tx } = {}) {
   const snapshot = tx ? await tx.get(ref) : await ref.get();
   const cycle = snapshot.data();
   assertOngoingCycleScope(cycle, scope);
-  if (cycle.lifecycle !== 'active' || cycle.revision !== input.expectedRevision) throw changed();
+  if (cycle.lifecycle !== 'active' || cycle.revision !== input.expectedRevision || !cycleCollectionEnabled(cycle)) throw changed();
   return { ref, cycle, scope };
 }
 
@@ -113,8 +115,8 @@ function technicalDecision(cycle, currentPage, diagnostics) {
 
 function collectingDecision(cycle) {
   return { outcome: 'gather_evidence', summary: 'Keep collecting the next complete comparison',
-    whatChanged: 'A complete dated comparison is not available for this change yet.',
-    meaning: 'Missing observations do not show that your edits worked or failed.',
+    whatChanged: isMonitoringCycle(cycle) ? 'A complete dated comparison is not available for this page yet.' : 'A complete dated comparison is not available for this change yet.',
+    meaning: isMonitoringCycle(cycle) ? 'Missing observations do not establish how this page is performing.' : 'Missing observations do not show that your edits worked or failed.',
     nextStep: 'Continue monitoring this page. You can check its technical settings now or work on another page while the comparison develops.',
     evidenceIds: [], proposedTasks: [], checkpointId: cycle.latestCheckpointId || null };
 }
@@ -250,7 +252,7 @@ export async function runFollowUpReview(userId, input, { signal, deadline = Date
     const decisionId = hash([cycle.id, fingerprint, attempt]);
     const { assessment, ...decisionFields } = result;
     const completedReview = assessment && context ? { ...assessment, ...context,
-      timeline: PAGE_REVIEW_TIMELINE, provenance: { ...context.provenance, generatedAt: reviewedAt,
+        timeline: isMonitoringCycle(cycle) ? [] : PAGE_REVIEW_TIMELINE, provenance: { ...context.provenance, generatedAt: reviewedAt,
         reviewVersion: `follow_up_${FOLLOW_UP_VERSION}`, model: PAGE_REVIEW_MODEL },
     } : null;
     const decision = { ...decisionFields, id: decisionId, cycleId: cycle.id, userId, property: cycle.property,

@@ -73,7 +73,7 @@ export function projectMentorCycle(cycle, publicDecision) {
   const observation = value => value ? copy(value, ['window', 'startDate', 'endDate', 'status', 'clicks', 'impressions', 'ctr', 'position', 'fetchedAt', 'observedAt', 'source', 'queriesStatus', 'queryCoverage']) : value;
   const checkpoint = value => value ? { ...copy(value, ['id', 'day', 'evidenceRevision', 'state', 'reason', 'window', 'windows', 'comparison', 'observedAt', 'collectedAt', 'lowVolume', 'limitation', 'source']),
     baseline: observation(value.baseline), post: observation(value.post) } : value;
-  const projected = mentorProjection({ ...copy(cycle, ['id', 'revision', 'lifecycle', 'confirmedAt', 'reviewStatus', 'nextReviewAt', 'lastError', 'lastSuccessAt', 'previousCycleId', 'supersededAt', 'latestCheckpointId', 'latestDecisionId']),
+  const projected = mentorProjection({ ...copy(cycle, ['id', 'revision', 'mode', 'startedAt', 'initialReviewStatus', 'lifecycle', 'confirmedAt', 'reviewStatus', 'nextReviewAt', 'lastError', 'lastSuccessAt', 'previousCycleId', 'supersededAt', 'latestCheckpointId', 'latestDecisionId']),
     confirmation: copy(cycle.confirmation, ['summary', 'taskLabels', 'interveningChange', 'searchFocus']),
     originalComparison: checkpoint(cycle.originalComparison), latestCheckpoint: checkpoint(cycle.latestCheckpoint),
     technical: cycle.technical ? { ...copy(cycle.technical, ['checkedAt', 'errors', 'issues']),

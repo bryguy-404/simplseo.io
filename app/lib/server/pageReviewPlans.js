@@ -5,6 +5,8 @@ import { propertyContainsUrl } from '../revampState';
 import { seoImplementationId } from '../pageTaskFlow';
 import { RequestError } from './requestAuth';
 import { ongoingCycleRef, readOngoingScope, assertOngoingCycleScope, publicOngoingCycle } from './ongoingProgress';
+import { assertMonitoringReview } from './pageTrackingIdentity';
+import { cycleCollectionEnabled } from './pageMonitoringFeature';
 
 const COLLECTION = 'pageReviewPlans';
 const MAX_TASKS = 60;
@@ -199,6 +201,11 @@ async function assertNoActivePublication(transaction, userId, scope) {
     throw new RequestError('This page record conflicts with another record. Please contact support before continuing.', 409);
   }
   if (record && !record.preRevampArchived && record.status === 'implemented') {
+    if (record.ongoingCycleId) {
+      const cycle = (await transaction.get(db.collection('pageProgressCycles').doc(record.ongoingCycleId))).data();
+      if (cycle?.userId === userId && cycle.pageUrl === scope.pageUrl && cycle.property === scope.property
+        && (cycle.websiteRunId || null) === scope.websiteRunId && cycle.lifecycle === 'stopped') return;
+    }
     throw new RequestError('This page already has a confirmed change being tracked. Review its progress before checking for new suggestions.', 409);
   }
 }
@@ -206,7 +213,7 @@ async function assertNoActivePublication(transaction, userId, scope) {
 // A check for updates is read-only, but must honor the same setup/publication
 // boundaries as generation. Read the latest checklist in this transaction so a
 // concurrent owner checkbox edit is returned intact rather than overwritten.
-export async function readPageReviewPlanForUpdate(userId, provenance, { expectedReview } = {}) {
+export async function readPageReviewPlanForUpdate(userId, provenance, { expectedReview, monitoringReview } = {}) {
   return db.runTransaction(async transaction => {
     const scope = await readScope(transaction, userId, provenance.pageUrl, { write: true });
     if (scope.property !== provenance.property || scope.websiteRunId !== provenance.websiteRunId) {
@@ -214,6 +221,7 @@ export async function readPageReviewPlanForUpdate(userId, provenance, { expected
     }
     const { plan } = await pageReviewPlanInTransaction(transaction, userId, scope);
     await assertNoActivePublication(transaction, userId, scope);
+    await assertMonitoringReview(transaction, userId, scope.pageUrl, monitoringReview);
     if (expectedReview !== undefined && hash(plan?.review || null) !== hash(expectedReview)) {
       throw new RequestError('A different review was saved while checking this page. Reload to see your current plan.', 409);
     }
@@ -223,7 +231,7 @@ export async function readPageReviewPlanForUpdate(userId, provenance, { expected
 
 // Called only by the authenticated generation service after strict validation.
 // startedAt is set on the server before analysis, never accepted from the client.
-export async function savePageReviewPlan(userId, review, { startedAt = review?.provenance?.generatedAt } = {}) {
+export async function savePageReviewPlan(userId, review, { startedAt = review?.provenance?.generatedAt, monitoringReview } = {}) {
   const provenance = review?.provenance;
   const generationStartedAt = typeof startedAt === 'number' ? startedAt : Date.parse(startedAt);
   if (!provenance || !Array.isArray(review.analysis?.recommendations) || !provenance.contentFingerprint || !Number.isFinite(generationStartedAt) || generationStartedAt > Date.now() + 5000) {
@@ -241,6 +249,7 @@ export async function savePageReviewPlan(userId, review, { startedAt = review?.p
     const existing = snapshot.exists ? snapshot.data() : null;
     assertStoredScope(existing, userId, scope);
     await assertNoActivePublication(transaction, userId, scope);
+    await assertMonitoringReview(transaction, userId, scope.pageUrl, monitoringReview);
     if (existing && generationStartedAt < existing.generationStartedAt) {
       throw new RequestError('A newer review is already saved. Reload to see your current plan.', 409);
     }
@@ -318,7 +327,7 @@ export async function activateFollowUpPlan(userId, { cycleId, decisionId, expect
     const decisionRef = ref.collection('decisions').doc(decisionId);
     const decision = (await tx.get(decisionRef)).data();
     const saved = await pageReviewPlanInTransaction(tx, userId, { ...scope, pageUrl: cycle.pageUrl });
-    if (!decision || decision.cycleId !== cycleId || cycle.latestDecisionId !== decisionId || cycle.lifecycle !== 'active') {
+    if (!decision || decision.cycleId !== cycleId || cycle.latestDecisionId !== decisionId || cycle.lifecycle !== 'active' || !cycleCollectionEnabled(cycle)) {
       throw new RequestError('This review changed. Reload the current result before accepting tasks.', 409);
     }
     if (decision.acceptedAt && saved.plan?.followUp?.decisionId === decisionId) {

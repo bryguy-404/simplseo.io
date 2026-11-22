@@ -54,7 +54,7 @@ export function usableConfirmedChangeActivity(review, { property, pageUrl, websi
     period.queries.every(row => typeof row?.query === 'string' && row.query.trim() && validMetrics(row) && (row.position == null || (Number.isFinite(row.position) && row.position >= 1)));
   return provenance?.reviewVersion === 'follow_up_1' && provenance.property === property && provenance.pageUrl === pageUrl &&
     (provenance.websiteRunId || null) === (websiteRunId || null) && evidence?.source === 'google_search_console' &&
-    evidence.property === property && evidence.pageUrl === pageUrl && evidence.comparisonKind === 'confirmed_change' &&
+    evidence.property === property && evidence.pageUrl === pageUrl && ['confirmed_change', 'monitoring'].includes(evidence.comparisonKind) &&
     typeof evidence.checkpointId === 'string' && Boolean(evidence.checkpointId) && Number.isFinite(Date.parse(evidence.fetchedAt)) &&
     validWindow(evidence.window) && validWindow(evidence.previousWindow) && dayValue(evidence.previousWindow.endDate) < dayValue(evidence.window.startDate) &&
     validPeriod(evidence.current) && validPeriod(evidence.previous) && Array.isArray(evidence.history) && evidence.history.length === 0;

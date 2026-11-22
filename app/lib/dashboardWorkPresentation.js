@@ -1,3 +1,4 @@
+import { cycleStartedAt, isMonitoringCycle } from './pageMonitoring';
 import { progressTimeline } from './progressPresentation';
 
 const clean = value => typeof value === 'string' ? value : '';
@@ -26,6 +27,8 @@ export function mergeDashboardWork(previous = [], incoming = []) {
 }
 
 function cyclePresentation(cycle, now) {
+  const monitoring = isMonitoringCycle(cycle);
+  const startedAt = cycleStartedAt(cycle);
   const checkpoint = cycle.latestCheckpoint;
   const decision = cycle.latestDecision;
   const matching = checkpoint && decision?.checkpointId === (cycle.latestCheckpointId || checkpoint.id)
@@ -34,27 +37,28 @@ function cyclePresentation(cycle, now) {
   const base = { confirmedAt: cycle.confirmedAt, nextReviewAt: cycle.nextReviewAt,
     latestCheckpoint: checkpoint || null, stale: Boolean(cycle.lastError),
     observedAt: checkpoint?.observedAt || checkpoint?.post?.fetchedAt || checkpoint?.collectedAt,
-    sortAt: cycle.confirmedAt, href: pageHref(cycle.pageUrl), actionLabel: 'View progress' };
+    sortAt: startedAt, href: pageHref(cycle.pageUrl), actionLabel: 'View progress' };
   if (issues.length) return { ...base, state: 'attention', priority: 1, tone: 'attention', title: 'A page issue needs a look',
     detail: issues[0].message || issues[0].label || 'Open the verified finding and its repair guidance.', actionLabel: 'Check this issue',
-    sortAt: cycle.technical?.checkedAt || cycle.confirmedAt };
+    sortAt: cycle.technical?.checkedAt || startedAt };
+  if (monitoring && cycle.initialReviewStatus !== 'complete') return { ...base, state: 'unavailable', priority: 2, tone: 'muted', title: 'Monitoring is active', detail: 'Your initial review has not finished. Open the page to retry it.', actionLabel: 'View monitoring' };
   if (checkpoint && !matching && !hasComparison(checkpoint)) return { ...base, state: 'unavailable', priority: 2, tone: 'muted', title: 'More evidence is needed',
     detail: 'Part of the comparison is unavailable. Open the page to check what is missing; any reported numbers remain visible.', actionLabel: 'View available evidence',
-    sortAt: checkpoint.observedAt || cycle.confirmedAt };
+    sortAt: checkpoint.observedAt || startedAt };
   if (checkpoint && !matching) return { ...base, state: 'ready', priority: 2, tone: 'info', title: 'Your results are ready',
     detail: 'Compare the saved periods, then review the next useful step.', actionLabel: 'Review my results',
-    sortAt: checkpoint.createdAt || checkpoint.post?.fetchedAt || cycle.confirmedAt };
+    sortAt: checkpoint.createdAt || checkpoint.post?.fetchedAt || startedAt };
   if (matching && ['improve_page', 'investigate_visibility', 'fix_technical'].includes(decision.outcome) && !decision.acceptedAt) {
     return { ...base, state: 'reviewed', priority: 3, tone: 'info', title: 'Your next step is saved',
-      detail: decision.nextStep || decision.summary || 'Open your saved guidance.', actionLabel: 'View next step', sortAt: decision.reviewedAt || cycle.confirmedAt };
+      detail: decision.nextStep || decision.summary || 'Open your saved guidance.', actionLabel: 'View next step', sortAt: decision.reviewedAt || startedAt };
   }
   const timeline = progressTimeline(cycle, now);
   if (cycle.lastError && !checkpoint) return { ...base, state: 'unavailable', priority: 4, tone: 'muted', title: 'The latest check could not finish',
-    detail: 'Your changes are still saved. Open this page to retry the check.', actionLabel: 'View saved progress' };
+    detail: 'Your saved work is safe. Open this page to retry the check.', actionLabel: 'View saved progress' };
   return { ...base, state: matching ? 'monitoring' : 'collecting', priority: 4, tone: 'info',
-    title: timeline?.due ? 'Waiting for the latest data' : matching ? 'Keep monitoring this page' : 'Collecting data',
+    title: timeline?.due ? 'Waiting for the latest data' : matching ? (monitoring && decision.outcome === 'keep_monitoring' ? 'No changes recommended' : 'Keep monitoring this page') : 'Collecting data',
     detail: matching ? decision.nextStep || decision.summary || 'Your current guidance is saved while the next period develops.'
-      : 'Your changes are confirmed. Search activity needs time to develop.' };
+      : monitoring ? 'Monitoring is active. We’re collecting search activity for this page.' : 'Your changes are confirmed. Search activity needs time to develop.' };
 }
 
 function legacyPresentation(record, now) {
@@ -63,6 +67,7 @@ function legacyPresentation(record, now) {
   const base = { confirmedAt: record.implementedAt, nextReviewAt: record.nextReviewAt || assessment.nextReviewAt,
     latestCheckpoint: assessment.baseline && assessment.post ? { windows: assessment.windows, baseline: assessment.baseline, post: assessment.post } : null,
     sortAt: record.implementedAt, href: pageHref(record.pageUrl), actionLabel: 'View progress', priority: 4, tone: 'info' };
+  if (record.monitoringStopped) return { ...base, state: 'stopped', tone: 'muted', title: 'Monitoring stopped', detail: 'Your earlier results remain saved. Open the page to restart monitoring.', actionLabel: 'View saved history' };
   if (record.activeCycleLookupFailed || record.activeCycleConflict) return { ...base, state: 'unavailable', tone: 'muted', title: 'Saved progress needs another check', detail: 'Open the page to load its current tracking state.' };
   if (['ready', 'insufficient_data'].includes(assessment.state) && hasComparison(base.latestCheckpoint)) return { ...base, state: 'ready', priority: 2, title: 'Your comparison is ready', detail: assessment.state === 'insufficient_data' ? 'Activity is limited, but you can review the reported numbers.' : 'View the saved activity before choosing another change.', actionLabel: 'View results' };
   if (assessment.state === 'insufficient_data' && base.latestCheckpoint) return { ...base, state: 'unavailable', tone: 'muted', title: 'More evidence is needed', detail: 'A complete comparison is unavailable. Open the page to see its saved observations.', actionLabel: 'View available evidence' };
@@ -81,7 +86,8 @@ export function dashboardWorkPresentation(group, now = new Date()) {
     detail: 'More than one active record was found. Open the page to inspect its saved history.', href: pageHref(pageUrl), actionLabel: 'View saved progress', sortAt: null };
   let result = cycle ? cyclePresentation(cycle, now) : legacy ? legacyPresentation(legacy, now) : null;
   const pending = (plan?.taskCounts?.todo || 0) + (plan?.taskCounts?.needs_review || 0);
-  if (pending && (!result || result.priority >= 3)) result = { ...result, state: 'working', priority: 3, tone: 'info',
+  const leaveAlone = isMonitoringCycle(cycle) && cycle.latestDecision?.outcome === 'keep_monitoring';
+  if (pending && !leaveAlone && (!result || result.priority >= 3)) result = { ...result, state: 'working', priority: 3, tone: 'info',
     title: 'Continue your page improvements', detail: `${pending} saved ${pending === 1 ? 'task is' : 'tasks are'} ready to review.`,
     actionLabel: 'Continue working', href: pageHref(pageUrl), sortAt: plan.updatedAt };
   if (result) return { ...base, ...result };

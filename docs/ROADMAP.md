@@ -153,3 +153,7 @@ See [Phase 8](PHASE8.md) for architecture, pilot switches, rollback and live che
 The full Mentor and widget share authoritative saved account evidence, retrieved official Google guidance, protected conversations and explicit one-page observation checks. General SEO help works without Google access; personalized statements must remain tied to available evidence and dates. Chat cannot change the business profile, tasks, publication confirmations or tracking cycles.
 
 The implementation, controls, initial evaluation results and remaining release checkpoints are in [Phase 9](PHASE9.md). The model is GPT-6.1 Sol with a $25 monthly pilot budget, including at most $10 for evaluation. No automatic model fallback, fine-tuning, Firecrawl dependency or background generation is added. Citation-quality repair checks passed; production access remains restricted to Bryan until the real-account checkpoints are reviewed.
+
+## Phase 12 Monitoring an existing page
+
+**Monitor this page** starts observation and an initial review without requiring an edit. Available historical periods are compared immediately; later comparisons and verified technical issues reuse the existing progress and notification workflow. Subsequent AI reviews remain manual. Stopping preserves history, and confirming a real publication replaces monitoring with published-change tracking atomically. See [Phase 12](PHASE12.md) for behavior, pilot controls, verification and remaining live observations.

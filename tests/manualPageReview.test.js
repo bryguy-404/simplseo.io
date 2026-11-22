@@ -116,7 +116,7 @@ describe('current website page review', () => {
     expect(response.status).toBe(200);
     const result = await response.json();
     expect(result).toMatchObject({ ...draft, currentPage: { htmlTitle: 'Custom Web Design | Example Studio', url: pageUrl } });
-    expect(publicFetch).toHaveBeenCalledWith(pageUrl, { property: mocks.property });
+    expect(publicFetch).toHaveBeenCalledWith(pageUrl, expect.objectContaining({ property: mocks.property }));
     expect(mocks.create).toHaveBeenCalledTimes(2);
     const providerInput = mocks.create.mock.calls[1][0];
     expect(providerInput).toMatchObject({ model: PAGE_REVIEW_MODEL, store: false, text: { format: { type: 'json_schema', strict: true } } });

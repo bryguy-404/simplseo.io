@@ -95,8 +95,8 @@ test('authoritative assessments cannot be fabricated, changed, removed or delete
   expect((await patch(request, path, { userId: uid, pageUrl: 'https://example.test/page', progressAssessment: { status: 'insufficient_data' } }, false)).status()).toBe(403);
 });
 
-test('ongoing cycles, observations and decisions are server-owned even for the account owner', async ({ request }) => {
-  for (const path of [`pageProgressCycles/${uid}`, `pageProgressCycles/${uid}/observations/baseline`, `pageProgressCycles/${uid}/decisions/fake`]) {
+test('ongoing cycles, monitoring identity, observations and decisions are server-owned even for the account owner', async ({ request }) => {
+  for (const path of [`pageTrackingStates/${uid}`, `pageProgressCycles/${uid}`, `pageProgressCycles/${uid}/observations/baseline`, `pageProgressCycles/${uid}/decisions/fake`]) {
     await app.firestore().doc(path).set({ userId: uid, revision: 1 });
     expect((await read(request, path)).status()).toBe(403);
     expect((await patch(request, path, { userId: uid, revision: 2 })).status()).toBe(403);

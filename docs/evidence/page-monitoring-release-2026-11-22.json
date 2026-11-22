@@ -1,0 +1,83 @@
+{
+  "verifiedAt": "2026-11-22T07:36:29.859Z",
+  "branch": "codex/monitor-this-page",
+  "baseCommit": "e5e424a05919192dce2d0c73240508c6b28d38c6",
+  "application": {
+    "implementedLocally": true,
+    "uploaded": false,
+    "deployed": false,
+    "previousDeployment": "dpl_BVL1iG12aBr5dB2f2yG5Ks52eBpA",
+    "project": "simplseo-io",
+    "productionUrl": "https://simpl-seo.com",
+    "featureFlagsChanged": false
+  },
+  "checks": {
+    "unitFiles": 74,
+    "uniqueUnitTestsPassed": 1322,
+    "fullUnitSuitePassed": 1321,
+    "additionalFollowUpSuite": {
+      "passed": 21,
+      "newTests": 1
+    },
+    "uniqueBrowserApiScenariosPassed": 72,
+    "build": "passed with isolated demo configuration",
+    "lintErrors": 0,
+    "existingLintWarnings": true,
+    "mobileVisualReview": "passed"
+  },
+  "firestore": {
+    "project": "simpleseo-90570",
+    "rules": "compiled and released",
+    "indexesSubmitted": true,
+    "indexes": {
+      "checkedAt": "2026-11-22T07:35:54.649Z",
+      "indexes": [
+        {
+          "state": "CREATING",
+          "fields": [
+            "userId",
+            "lifecycle",
+            "nextCheckAt",
+            "confirmedAt",
+            "__name__"
+          ]
+        },
+        {
+          "state": "CREATING",
+          "fields": [
+            "lifecycle",
+            "nextCheckAt",
+            "confirmedAt",
+            "__name__"
+          ]
+        }
+      ]
+    }
+  },
+  "savedWork": {
+    "capturedAt": "2026-11-22T07:35:34.983Z",
+    "savedRecords": 201,
+    "fingerprint": "f819a75ec1bd6338bd22836024f7faba16533cf7ab563abffd59b7c9fb959c57",
+    "readOnly": true,
+    "unchangedDuringVerification": true
+  },
+  "ownerActions": {
+    "pagesEnrolled": 0,
+    "reviewsGenerated": 0,
+    "publicationsRecorded": 0,
+    "emailsSent": 0
+  },
+  "releaseBlock": {
+    "source": "automatic approval review",
+    "action": "GitHub create_tree source upload",
+    "reason": "External source upload requires explicit user authorization before a commit/review boundary.",
+    "retriedThroughAnotherRoute": false
+  },
+  "remaining": [
+    "Authorize reviewed GitHub upload and pilot application deployment",
+    "Verify new indexes are READY",
+    "Deploy and run read-only live application checks",
+    "Verify actual scheduled monitoring after real owner enrollment",
+    "Observe later completed periods and real monthly reminders"
+  ]
+}

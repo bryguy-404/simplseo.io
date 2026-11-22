@@ -1,4 +1,5 @@
 import { searchWindow } from './searchWindow';
+import { isMonitoringCycle } from './pageMonitoring';
 
 const day = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
   && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
@@ -49,12 +50,12 @@ export function followUpEvidence(cycle, currentPage, now = new Date()) {
   previous.queries.slice(0, 40).forEach((row, index) => facts.push({ id: `B${index + 1}`, kind: 'search', label: 'Reported earlier-period query',
     text: `Exact page ${cycle.pageUrl}; ${windows.baseline.startDate} through ${windows.baseline.endDate}; ${JSON.stringify(row)}. An omitted query is not measured zero.` }));
   return { source: 'google_search_console', property: cycle.property, pageUrl: cycle.pageUrl,
-    window: windows.post, previousWindow: windows.baseline, comparisonKind: 'confirmed_change',
+    window: windows.post, previousWindow: windows.baseline, comparisonKind: isMonitoringCycle(cycle) ? 'monitoring' : 'confirmed_change',
     fetchedAt: checkpoint.observedAt, checkpointId: checkpoint.id, evidenceRevision: checkpoint.evidenceRevision || 1,
     status: [current, previous].every(period => period.totalsStatus !== 'unavailable' && period.queriesStatus !== 'unavailable') ? 'available' : 'partial',
     current, previous, history: [], relatedPages: [], relatedPagesStatus: 'not_requested',
     selectedPhrase: { value: cycle.confirmation?.searchFocus?.phrase || '', source: 'provided' }, facts,
-    limitations: ['These are the same saved observations displayed in this confirmed-change checkpoint. They are not a controlled causal test.',
+    limitations: [isMonitoringCycle(cycle) ? 'These are saved monitoring observations. Enrollment is not a published edit and does not explain traffic changes.' : 'These are the same saved observations displayed in this confirmed-change checkpoint. They are not a controlled causal test.',
       'Queries were requested with the same page, web-search and final-data filters and the exact comparison dates. The returned query lists may differ and are incomplete.',
       'Google omits some queries. Missing rows are not zero, and sums of query rows need not equal page totals. Name-like phrases can be ambiguous.',
       'Average position is an aggregate over reported appearances, not a fixed Google results-page number. Sparse data supports only tentative interpretation.'],

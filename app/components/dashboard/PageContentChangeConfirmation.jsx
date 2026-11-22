@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { doc, getDoc } from 'firebase/firestore';
 import { CheckCircle2 } from 'lucide-react';
+import { isMonitoringCycle } from '../../lib/pageMonitoring';
 import { authenticatedFetch } from '../../lib/authenticatedFetch';
 import { db } from '../../lib/firebaseConfig';
 import { seoImplementationId } from '../../lib/pageTaskFlow';
@@ -126,7 +127,7 @@ function SelectedTaskConfirmation({ pageUrl, provenance, plan, selectedTaskIds =
     {loading && <p role="status" className="mt-3 text-xs text-muted-foreground">Checking existing progress…</p>}
     {statusError && <p role="alert" className="mt-3 text-sm text-destructive">Progress status is unavailable. Retry the progress check before confirming.</p>}
     {error && !confirmOpen && <p role="alert" className="mt-3 text-sm text-destructive">{error}</p>}
-    <Dialog open={confirmOpen} onOpenChange={value => { if (!busy) setConfirmOpen(value); }}><DialogContent className="max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>Are these changes live on your website?</DialogTitle><DialogDescription>{previousCycle ? "Another published edit starts a new tracking cycle today. Your earlier edits and results stay saved, but this new edit can affect how their results are interpreted. Confirm only changes that are already live." : "Confirming edits you haven’t published would make the comparison misleading. Only continue when these edits are live; today starts tracking."}</DialogDescription></DialogHeader>
+    <Dialog open={confirmOpen} onOpenChange={value => { if (!busy) setConfirmOpen(value); }}><DialogContent className="max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>Are these changes live on your website?</DialogTitle><DialogDescription>{isMonitoringCycle(previousCycle) ? "This starts tracking your published edits today. Your earlier monitoring results stay saved. Confirm only changes that are already live." : previousCycle ? "Another published edit starts a new tracking cycle today. Your earlier edits and results stay saved, but this new edit can affect how their results are interpreted. Confirm only changes that are already live." : "Confirming edits you haven’t published would make the comparison misleading. Only continue when these edits are live; today starts tracking."}</DialogDescription></DialogHeader>
       <a href={pageUrl} target="_blank" rel="noopener noreferrer" className="break-all text-sm underline">{pageUrl}<span className="sr-only"> (opens in a new tab)</span></a>
       <ul className="list-disc space-y-1 pl-5 text-sm">{selectedTasks.map(task => <li key={task.id}>{task.recommendation.label}</li>)}</ul>
       <div className="space-y-2"><Label htmlFor={`${id}-summary`}>What did you publish?</Label><Textarea id={`${id}-summary`} value={summary} maxLength={600} disabled={busy} onChange={event => { setSummary(event.target.value); setPublished(false); }} /><p className="text-xs text-muted-foreground">Adjust this summary to describe your actual edits.</p></div>

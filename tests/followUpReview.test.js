@@ -54,6 +54,29 @@ beforeEach(async () => {
 });
 
 describe('scoped follow-up service and API', () => {
+  it('reviews an unedited monitored page with historical periods and no fictional publication', async () => {
+    vi.stubEnv('PAGE_MONITORING_ENABLED', 'true');
+    try {
+      const cycle = (await ref().get()).data();
+      delete cycle.confirmedAt; delete cycle.confirmation;
+      cycle.mode = 'monitoring'; cycle.startedAt = new Date().toISOString();
+      cycle.observationAnchorDay = cycle.latestCheckpoint.windows.post.endDate;
+      cycle.initialReviewStatus = 'complete';
+      cycle.latestCheckpoint.windows.comparisonKind = 'monitoring';
+      await ref().set(cycle);
+      control.payload.meaning = 'These observations describe search activity; they do not establish its cause.';
+      const result = await runFollowUpReview('alice', action());
+      expect(result.decision.outcome).toBe('keep_monitoring');
+      expect(result.cycle).not.toHaveProperty('confirmedAt');
+      const modelInput = JSON.parse(control.create.mock.calls[0][0].input.at(-1).content);
+      expect(modelInput).toMatchObject({ cycleMode: 'monitoring', confirmedChange: null, monitoring: { startedAt: cycle.startedAt } });
+      const saved = (await ref().collection('decisions').doc(result.decision.id).get()).data();
+      expect(saved.review.evidence.comparisonKind).toBe('monitoring');
+      expect(saved.review.timeline).toEqual([]);
+      expect((await db.collection('pageReviewPlans').doc(planId).get()).data()).toEqual(control.plan);
+    } finally { vi.unstubAllEnvs(); }
+  });
+
   it('retains the prior decision when confirmed business facts change during generation', async () => {
     const first = await runFollowUpReview('alice', action());
     control.context.currentPage.textContent += ' A new page detail.';

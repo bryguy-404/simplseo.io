@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from 'react';
+import { isMonitoringCycle } from '../../lib/pageMonitoring';
 import { authenticatedFetch } from '../../lib/authenticatedFetch';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -37,14 +38,14 @@ export default function AdditionalPageChange({ cycle, provenance, disabled, onCo
     } catch (failure) { if (!controller.signal.aborted) setError(`We could not confirm the save. ${failure.message}`); }
     finally { if (!controller.signal.aborted) setBusy(false); }
   };
-  return <details className="mb-6 rounded-xl border p-5 text-sm"><summary className="cursor-pointer font-medium">Published a different edit?</summary><div className="mt-4 space-y-4">
+  return <details className="mb-6 rounded-xl border p-5 text-sm"><summary id="published-other-edit" className="cursor-pointer font-medium">Published a different edit?</summary><div className="mt-4 space-y-4">
     <p className="text-muted-foreground">Use this for a real edit you published outside the saved tasks. You do not need to record a new edit to keep monitoring.</p>
     <Label htmlFor={`${id}-summary`}>What did you actually publish?</Label><Textarea id={`${id}-summary`} value={summary} maxLength={600} disabled={busy || disabled} onChange={event => { setSummary(event.target.value); setPublished(false); }} />
     <Button variant="outline" disabled={!ready} onClick={() => { setPublished(false); setOpen(true); }}>Review this published edit</Button>
     {error && !open && <p role="alert" className="text-destructive">{error}</p>}
-  </div><Dialog open={open} onOpenChange={value => { if (!busy) setOpen(value); }}><DialogContent><DialogHeader><DialogTitle>Is this additional edit live?</DialogTitle><DialogDescription>Another published edit starts a new tracking cycle today. Your earlier edits and results stay saved, but this new edit can affect how their results are interpreted.</DialogDescription></DialogHeader>
+  </div><Dialog open={open} onOpenChange={value => { if (!busy) setOpen(value); }}><DialogContent><DialogHeader><DialogTitle>{isMonitoringCycle(cycle) ? 'Is this edit live?' : 'Is this additional edit live?'}</DialogTitle><DialogDescription>{isMonitoringCycle(cycle) ? 'This starts tracking the published edit today. Your earlier monitoring results stay saved.' : 'Another published edit starts a new tracking cycle today. Your earlier edits and results stay saved, but this new edit can affect how their results are interpreted.'}</DialogDescription></DialogHeader>
     <a href={cycle.pageUrl} target="_blank" rel="noopener noreferrer" className="break-all text-sm underline">{cycle.pageUrl}</a><p className="whitespace-pre-wrap text-sm">{summary.trim()}</p>
-    <div className="flex items-start gap-2 rounded-lg border p-3"><Checkbox id={`${id}-live`} checked={published} disabled={busy || disabled} onCheckedChange={value => setPublished(value === true)} /><Label htmlFor={`${id}-live`} className="leading-5">I confirm this additional edit is live on this exact page.</Label></div>
-    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}<DialogFooter><Button variant="outline" disabled={busy} onClick={() => setOpen(false)}>Not yet</Button><Button disabled={!ready || !published} onClick={confirm}>{busy ? 'Saving…' : 'Yes, track this additional edit'}</Button></DialogFooter>
+    <div className="flex items-start gap-2 rounded-lg border p-3"><Checkbox id={`${id}-live`} checked={published} disabled={busy || disabled} onCheckedChange={value => setPublished(value === true)} /><Label htmlFor={`${id}-live`} className="leading-5">I confirm this edit is live on this exact page.</Label></div>
+    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}<DialogFooter><Button variant="outline" disabled={busy} onClick={() => setOpen(false)}>Not yet</Button><Button disabled={!ready || !published} onClick={confirm}>{busy ? 'Saving…' : isMonitoringCycle(cycle) ? 'Yes, track this edit' : 'Yes, track this additional edit'}</Button></DialogFooter>
   </DialogContent></Dialog></details>;
 }

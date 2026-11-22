@@ -182,6 +182,7 @@ service cloud.firestore {
     match /gscOAuthStates/{path=**} { allow read, write: if false; }
     match /progressJobs/{path=**} { allow read, write: if false; }
     match /pageProgressCycles/{path=**} { allow read, write: if false; }
+    match /pageTrackingStates/{path=**} { allow read, write: if false; }
     match /requestLimits/{path=**} { allow read, write: if false; }
     match /aiUsageEvents/{path=**} { allow read, write: if false; }
     match /cronRuns/{path=**} { allow read, write: if false; }

@@ -8,7 +8,7 @@ import { readPageReviewPlan, pageReviewPlanInTransaction, publishedPageTaskPlan,
 import { reviewCycleArchiveRef } from './pageReviewCycle';
 import { cycleTimestamp } from '../progressAssessment';
 import { ongoingReviewEnabled } from './ongoingReviewFeature';
-import { prepareOngoingConfirmation } from './ongoingProgress';
+import { prepareOngoingConfirmation, ongoingCycleRef } from './ongoingProgress';
 
 function confirmationText(value, name, maxLength) {
   if (!usableSuggestion(value) || value.trim().length > maxLength || /[\r\n]|<[^>]*>|\[[^\]]*\]/.test(value)) {
@@ -98,6 +98,9 @@ export async function confirmPageReview(userId, input) {
     if (currentHistoryRef && !history.data()?.complete) throw new RequestError('Previous website work is still being preserved. Try again shortly.', 409);
 
     const previous = existing.data();
+    const priorCycle = previous?.ongoingCycleId ? (await tx.get(ongoingCycleRef(previous.ongoingCycleId))).data() : null;
+    const previousStopped = priorCycle?.lifecycle === 'stopped' && priorCycle.userId === userId && priorCycle.pageUrl === pageUrl
+      && priorCycle.property === property && (priorCycle.websiteRunId || null) === provenance.websiteRunId;
     if (previous?.ongoingCycleId && !previous.preRevampArchived && previous.status !== 'implemented') {
       throw new RequestError('This saved review needs to be reloaded before another change can be confirmed.', 409);
     }
@@ -112,15 +115,15 @@ export async function confirmPageReview(userId, input) {
           : previous.title === title && previous.description === description)
         && JSON.stringify([...(previous.confirmedTaskIds || [])].sort()) === JSON.stringify([...taskIds].sort());
       if ((previous.websiteRunId || null) !== provenance.websiteRunId || previous.gscProperty !== property
-        || (!sameChange && !replacingCycle)) {
+        || (!sameChange && !replacingCycle && !previousStopped)) {
         throw new RequestError('This page already has a confirmed change being tracked. Review its progress before starting another change.', 409);
       }
-      if (sameChange && hasTaskSelection && (!saved.plan || previous.sourcePlanId !== saved.plan.id || previous.sourcePlanRevision !== input.planRevision ||
+      if (sameChange && !previousStopped && hasTaskSelection && (!saved.plan || previous.sourcePlanId !== saved.plan.id || previous.sourcePlanRevision !== input.planRevision ||
         taskIds.some(taskId => !saved.plan.tasks.some(task => task.id === taskId && task.publication?.implementedAt === previous.implementedAt && task.publication?.implementationId === id)))) {
         throw new RequestError('Your task list changed. Reload it to see the changes already being tracked.', 409);
       }
-      if (sameChange) return { record: { ...previous, id }, alreadyConfirmed: true, ...(saved ? { plan: publicPageReviewPlan(saved.plan) } : {}) };
-      if (replacingCycle && previous.ongoingCycleId !== input.previousCycleId) throw new RequestError('This is no longer the active page review. Reload before confirming.', 409);
+      if (sameChange && !previousStopped) return { record: { ...previous, id }, alreadyConfirmed: true, ...(saved ? { plan: publicPageReviewPlan(saved.plan) } : {}) };
+      if (replacingCycle && !previousStopped && previous.ongoingCycleId !== input.previousCycleId) throw new RequestError('This is no longer the active page review. Reload before confirming.', 409);
       replaceArchive = reviewCycleArchiveRef(recordRef, previous.implementedAt);
       if ((await tx.get(replaceArchive)).exists) throw new RequestError('This earlier comparison was already saved. Reload before continuing.', 409);
     }

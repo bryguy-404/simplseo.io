@@ -41,6 +41,7 @@ function currentRecord(data, onboarding, property) {
 }
 function displayRecord(id, data, property) {
   return { id, pageUrl: data.pageUrl, implementedAt: cycleDate(data.implementedAt), websiteRunId: data.websiteRunId || null, property,
+    ongoingCycleId: data.ongoingCycleId || null,
     confirmedTaskIds: Array.isArray(data.confirmedTaskIds) ? data.confirmedTaskIds : [],
     confirmedTaskLabels: Array.isArray(data.confirmedTaskLabels) ? data.confirmedTaskLabels : [],
     ...(data.changeType === 'page_content'
@@ -89,13 +90,22 @@ export async function readProgress(uid, now = new Date(), { pageUrl } = {}) {
   let ongoing;
   try { ongoing = await readOngoingProgress(uid, { pageUrl }); }
   catch { ongoing = { enabled: ongoingReviewEnabled(uid), records: [], history: [], nextCursor: null, error: 'Saved ongoing reviews could not be loaded.' }; }
+  // A stopped publication remains an honest historical record, never an active
+  // legacy comparison. Resolve its exact ID even if history is paginated.
+  const stopped = new Set();
+  await Promise.all(snapshot.docs.filter(doc => currentRecord(doc.data(), onboarding, property) && (!pageUrl || doc.data().pageUrl === pageUrl) && /^[a-f0-9]{64}$/.test(doc.data().ongoingCycleId || '')).map(async doc => {
+    const record = doc.data();
+    const cycle = (await db.collection('pageProgressCycles').doc(record.ongoingCycleId).get()).data();
+    if (cycle?.userId === uid && cycle.pageUrl === record.pageUrl && cycle.property === property
+      && (cycle.websiteRunId || null) === (onboarding?.revampRunId || null) && cycle.lifecycle === 'stopped') stopped.add(doc.id);
+  }));
   return {
     schemaVersion: PROGRESS_SCHEMA_VERSION, source: PROGRESS_SOURCE, property,
     paused: progressIsPaused(onboarding), pauseReason: progressIsPaused(onboarding) ? 'account_review_required' : null,
     policy: PROGRESS_POLICY, notificationsEnabled: false, automaticOutcomesEnabled: false,
     websiteRunId: onboarding?.revampRunId || null,
     ...previousComparisons, ongoing,
-    records: snapshot.docs.filter(doc => currentRecord(doc.data(), onboarding, property)).map(doc => {
+    records: snapshot.docs.filter(doc => currentRecord(doc.data(), onboarding, property) && !stopped.has(doc.id) && (!pageUrl || doc.data().pageUrl === pageUrl)).map(doc => {
       const data = doc.data();
       return { ...displayRecord(doc.id, data, property),
         canStartNextCycle: onboarding?.isComplete === true && !progressIsPaused(onboarding) && !onboarding?.revampArchivePending && progressCycleIsReviewable(data, property, onboarding?.revampRunId, now),

@@ -1,6 +1,8 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { db } from '../firebaseAdmin';
-import { comparisonWindows, ongoingCheckpointWindows, cycleTimestamp } from '../progressAssessment';
+import { comparisonWindows, cycleTimestamp } from '../progressAssessment';
+import { cycleCheckpointWindows, isMonitoringCycle } from '../pageMonitoring';
+import { pageMonitoringEnabled } from './pageMonitoringFeature';
 import { propertyContainsUrl } from '../revampState';
 import { RequestError } from './requestAuth';
 import { assertNotificationScope, notificationEnabled, notificationEventsEnabled, readNotificationScope } from './notificationScope';
@@ -73,8 +75,9 @@ function technicalRecoveryObservedAt(collection, source, code) {
 export function notificationCheckpointAvailable(cycle, now = new Date()) {
   const point = cycle?.latestCheckpoint;
   return cycle?.lifecycle === 'active' && point?.source === 'google_search_console' && point.state === 'available'
+    && (!isMonitoringCycle(cycle) || (pageMonitoringEnabled(cycle.userId) && point.day > 0))
     && point.id === `day-${point.day}` && date(point.observedAt) && point.observedAt <= now.toISOString()
-    && matchingPeriods(point, ongoingCheckpointWindows(cycle.confirmedAt, point.day, now));
+    && matchingPeriods(point, cycleCheckpointWindows(cycle, point.day, now));
 }
 export function notificationPublicationMilestone(publication, now = new Date()) {
   if (publication?.trackingEnabled !== true || !date(publication.verifiedAt) || !date(publication.ownerDeclaredAt)
@@ -90,6 +93,7 @@ function eventBase(scope, source, collection, id, now) {
 }
 export function notificationCandidates(scope, collection, id, source, now = new Date()) {
   if (!sameScope(source, scope) || source.preRevampArchived) return [];
+  if (collection === 'pageProgressCycles' && isMonitoringCycle(source) && !pageMonitoringEnabled(source.userId)) return [];
   const base = eventBase(scope, source, collection, id, now), candidates = [];
   if (collection === 'pageProgressCycles' && notificationCheckpointAvailable(source, now) && !reviewed(source, source.latestCheckpoint.id)) {
     const point = source.latestCheckpoint;
@@ -143,6 +147,7 @@ async function eligibility(event, { tx, scope, now = new Date() } = {}) {
   }
   if (!SOURCES.includes(event.source?.collection) || !validId(event.source?.id)) return { eligible: false, reason: 'superseded' };
   const source = await get(event.source.collection, event.source.id, tx);
+  if (isMonitoringCycle(source) && !pageMonitoringEnabled(event.userId)) return { eligible: false, reason: 'disabled' };
   if (!sameScope(source, scope) || source.preRevampArchived || (source.lifecycle && source.lifecycle !== 'active')) return { eligible: false, reason: 'superseded' };
   if (event.type === 'results_ready' && event.source.collection === 'pageProgressCycles') {
     if (source.latestCheckpoint?.id !== event.source.checkpointId) return { eligible: false, reason: 'superseded' };

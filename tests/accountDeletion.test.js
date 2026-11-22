@@ -58,6 +58,8 @@ describe('account data deletion', () => {
       'pageReviewPlans/old-run-alice': { userId: 'alice' },
       'pageReviewPlans/current-bob': { userId: 'bob', keep: true },
       'pageProgressCycles/current-alice': { userId: 'alice' },
+      'pageTrackingStates/current-alice': { userId: 'alice' },
+      'pageTrackingStates/current-bob': { userId: 'bob', keep: true },
       'pageProgressCycles/current-alice/checkpoints/28': { clicks: 1 },
       'pageProgressCycles/current-bob': { userId: 'bob', keep: true },
       'aiUsageEvents/alice-research': { userId: 'alice', inputTokens: 100 },
@@ -154,6 +156,7 @@ describe('account data deletion', () => {
         store.records.set('newPageInventories/in-flight', { userId: 'alice' });
         store.records.set('newPageInventories/in-flight/pages/example', { text: 'owned page' });
         store.records.set('pageProgressCycles/in-flight', { userId: 'alice' });
+        store.records.set('pageTrackingStates/in-flight', { userId: 'alice' });
         store.records.set('pageProgressCycles/in-flight/decisions/one', { userId: 'alice' });
         store.records.set('mentorBudgetReservations/in-flight', { userId: 'alice' });
         store.records.set('conversations/in-flight', { userId: 'alice' });

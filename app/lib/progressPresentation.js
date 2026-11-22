@@ -1,4 +1,5 @@
 import { pacificDay, PROGRESS_POLICY, shiftDay } from './progressAssessment';
+import { cycleStartedAt } from './pageMonitoring';
 
 const DAY_MS = 86400000;
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
@@ -33,7 +34,7 @@ const daysBetween = (start, end) => (Date.parse(`${end}T12:00:00Z`) - Date.parse
 
 /** Presentation only: reaching the scheduled day does not prove data is ready. */
 export function progressTimeline(cycle, now = new Date()) {
-  const confirmed = presentationDate(cycle?.confirmedAt);
+  const confirmed = presentationDate(cycleStartedAt(cycle));
   const target = presentationDate(cycle?.nextReviewAt);
   const current = presentationDate(now);
   if (!confirmed || !target || !current || confirmed.day > current.day || target.day <= confirmed.day

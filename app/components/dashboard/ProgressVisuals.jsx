@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, Eye, Minus, MousePointer2, Search } from 'lucide-react';
+import { isMonitoringCycle } from '../../lib/pageMonitoring';
 import { progressTimeline, resultMetrics } from '../../lib/progressPresentation';
 
 export const progressDate = value => {
@@ -40,8 +41,12 @@ export function ElapsedProgress({ cycle }) {
     return () => clearInterval(timer);
   }, []);
   const timeline = progressTimeline(cycle, now);
+  if (isMonitoringCycle(cycle) && !cycle.latestCheckpoint) return <div className="space-y-2 rounded-xl border bg-background/40 p-4">
+    <p className="font-medium">Checking available search history</p>
+    <p className="text-sm text-muted-foreground">The first comparison uses the latest two complete 28-day periods already available from Google. You don’t need to wait a month to use existing data.</p>
+  </div>;
   if (!timeline) return <p className="text-sm text-muted-foreground">The tracking dates could not be displayed. Reload saved progress to check them.</p>;
-  const elapsed = `${plural(timeline.elapsedDays, 'day')} since your changes`;
+  const elapsed = `${plural(timeline.elapsedDays, 'day')} since ${isMonitoringCycle(cycle) ? 'monitoring started' : 'your changes'}`;
   const waiting = timeline.due;
   const remaining = waiting ? 'Waiting for the latest search data' : `${plural(timeline.daysRemaining, 'day')} until the ${cycle.latestCheckpoint ? 'next' : 'first'} comparison`;
   return <div className="space-y-3 rounded-xl border bg-background/40 p-4">
@@ -49,7 +54,7 @@ export function ElapsedProgress({ cycle }) {
     <div role="progressbar" aria-label="Time until next comparison" aria-valuemin={0} aria-valuemax={100} aria-valuenow={timeline.percent} aria-valuetext={`${elapsed}. ${remaining}.`} className="h-2.5 overflow-hidden rounded-full bg-muted">
       <div className={`h-full rounded-full ${waiting ? 'bg-sky-500' : 'bg-emerald-500'}`} style={{ width: `${timeline.percent}%` }} />
     </div>
-    <p className="text-xs text-muted-foreground">{waiting ? 'Your changes remain tracked. The comparison will appear after collection finishes.' : 'We’re collecting search activity. You can work on another page while you wait.'}</p>
+    <p className="text-xs text-muted-foreground">{waiting ? 'Your page remains tracked. The comparison will appear after collection finishes.' : 'We’re collecting search activity. You can work on another page while you wait.'}</p>
   </div>;
 }
 
@@ -87,7 +92,7 @@ export function SearchResultCards({ checkpoint, previous = false }) {
     })}</div>
     <ResultsSummary metrics={metrics} previous={previous} />
     {checkpoint.lowVolume && totalsAvailable && <p className="text-xs text-muted-foreground">A small amount of activity so far. More time will help confirm the direction.</p>}
-    <p className="text-xs text-muted-foreground">Before: {progressDate(before?.startDate)}–{progressDate(before?.endDate)} · After: {progressDate(after?.startDate)}–{progressDate(after?.endDate)}</p>
+    <p className="text-xs text-muted-foreground">{checkpoint.windows?.comparisonKind === 'monitoring' ? 'Previous period' : 'Before'}: {progressDate(before?.startDate)}–{progressDate(before?.endDate)} · {checkpoint.windows?.comparisonKind === 'monitoring' ? 'Current period' : 'After'}: {progressDate(after?.startDate)}–{progressDate(after?.endDate)}</p>
     {previous && (checkpoint.post?.fetchedAt || checkpoint.observedAt || checkpoint.createdAt) && <p className="text-xs text-muted-foreground">Last observed {progressDate(checkpoint.post?.fetchedAt || checkpoint.observedAt || checkpoint.createdAt)}.</p>}
   </div>;
 }

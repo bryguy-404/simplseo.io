@@ -1,13 +1,16 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { db } from '../firebaseAdmin';
 import { propertyContainsUrl } from '../revampState';
-import { compareObservations, comparisonWindows, cycleTimestamp, latestEligibleCheckpointDay, nextOngoingReviewDay, ongoingCheckpointWindows, pacificDay, PROGRESS_POLICY, shiftDay } from '../progressAssessment';
+import { compareObservations, comparisonWindows, cycleTimestamp, nextOngoingReviewDay, pacificDay, PROGRESS_POLICY, shiftDay } from '../progressAssessment';
 import { RequestError } from './requestAuth';
 import { getGscConnection } from './gscConnection';
 import { fetchPageObservation } from './pageObservation';
 import { fetchCurrentPageContent } from './scrapeContent';
 import { ongoingReviewEnabled } from './ongoingReviewFeature';
 import { reconcileNotificationSource } from './notificationEvents';
+import { cycleCheckpointWindows, cycleStartedAt, firstCheckpointDay, isMonitoringCycle, latestCycleCheckpointDay, nextCycleReviewDay } from '../pageMonitoring';
+import { cycleCollectionEnabled, pageMonitoringEnabled } from './pageMonitoringFeature';
+import { readPageTrackingIdentity } from './pageTrackingIdentity';
 
 const DAY = 86400000;
 const COLLECTION = 'pageProgressCycles';
@@ -57,10 +60,11 @@ export function publicOngoingCycle(data, { readOnly = false } = {}) {
     && decision?.checkpointRevision === data.latestCheckpoint?.evidenceRevision;
   return { ...visible, id: data.id, cycleId: data.id,
     ...(decision ? { latestDecision: { ...decision, canAcceptTasks: decision.canAcceptTasks === true && decisionMatchesCheckpoint
-      && !readOnly && ongoingReviewEnabled(userId) && data.lifecycle === 'active' } } : {}),
+      && !readOnly && cycleCollectionEnabled(data) && data.lifecycle === 'active' } } : {}),
     state: data.lifecycle !== 'active' ? data.lifecycle : data.lastError ? 'error' : data.reviewStatus || 'collecting',
-    canRecordInterveningChange: !readOnly && data.lifecycle === 'active' && ongoingReviewEnabled(userId),
-    readOnly: readOnly || !ongoingReviewEnabled(userId) };
+    canRecordInterveningChange: !readOnly && data.lifecycle === 'active' && cycleCollectionEnabled(data),
+    canStopMonitoring: !readOnly && data.lifecycle === 'active' && pageMonitoringEnabled(userId),
+    readOnly: readOnly || !cycleCollectionEnabled(data) };
 }
 function workspaceCycle(data, options) {
   const cycle = publicOngoingCycle(data, options);
@@ -104,8 +108,8 @@ export async function readOngoingProgress(userId, { cursor, pageUrl } = {}) {
     const current = inScope(cycle, scope), record = workspaceCycle(cycle, { readOnly: !current });
     if (!current || cycle.lifecycle !== 'active') history.push(record);
   }
-  const newestFirst = (a, b) => Date.parse(b.confirmedAt) - Date.parse(a.confirmedAt);
-  return { enabled: ongoingReviewEnabled(userId), records: records.sort(newestFirst), history: history.sort(newestFirst),
+  const newestFirst = (a, b) => Date.parse(cycleStartedAt(b)) - Date.parse(cycleStartedAt(a));
+  return { enabled: ongoingReviewEnabled(userId), monitoringEnabled: pageMonitoringEnabled(userId), records: records.sort(newestFirst), history: history.sort(newestFirst),
     activeRecordsLimited: active.size > MAX_CYCLES, nextCursor: snapshot.size > MAX_CYCLES ? selected.at(-1).id : null };
 }
 
@@ -114,7 +118,7 @@ export function newOngoingCycle(record, plan, { migrated = false, now = new Date
   if (!Number.isFinite(Date.parse(confirmedAt))) throw new RequestError('This publication is missing a valid confirmation date.', 409);
   const id = ongoingCycleId(record);
   const tasks = (plan?.tasks || []).filter(task => (record.confirmedTaskIds || []).includes(task.id));
-  return { schemaVersion: 1, id, revision: 1, userId: record.userId, property: record.gscProperty,
+  return { schemaVersion: 1, mode: 'published_change', id, revision: 1, userId: record.userId, property: record.gscProperty,
     websiteRunId: record.websiteRunId || null, pageUrl: record.pageUrl, confirmedAt,
     confirmation: { source: migrated ? 'migrated_owner_reported' : 'owner_reported',
       taskIds: record.confirmedTaskIds || [], taskLabels: record.confirmedTaskLabels || [],
@@ -139,25 +143,32 @@ export function newOngoingCycle(record, plan, { migrated = false, now = new Date
 export async function prepareOngoingConfirmation(tx, record, plan, { previousCycleId, previousCycleRevision, interveningChange = false, now = new Date() } = {}) {
   if (!ongoingReviewEnabled(record.userId)) return null;
   const scope = await readOngoingScope(record.userId, { tx, write: true });
+  const tracking = await readPageTrackingIdentity(tx, scope, record.pageUrl);
   const cycle = newOngoingCycle(record, plan, { now });
   assertOngoingCycleScope(cycle, scope);
   const ref = ongoingCycleRef(cycle.id), existing = await tx.get(ref);
   if (existing.exists) throw new RequestError('This confirmation already has a saved review. Reload before continuing.', 409);
   let previous = null, previousRef = null;
+  if (!previousCycleId && isMonitoringCycle(tracking.active)) {
+    previousCycleId = tracking.active.id;
+    previousCycleRevision = tracking.active.revision;
+  }
+  if (tracking.active && tracking.active.id !== previousCycleId) throw new RequestError('This page already has active tracking. Reload before confirming another publication.', 409);
   if (previousCycleId) {
     previousRef = ongoingCycleRef(previousCycleId);
     previous = (await tx.get(previousRef)).data(); assertOngoingCycleScope(previous, scope);
     if (previous.lifecycle !== 'active' || previous.pageUrl !== record.pageUrl || previous.revision !== previousCycleRevision) {
       throw new RequestError('The active page review changed. Reload before recording another publication.', 409);
     }
-    if (interveningChange !== true && previous.reviewChangesAllowed !== true) throw new RequestError('Confirm that you published an additional change before starting another measurement.', 409);
+    if (!isMonitoringCycle(previous) && interveningChange !== true && previous.reviewChangesAllowed !== true) throw new RequestError('Confirm that you published an additional change before starting another measurement.', 409);
     cycle.previousCycleId = previous.id;
-    cycle.confirmation.interveningChange = interveningChange === true;
+    cycle.confirmation.interveningChange = !isMonitoringCycle(previous) && interveningChange === true;
   }
   return { cycle, commit() {
     if (previous) tx.update(previousRef, { lifecycle: 'superseded', supersededByCycleId: cycle.id,
-      supersededAt: record.implementedAt, revision: previous.revision + 1, leaseId: null, leaseUntil: null });
+      supersededAt: record.implementedAt, revision: previous.revision + 1, leaseId: null, leaseUntil: null, followUpLease: null });
     tx.create(ref, cycle);
+    tx.set(tracking.ref, { ...tracking.value, activeCycleId: cycle.id });
   } };
 }
 
@@ -187,6 +198,8 @@ export async function migrateOngoingRecord(document, { now = new Date(), deadlin
     const candidate = newOngoingCycle(current, sourcePlan, { migrated: true, now }); assertOngoingCycleScope(candidate, scope);
     const ref = ongoingCycleRef(candidate.id), existing = await tx.get(ref);
     if (existing.exists) { assertOngoingCycleScope(existing.data(), scope); return existing.data(); }
+    const tracking = await readPageTrackingIdentity(tx, scope, current.pageUrl);
+    if (tracking.active) throw new RequestError('This page already has active tracking. Reload its saved progress.', 409);
     // Only genuine server observations become an original comparison; legacy
     // preStats/postStats remain labeled historical data outside this collection.
     const assessment = current.progressAssessment;
@@ -199,7 +212,8 @@ export async function migrateOngoingRecord(document, { now = new Date(), deadlin
       candidate.originalComparison = { baseline: assessment.baseline, post: assessment.post, windows,
         comparison: compareObservations(assessment.baseline, assessment.post), source: 'google_search_console', migrated: true };
     }
-    tx.create(ref, candidate); tx.update(document.ref, { ongoingCycleId: candidate.id }); return candidate;
+    tx.create(ref, candidate); tx.update(document.ref, { ongoingCycleId: candidate.id });
+    tx.set(tracking.ref, { ...tracking.value, activeCycleId: candidate.id }); return candidate;
   });
 }
 
@@ -213,7 +227,7 @@ function inspection(payload, at, confirmedAt) {
     pageFetchState: clean(data.pageFetchState), robotsTxtState: clean(data.robotsTxtState),
     googleCanonical: clean(data.googleCanonical, 2048), userCanonical: clean(data.userCanonical, 2048),
     lastCrawlTime: Number.isFinite(Date.parse(data.lastCrawlTime)) ? data.lastCrawlTime : null, inspectionUrl,
-    crawlAfterConfirmation: Number.isFinite(Date.parse(data.lastCrawlTime)) ? Date.parse(data.lastCrawlTime) >= Date.parse(confirmedAt) : null,
+    crawlAfterConfirmation: confirmedAt && Number.isFinite(Date.parse(data.lastCrawlTime)) ? Date.parse(data.lastCrawlTime) >= Date.parse(confirmedAt) : null,
     limitation: 'Google’s stored indexing view. A later crawl does not prove Google processed each edit.' };
 }
 function technicalIssues(publicPage, indexing, pageUrl) {
@@ -281,6 +295,7 @@ async function collectCycle(userId, id, { now = new Date(), deadline = Date.now(
   const cycle = await db.runTransaction(async tx => {
     const scope = await readOngoingScope(userId, { tx, write: true });
     const current = (await tx.get(ref)).data(); assertOngoingCycleScope(current, scope);
+    if (!cycleCollectionEnabled(current)) throw new RequestError('Monitoring is currently paused. Saved observations remain available.', 409);
     if (current.lifecycle !== 'active') throw new RequestError('This review is preserved as history.', 409);
     if (expectedRevision !== undefined && current.revision !== expectedRevision) throw new RequestError('This page review changed. Reload before checking it.', 409);
     const cacheAt = technicalOnly ? current.technical?.checkedAt : current.lastAttemptAt;
@@ -293,18 +308,19 @@ async function collectCycle(userId, id, { now = new Date(), deadline = Date.now(
   });
   if (!cycle) return { state: 'skipped', cycle: await readOngoingCycle(userId, id) };
   const patch = {}, errors = {}, observations = new Map(), checkpointWrites = [];
-  const latestDay = latestEligibleCheckpointDay(cycle.confirmedAt, now);
-  const originalWindows = comparisonWindows(cycle.confirmedAt, now);
+  const firstDay = firstCheckpointDay(cycle);
+  const latestDay = latestCycleCheckpointDay(cycle, now);
+  const originalWindows = cycleCheckpointWindows(cycle, firstDay, now);
   const oldCheckpoints = await ref.collection('checkpoints').orderBy('day', 'desc').limit(60).get();
   const checkpointsByDay = new Map(oldCheckpoints.docs.map(doc => [doc.data().day, doc.data()]));
   const existingDays = new Set(oldCheckpoints.docs.map(doc => doc.data().day));
   const checkpointDays = [];
   const retryQueries = point => point && [point.baseline, point.post].some(period => period?.queriesStatus === 'unavailable');
-  if (!technicalOnly && latestDay > 0 && (!existingDays.has(latestDay) || retryQueries(checkpointsByDay.get(latestDay)))) checkpointDays.push(latestDay);
+  if (!technicalOnly && latestDay >= firstDay && (!existingDays.has(latestDay) || retryQueries(checkpointsByDay.get(latestDay)))) checkpointDays.push(latestDay);
   // One old missing block per run prevents a long absence from becoming an
   // unbounded provider backlog. Always retain the original first comparison.
-  if (!technicalOnly && latestDay > 28) {
-    for (let day = cycle.backfillNextDay || 28; day < latestDay; day += 28) if (!existingDays.has(day)) { checkpointDays.push(day); break; }
+  if (!technicalOnly && latestDay > firstDay) {
+    for (let day = cycle.backfillNextDay ?? firstDay; day < latestDay; day += 28) if (!existingDays.has(day)) { checkpointDays.push(day); break; }
   }
   let connection;
   try {
@@ -338,7 +354,7 @@ async function collectCycle(userId, id, { now = new Date(), deadline = Date.now(
     }
     for (const day of checkpointDays) {
       if (deadline - Date.now() < 5000) { errors.checkpoint = 'deferred'; break; }
-      const windows = ongoingCheckpointWindows(cycle.confirmedAt, day, now);
+      const windows = cycleCheckpointWindows(cycle, day, now);
       try {
         const baseline = await observe(windows.baseline), post = await observe(windows.post);
         const previousPoint = checkpointsByDay.get(day);
@@ -350,10 +366,10 @@ async function collectCycle(userId, id, { now = new Date(), deadline = Date.now(
         const point = { id: `day-${day}`, day, evidenceRevision: (checkpointsByDay.get(day)?.evidenceRevision || 0) + 1, source: 'google_search_console', observedAt: at, windows,
           baseline, post, comparison: available ? compareObservations(baseline, post) : null, lowVolume,
           state: available ? 'available' : 'incomplete',
-          limitation: 'Observed changes do not prove that the edits caused them. Query coverage and external factors can differ.' };
+          limitation: isMonitoringCycle(cycle) ? 'This is an observation of page performance, not a measurement of a published edit. Query coverage and external factors can differ.' : 'Observed changes do not prove that the edits caused them. Query coverage and external factors can differ.' };
         checkpointWrites.push(point);
         if (!(patch.latestCheckpoint || cycle.latestCheckpoint) || day >= (patch.latestCheckpoint || cycle.latestCheckpoint).day) patch.latestCheckpoint = point;
-        if (day === 28) patch.originalComparison = { baseline, post, windows, comparison: point.comparison, source: point.source, observedAt: at };
+        if (day === firstDay) patch.originalComparison = { baseline, post, windows, comparison: point.comparison, source: point.source, observedAt: at };
       } catch (error) { errors[`checkpoint${day}`] = errorCode(error); }
     }
     if (technicalOnly || Date.parse(cycle.nextTechnicalAt) <= now.getTime()) {
@@ -368,7 +384,7 @@ async function collectCycle(userId, id, { now = new Date(), deadline = Date.now(
   const updated = await db.runTransaction(async tx => {
     const scope = await readOngoingScope(userId, { tx, write: true });
     const current = (await tx.get(ref)).data(); assertOngoingCycleScope(current, scope);
-    if (current.lifecycle !== 'active' || current.leaseId !== attempt) return current;
+    if (current.lifecycle !== 'active' || current.leaseId !== attempt || !cycleCollectionEnabled(current)) return current;
     const observationRefs = [...observations.keys()].map(key => ref.collection('observations').doc(key));
     const checkpointRefs = checkpointWrites.map(point => ref.collection('checkpoints').doc(point.id));
     const existing = await Promise.all([...observationRefs, ...checkpointRefs].map(item => tx.get(item)));
@@ -376,8 +392,8 @@ async function collectCycle(userId, id, { now = new Date(), deadline = Date.now(
       ? patch.latestCheckpoint : current.latestCheckpoint;
     const hasNewCheckpoint = latestCheckpoint?.id && (latestCheckpoint.id !== current.latestCheckpoint?.id || latestCheckpoint.evidenceRevision !== current.latestCheckpoint?.evidenceRevision);
     const attention = (patch.technical || current.technical)?.issues?.some(issue => !issue.stale);
-    const age = now.getTime() - Date.parse(current.confirmedAt);
-    let backfillNextDay = current.backfillNextDay || 28;
+    const age = now.getTime() - Date.parse(cycleStartedAt(current));
+    let backfillNextDay = current.backfillNextDay ?? firstDay;
     while (backfillNextDay <= latestDay && (existingDays.has(backfillNextDay) || checkpointWrites.some(point => point.day === backfillNextDay))) backfillNextDay += 28;
     const stillMissing = backfillNextDay <= latestDay;
     const interval = errorsPresent || stillMissing || age < 90 * DAY ? DAY : 7 * DAY;
@@ -387,8 +403,9 @@ async function collectCycle(userId, id, { now = new Date(), deadline = Date.now(
       originalBaseline: current.originalBaseline || patch.originalBaseline || null,
       backfillNextDay,
       nextCheckAt: new Date(now.getTime() + interval).toISOString(),
-      nextReviewAt: nextOngoingReviewDay(current.confirmedAt, latestCheckpoint?.day || 0),
-      reviewStatus: attention ? 'needs_attention' : hasNewCheckpoint ? 'review_due' : current.reviewStatus,
+      nextReviewAt: nextCycleReviewDay(current, latestCheckpoint?.day ?? 0),
+      reviewStatus: attention ? 'needs_attention' : hasNewCheckpoint ? 'review_due' : current.reviewStatus === 'needs_attention'
+        ? (current.latestDecision?.checkpointId === latestCheckpoint?.id ? 'reviewed' : latestCheckpoint ? 'review_due' : 'collecting') : current.reviewStatus,
       lastError: errorsPresent ? { checkedAt: at, ...errors } : null,
       lastSuccessAt: errorsPresent ? current.lastSuccessAt : at, lastAttemptAt: at,
       leaseId: null, leaseUntil: null, revision: current.revision + 1 };
@@ -444,11 +461,11 @@ export async function acknowledgeOngoingCycle(userId, { cycleId, revision, actio
   const cycle = await db.runTransaction(async tx => {
     const scope = await readOngoingScope(userId, { tx, write: true });
     const current = (await tx.get(ref)).data(); assertOngoingCycleScope(current, scope);
-    if (current.lifecycle !== 'active' || current.revision !== revision) throw new RequestError('This page review changed. Reload before continuing.', 409);
+    if (!cycleCollectionEnabled(current) || current.lifecycle !== 'active' || current.revision !== revision) throw new RequestError('This page review changed. Reload before continuing.', 409);
     if (!current.latestCheckpoint && action === 'review_changes') throw new RequestError('Check the completed reporting period before reviewing another change. You can inspect a technical problem anytime.', 409);
     const next = { ...current, revision: current.revision + 1, reviewStatus: 'reviewed',
       reviewChangesAllowed: action === 'review_changes', lastAcknowledgedCheckpointId: current.latestCheckpointId,
-      acknowledgedAt: now.toISOString(), nextReviewAt: nextOngoingReviewDay(current.confirmedAt, current.latestCheckpoint?.day || 0) };
+      acknowledgedAt: now.toISOString(), nextReviewAt: nextCycleReviewDay(current, current.latestCheckpoint?.day ?? 0) };
     tx.update(ref, next); return next;
   });
   return { success: true, cycle: publicOngoingCycle(cycle) };
@@ -458,7 +475,12 @@ export async function runOngoingProgressCollection({ now = new Date(), deadline 
   const limit = Math.min(MAX_CYCLES, Math.max(1, maxRecords));
   const allowed = (process.env.ONGOING_PAGE_REVIEW_PILOT_UIDS || '').split(',').map(value => value.trim()).filter(Boolean);
   if (process.env.ONGOING_PAGE_REVIEWS_ENABLED !== 'true' || !allowed.length) return { checked: 0, counts: {}, moreRecords: false, notificationsSent: 0, automaticOutcomesEnabled: false };
-  const base = () => db.collection(COLLECTION).where('lifecycle', '==', 'active').where('nextCheckAt', '<=', now.toISOString());
+  const base = () => {
+    const query = db.collection(COLLECTION).where('lifecycle', '==', 'active').where('nextCheckAt', '<=', now.toISOString());
+    // Older publication cycles have no mode field, but all have confirmedAt.
+    // Filter in Firestore so disabled monitors cannot starve published edits.
+    return process.env.PAGE_MONITORING_ENABLED === 'true' ? query : query.where('confirmedAt', '<=', now.toISOString());
+  };
   // Filter pilot membership in the due query: paused accounts cannot occupy the
   // front of the queue forever, and disabling the feature performs no writes.
   const queries = allowed.includes('*') ? [base()] : Array.from({ length: Math.ceil(allowed.length / 30) }, (_, index) => base().where('userId', 'in', allowed.slice(index * 30, index * 30 + 30)));
@@ -474,7 +496,7 @@ export async function runOngoingProgressCollection({ now = new Date(), deadline 
   await Promise.all(Array.from({ length: Math.min(MAX_CONCURRENCY, documents.length) }, async () => {
     while (next < documents.length && deadline - Date.now() >= 5000) {
       const document = documents[next++], cycle = document.data();
-      if (!ongoingReviewEnabled(cycle.userId)) { counts.skipped = (counts.skipped || 0) + 1; checked++; continue; }
+      if (!cycleCollectionEnabled(cycle)) { counts.skipped = (counts.skipped || 0) + 1; checked++; continue; }
       try {
         const result = await collectCycle(cycle.userId, document.id, { now, deadline, scheduled: true });
         counts[result.state] = (counts[result.state] || 0) + 1;
@@ -483,7 +505,7 @@ export async function runOngoingProgressCollection({ now = new Date(), deadline 
         // A changed scope or deleting account must not monopolize the due queue.
         await db.runTransaction(async tx => {
           const current = await tx.get(document.ref);
-          if (current.exists && current.data().lifecycle === 'active' && current.data().confirmedAt === cycle.confirmedAt) {
+          if (current.exists && current.data().lifecycle === 'active' && cycleCollectionEnabled(current.data()) && cycleStartedAt(current.data()) === cycleStartedAt(cycle)) {
             const [user, setup] = await Promise.all([tx.get(db.collection('users').doc(cycle.userId)), tx.get(db.collection('onboarding').doc(cycle.userId))]);
             if (!user.exists || user.data().deletionInProgress) return;
             const changedScope = !setup.exists || (setup.data().revampRunId || null) !== cycle.websiteRunId

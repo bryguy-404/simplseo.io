@@ -29,7 +29,7 @@ const withoutObservationTimes = value => Array.isArray(value) ? value.map(withou
     .map(([key, child]) => [key, withoutObservationTimes(child)])) : value;
 function substantiveRecord(kind, value) {
   if (!value) return null;
-  if (kind === 'cycle') return { lifecycle: value.lifecycle, confirmedAt: value.confirmedAt, confirmation: value.confirmation,
+  if (kind === 'cycle') return { lifecycle: value.lifecycle, mode: value.mode || 'published_change', startedAt: value.startedAt || null, initialReviewStatus: value.initialReviewStatus || null, confirmedAt: value.confirmedAt, confirmation: value.confirmation,
     latestCheckpointId: value.latestCheckpointId, checkpointRevision: value.latestCheckpoint?.evidenceRevision,
     latestDecisionId: value.latestDecisionId, supersededByCycleId: value.supersededByCycleId,
     reviewChangesAllowed: value.reviewChangesAllowed };

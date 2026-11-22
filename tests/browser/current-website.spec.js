@@ -36,6 +36,7 @@ async function openDashboard(page, response = overview) {
   await page.addInitScript(() => localStorage.setItem('hasSeenChatAssistant', 'true'));
   await page.route('**/*', async route => {
     const url = new URL(route.request().url());
+    if (url.port === '3100' && url.pathname === '/api/access/status') return route.fulfill({ status: 200, json: { approved: true, nextPath: '/dashboard', isAdmin: false } });
     if (!['127.0.0.1', 'localhost'].includes(url.hostname)) return route.abort();
     if (url.port === '3100' && url.pathname.startsWith('/api/')) {
       requests.push(url.pathname);
@@ -46,7 +47,7 @@ async function openDashboard(page, response = overview) {
     return route.continue();
   });
   await page.goto('/auth');
-  await page.locator('input[type=email]').fill(`${uid}@example.test`);
+  await page.getByLabel('Email', { exact: true }).fill(`${uid}@example.test`);
   await page.locator('input[type=password]').fill('Test-only-pass123!');
   const progressResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/progress' && response.request().method() === 'GET');
   await page.getByRole('button', { name: 'Log In', exact: true }).click();

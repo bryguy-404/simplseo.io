@@ -119,7 +119,7 @@ test.beforeEach(async () => {
 
 async function signIn(page) {
   await page.goto('/auth');
-  await page.locator('input[type=email]').fill(`${uid}@example.test`);
+  await page.getByLabel('Email', { exact: true }).fill(`${uid}@example.test`);
   await page.locator('input[type=password]').fill('Test-only-pass123!');
   await page.getByRole('button', { name: 'Log In', exact: true }).click();
   await expect(page).toHaveURL(/dashboard/, { timeout: 15000 });
@@ -127,12 +127,13 @@ async function signIn(page) {
   await expect(page.getByRole('region', { name: 'Saved page tasks' })).toBeVisible({ timeout: 15000 });
 }
 
-async function setup(page, { state: status = 'collecting', outcome = 'keep_monitoring', saved = false, failAction, deferReview = false, enabled = true, configure } = {}) {
+async function setup(page, { state: status = 'collecting', outcome = 'keep_monitoring', saved = false, failAction, deferReview = false, enabled = true, monitoring = false, startInactive = false, initialFailure = false, configure } = {}) {
   const cycle = cycleFor(pageUrl, status);
   if (outcome === 'gather_evidence' && cycle.latestCheckpoint) Object.assign(cycle.latestCheckpoint, { lowVolume: true, baseline: { status: 'available', clicks: 0, impressions: 8, position: 22, fetchedAt: now }, post: { status: 'available', clicks: 1, impressions: 18, position: 19, fetchedAt: now } });
   const state = { cycle, history: [], plan: planFor(pageUrl), decision: saved ? decisionFor(cycle, outcome) : null,
     calls: { followups: [], publications: [], ai: [], taskUpdates: [], history: 0 }, errors: [], failed: false };
   state.plan.tasks[0] = { ...state.plan.tasks[0], status: 'done', publication: { implementationId: 'fixture-old', pageUrl, implementedAt: cycle.confirmedAt, changeType: 'page_content', confirmationMethod: 'user-confirmed' } };
+  if (startInactive) { state.cycle = null; state.plan.tasks = state.plan.tasks.map(task => ({ ...task, status: 'todo', publication: null })); }
   configure?.(state);
   const reviewReady = deferReview ? new Promise(resolve => { state.releaseReview = resolve; }) : Promise.resolve();
   page.on('pageerror', error => state.errors.push(error.message));
@@ -142,8 +143,33 @@ async function setup(page, { state: status = 'collecting', outcome = 'keep_monit
     if (!['127.0.0.1', 'localhost'].includes(url.hostname)) return route.abort();
     if (url.port !== '3100' || !url.pathname.startsWith('/api/')) return route.continue();
     const json = (body, status = 200) => route.fulfill({ status, json: body });
+    if (url.pathname === '/api/access/status') return json({ approved: true, nextPath: '/dashboard', isAdmin: false });
     if (url.pathname === '/api/progress') return json({ records: enabled ? [] : [progressRecord(pageUrl)], history: [],
-      ongoing: { enabled, records: enabled ? [state.cycle] : [], history: state.history, nextCursor: null } });
+      ongoing: { enabled, monitoringEnabled: monitoring, records: enabled && state.cycle ? [state.cycle] : [], history: state.history, nextCursor: null } });
+    if (url.pathname === '/api/page-review/monitor') {
+      const body = route.request().postDataJSON();
+      state.calls.monitoring ||= []; state.calls.monitoring.push(body);
+      if (body.action === 'stop') {
+        const stopped = { ...state.cycle, lifecycle: 'stopped', revision: state.cycle.revision + 1 };
+        state.history.push(stopped); state.cycle = null; state.decision = null;
+        return json({ success: true, cycle: stopped });
+      }
+      if (!state.cycle) {
+        state.cycle = { ...cycleFor(pageUrl, 'reviewed'), id: `monitor-${state.history.length}`, mode: 'monitoring',
+          startedAt: now, nextReviewAt: '2026-11-07', canStopMonitoring: true, initialReviewStatus: 'complete' };
+        delete state.cycle.confirmedAt; delete state.cycle.confirmation;
+        state.cycle.latestCheckpoint.day = 0;
+        state.cycle.latestCheckpoint.windows.comparisonKind = 'monitoring';
+      }
+      if (initialFailure && !state.failed) {
+        state.failed = true; state.cycle.initialReviewStatus = 'failed';
+        state.cycle.initialReviewError = 'The initial review could not finish. Please retry it.';
+        return json({ success: true, cycle: state.cycle, reviewError: state.cycle.initialReviewError });
+      }
+      state.cycle.initialReviewStatus = 'complete'; state.cycle.initialReviewError = null;
+      state.decision = decisionFor(state.cycle, outcome); state.cycle.latestDecision = state.decision;
+      return json({ success: true, cycle: state.cycle, plan: state.plan });
+    }
     if (url.pathname === '/api/dashboard/overview') return json({ source: 'google_search_console', property, window: evidenceFor(pageUrl).window,
       totals: { impressions: 30, clicks: 1 }, daily: [], pages: [pageUrl, otherUrl].map(url => ({ pageUrl: url, impressions: 30, clicks: 1 })), coverage: { pages: { limit: 100, returned: 2, complete: false } } });
     if (url.pathname === '/api/page-review/plan') {
@@ -183,6 +209,57 @@ async function setup(page, { state: status = 'collecting', outcome = 'keep_monit
   return state;
 }
 const card = page => page.getByRole('region', { name: 'Ongoing progress for /Case/?City=A', exact: true });
+
+test('monitoring starts without a publication, survives reload, stops and restarts with history', async ({ page }) => {
+  const state = await setup(page, { monitoring: true, startInactive: true });
+  await page.getByRole('button', { name: 'Monitor this page', exact: true }).click();
+  await expect(card(page).getByRole('heading', { name: 'No changes recommended' })).toBeVisible();
+  await expect(card(page).getByText(/No published edit was recorded/)).toBeVisible();
+  await expect(page.getByText('Saved tasks and history', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start tracking published edits', exact: true })).toHaveCount(0);
+  await expect(card(page).getByText(/Published changes/)).toHaveCount(0);
+  expect(state.calls.publications).toHaveLength(0); expect(state.calls.ai).toHaveLength(0);
+  await page.reload();
+  await expect(card(page).getByRole('heading', { name: 'No changes recommended' })).toBeVisible();
+  await page.getByText('Monitoring settings', { exact: true }).click();
+  await page.getByRole('button', { name: 'Stop monitoring', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Monitor this page', exact: true })).toBeEnabled();
+  await expect(page.getByText('Previous monitoring and changes (1)', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Monitor this page', exact: true }).click();
+  await expect(card(page).getByRole('heading', { name: 'No changes recommended' })).toBeVisible();
+  expect(state.cycle.id).toBe('monitor-1'); expect(state.history[0].lifecycle).toBe('stopped');
+  expect(state.errors).toEqual([]);
+});
+
+test('a failed initial review remains monitored and can be retried on a phone', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const state = await setup(page, { monitoring: true, startInactive: true, initialFailure: true });
+  await page.getByRole('button', { name: 'Monitor this page', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Retry initial review', exact: true })).toBeEnabled();
+  await expect(card(page).getByRole('heading', { name: 'Monitoring active · initial review pending' })).toBeVisible();
+  const id = state.cycle.id;
+  await page.getByRole('button', { name: 'Retry initial review', exact: true }).click();
+  await expect(card(page).getByRole('heading', { name: 'No changes recommended' })).toBeVisible();
+  expect(state.cycle.id).toBe(id); expect(state.calls.monitoring).toHaveLength(2);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: '/private/tmp/simpleseo-monitor-mobile.png', fullPage: true });
+  expect(state.errors).toEqual([]);
+});
+
+test('a monitored page can confirm its first real edit without a duplicate tracker', async ({ page }) => {
+  const state = await setup(page, { monitoring: true, startInactive: true, outcome: 'improve_page' });
+  await page.getByRole('button', { name: 'Monitor this page', exact: true }).click();
+  await expect(card(page).getByRole('heading', { name: 'Review recommended' })).toBeVisible();
+  await card(page).getByRole('button', { name: 'I published an edit', exact: true }).click();
+  await page.getByLabel('What did you actually publish?').fill('Clarified the opening service description.');
+  await page.getByRole('button', { name: 'Review this published edit', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('Your earlier monitoring results stay saved.');
+  await page.getByRole('checkbox', { name: 'I confirm this edit is live on this exact page.' }).check();
+  await page.getByRole('button', { name: 'Yes, track this edit', exact: true }).click();
+  await expect(card(page).getByText('Published changes (1)', { exact: true })).toBeVisible();
+  expect(state.calls.publications).toHaveLength(1); expect(state.history[0].mode).toBe('monitoring');
+  expect(state.history[0].lifecycle).toBe('superseded'); expect(state.errors).toEqual([]);
+});
 async function captureFixture(page, name) {
   const style = await page.addStyleTag({ content: 'header, [class*="fixed bottom-"], nextjs-portal { visibility: hidden !important; }' });
   await card(page).evaluate(element => {

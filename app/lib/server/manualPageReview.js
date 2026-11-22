@@ -86,23 +86,23 @@ async function researchPage(openai, currentPage, signal, providerTimeout, usageC
   }
 }
 
-export async function generatePageReviewSuggestions(userId, pageUrl, keywordInput, { signal, goal = '' } = {}) {
+export async function generatePageReviewSuggestions(userId, pageUrl, keywordInput, { signal, goal = '', deadline = Date.now() + 175000, monitoringReview } = {}) {
   const startedAt = new Date().toISOString();
   if (typeof goal !== 'string' || goal.length > 180 || /[\r\n\u0000-\u001f]/.test(goal)) throw new RequestError('Use a short, single-line goal for this page.');
   const ownerGoal = goal.trim();
   const focusKeywords = normalizeKeywords(keywordInput);
-  const review = await readCurrentPageForReview(userId, pageUrl);
-  let previousPlan = await readPageReviewPlanForUpdate(userId, review.provenance);
+  const review = await readCurrentPageForReview(userId, pageUrl, { deadline, signal });
+  let previousPlan = await readPageReviewPlanForUpdate(userId, review.provenance, { monitoringReview });
   const { currentPage } = review;
   if (currentPage.finalUrl !== pageUrl) throw new RequestError('This page redirects to another URL. Review the destination page before generating suggestions.', 409);
   if (currentPage.textContent.length < 80 || currentPage.textContent.split(/\s+/).length < 12) {
     throw new RequestError('There is not enough readable page content to draft an accurate suggestion. This may be a JavaScript-only page. Review its title and description manually or make its main content available in the page HTML.', 422);
   }
-  const evidence = await collectPageReviewEvidence(userId, { pageUrl, property: review.provenance.property, currentPage, focusKeywords });
-  const diagnostics = await collectPageReviewDiagnostics(userId, { pageUrl, property: review.provenance.property, currentPage, evidence });
-  await assertReviewStillCurrent(userId, review.provenance);
+  const evidence = await collectPageReviewEvidence(userId, { pageUrl, property: review.provenance.property, currentPage, focusKeywords, deadline, signal });
+  const diagnostics = await collectPageReviewDiagnostics(userId, { pageUrl, property: review.provenance.property, currentPage, evidence, deadline, signal });
+  await assertReviewStillCurrent(userId, review.provenance, { deadline, signal });
   if (signal?.aborted) throw new RequestError('The page review was cancelled.', 409);
-  previousPlan = await readPageReviewPlanForUpdate(userId, review.provenance, { expectedReview: previousPlan?.review || null });
+  previousPlan = await readPageReviewPlanForUpdate(userId, review.provenance, { expectedReview: previousPlan?.review || null, monitoringReview });
   const context = { ...review, evidence, diagnostics, ownerGoal, focusKeywords };
   const updateStatus = comparePageReviewUpdate(previousPlan?.review, context);
   if (updateStatus !== 'updated') {
@@ -120,7 +120,7 @@ export async function generatePageReviewSuggestions(userId, pageUrl, keywordInpu
   // Fresh website/Google checks use part of the route's 180-second budget.
   // Bound each subsequent provider stage by the time actually remaining.
   const providerTimeout = maximum => {
-    const remaining = 175000 - (Date.now() - Date.parse(startedAt));
+    const remaining = deadline - Date.now();
     if (remaining < 5000) throw new RequestError('The update check took too long. Your saved plan is unchanged. Please try again later.', 503);
     return Math.min(maximum, remaining);
   };
@@ -129,9 +129,9 @@ export async function generatePageReviewSuggestions(userId, pageUrl, keywordInpu
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 0, timeout: 45000 });
   const usageContext = { userId, reviewRunId: randomUUID(), requestedModel: PAGE_REVIEW_MODEL };
   const research = await researchPage(openai, currentPage, signal, providerTimeout, usageContext);
-  await assertReviewStillCurrent(userId, review.provenance);
+  await assertReviewStillCurrent(userId, review.provenance, { deadline, signal });
   if (signal?.aborted) throw new RequestError('The page review was cancelled.', 409);
-  previousPlan = await readPageReviewPlanForUpdate(userId, review.provenance, { expectedReview: previousPlan?.review || null });
+  previousPlan = await readPageReviewPlanForUpdate(userId, review.provenance, { expectedReview: previousPlan?.review || null, monitoringReview });
   let response;
   try {
     // Resolve the route budget before starting the accounting event: no call
@@ -146,11 +146,11 @@ export async function generatePageReviewSuggestions(userId, pageUrl, keywordInpu
   let result;
   try { result = validatePageAssessment(responseText(response), { currentPage, evidence, research, diagnostics, requirePlan: true, requireStrategy: true, requireSearchFocus: true }); }
   catch { throw new RequestError('The service did not return a clearly supported review. Your website has not been changed. Please try again.', 502); }
-  await assertReviewStillCurrent(userId, review.provenance);
+  await assertReviewStillCurrent(userId, review.provenance, { deadline, signal });
   if (signal?.aborted) throw new RequestError('The page review was cancelled. Your saved plan is unchanged.', 409);
   const completedReview = { ...result, currentPage, ...(review.businessProfile ? { businessProfile: review.businessProfile } : {}), evidence, research, diagnostics, timeline: PAGE_REVIEW_TIMELINE, ownerGoal,
     updateBaseline: pageReviewUpdateBaseline(context),
     provenance: { ...review.provenance, generatedAt: new Date().toISOString(), reviewVersion: PAGE_REVIEW_VERSION, model: PAGE_REVIEW_MODEL } };
-  const plan = await savePageReviewPlan(userId, completedReview, { startedAt });
+  const plan = await savePageReviewPlan(userId, completedReview, { startedAt, monitoringReview });
   return { ...completedReview, plan, updateCheck: { status: 'updated', checkedAt: new Date().toISOString(), message: 'Your page review is ready.' } };
 }

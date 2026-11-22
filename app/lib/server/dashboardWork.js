@@ -33,7 +33,7 @@ function checkpoint(value) {
     state: text(value.state, 40), source: text(value.source, 60), observedAt: date(value.observedAt),
     collectedAt: date(value.collectedAt), updatedAt: date(value.updatedAt), lowVolume: value.lowVolume === true,
     limitation: text(value.limitation), baseline: observation(value.baseline), post: observation(value.post),
-    windows: value.windows ? { baseline: { startDate: date(value.windows.baseline?.startDate), endDate: date(value.windows.baseline?.endDate) },
+    windows: value.windows ? { comparisonKind: value.windows.comparisonKind === 'monitoring' ? 'monitoring' : 'confirmed_change', baseline: { startDate: date(value.windows.baseline?.startDate), endDate: date(value.windows.baseline?.endDate) },
       post: { startDate: date(value.windows.post?.startDate), endDate: date(value.windows.post?.endDate) } } : null };
 }
 const decisionFields = ['id', 'outcome', 'checkpointId', 'checkpointRevision', 'summary', 'nextStep', 'reviewedAt', 'nextReviewAt', 'acceptedAt', 'canAcceptTasks'];
@@ -49,11 +49,11 @@ function technical(value) {
     issues: (Array.isArray(value.issues) ? value.issues : []).slice(0, 10).map(issue => ({ code: text(issue.code, 40), severity: text(issue.severity, 40),
       message: text(issue.message), checkedAt: date(issue.checkedAt), stale: issue.stale === true })) };
 }
-const cycleFields = [...identityFields, 'pageUrl', 'revision', 'confirmedAt', 'createdAt', 'lifecycle', 'reviewStatus', 'nextReviewAt', 'lastError', 'lastAttemptAt', 'lastSuccessAt',
+const cycleFields = [...identityFields, 'pageUrl', 'revision', 'mode', 'startedAt', 'initialReviewStatus', 'confirmedAt', 'createdAt', 'lifecycle', 'reviewStatus', 'nextReviewAt', 'lastError', 'lastAttemptAt', 'lastSuccessAt',
   'latestCheckpointId', ...checkpointFields.map(field => `latestCheckpoint.${field}`), ...decisionFields.map(field => `latestDecision.${field}`),
   'technical.checkedAt', 'technical.errors', 'technical.issues'];
 export function dashboardCycleSummary(id, value) {
-  return { kind: 'cycle', id, pageUrl: value.pageUrl, revision: number(value.revision), confirmedAt: date(value.confirmedAt),
+  return { kind: 'cycle', id, pageUrl: value.pageUrl, mode: value.mode === 'monitoring' ? 'monitoring' : 'published_change', startedAt: date(value.startedAt), initialReviewStatus: text(value.initialReviewStatus, 40), revision: number(value.revision), confirmedAt: date(value.confirmedAt),
     createdAt: date(value.createdAt), lifecycle: value.lifecycle, reviewStatus: text(value.reviewStatus, 40),
     state: value.lastError ? 'error' : value.reviewStatus || 'collecting', nextReviewAt: date(value.nextReviewAt),
     lastError: errorCodes(value.lastError), lastAttemptAt: date(value.lastAttemptAt), lastSuccessAt: date(value.lastSuccessAt),
@@ -82,7 +82,7 @@ function legacySummary(id, value, scope, now) {
       baseline: { startDate: date(saved.windows.baseline?.startDate), endDate: date(saved.windows.baseline?.endDate) },
       post: { startDate: date(saved.windows.post?.startDate), endDate: date(saved.windows.post?.endDate) }, ready: saved.windows.ready === true,
     } : null } : { state: 'collecting', reason: 'awaiting_verified_observations', baseline: null, post: null, windows: comparisonWindows(implementedAt, now) };
-  return { kind: 'legacy', id, pageUrl: value.pageUrl, implementedAt, confirmedAt: implementedAt,
+  return { kind: 'legacy', id, pageUrl: value.pageUrl, ongoingCycleId: validId(value.ongoingCycleId) ? value.ongoingCycleId : null, implementedAt, confirmedAt: implementedAt,
     nextReviewAt: implementedAt ? nextOngoingReviewDay(implementedAt) : null, assessment, activeCycle: null, activeCycleLookupFailed: false };
 }
 function indexing(value) {
@@ -106,7 +106,7 @@ const publicationFields = [...identityFields, 'planId', 'pageUrl', 'verifiedAt',
 const definitions = {
   plans: { collection: 'pageReviewPlans', fields: [...identityFields, 'pageUrl', 'revision', 'updatedAt', 'createdAt', 'tasks'] },
   cycles: { collection: 'pageProgressCycles', fields: cycleFields },
-  legacy: { collection: 'implementedSeoTips', fields: ['userId', 'pageUrl', 'gscProperty', 'websiteRunId', 'preRevampArchived', 'status', 'implementedAt',
+  legacy: { collection: 'implementedSeoTips', fields: ['userId', 'pageUrl', 'gscProperty', 'websiteRunId', 'preRevampArchived', 'status', 'implementedAt', 'ongoingCycleId',
     'progressAssessment.schemaVersion', 'progressAssessment.source', 'progressAssessment.pageUrl', 'progressAssessment.property', 'progressAssessment.websiteRunId',
     'progressAssessment.implementedAt', 'progressAssessment.state', 'progressAssessment.reason', 'progressAssessment.attemptedAt', 'progressAssessment.windows',
     ...['baseline', 'post'].flatMap(prefix => metricFields.map(field => `progressAssessment.${prefix}.${field}`))] },
@@ -186,6 +186,11 @@ export async function readDashboardWork(userId, { cursor, now = new Date() } = {
       const current = snapshot.docs.filter(doc => inScope(doc.data(), scope) && pageInScope(doc.data(), scope) && doc.data().pageUrl === item.pageUrl && doc.data().lifecycle === 'active');
       if (current.length > 1) throw Error('ambiguous_active_cycle');
       item.activeCycle = current.length === 1 ? dashboardCycleSummary(current[0].id, current[0].data()) : null;
+      if (!item.activeCycle && item.ongoingCycleId) {
+        const [saved] = await db.getAll(db.collection('pageProgressCycles').doc(item.ongoingCycleId), { fieldMask: cycleFields });
+        const prior = saved.data();
+        if (inScope(prior, scope) && prior.pageUrl === item.pageUrl && prior.lifecycle === 'stopped') item.monitoringStopped = true;
+      }
     } catch {
       item.activeCycleLookupFailed = true;
       sources.legacy.error = 'Some saved progress could not be checked. Open the page to see its current review.';
