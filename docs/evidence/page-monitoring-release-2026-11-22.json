@@ -1,15 +1,19 @@
 {
-  "verifiedAt": "2026-11-22T07:38:38.359Z",
-  "branch": "codex/monitor-this-page",
+  "verifiedAt": "2026-11-22T07:45:57.819Z",
+  "branch": "main",
   "baseCommit": "e5e424a05919192dce2d0c73240508c6b28d38c6",
   "application": {
     "implementedLocally": true,
-    "uploaded": false,
-    "deployed": false,
+    "uploaded": true,
+    "deployed": true,
     "previousDeployment": "dpl_BVL1iG12aBr5dB2f2yG5Ks52eBpA",
     "project": "simplseo-io",
     "productionUrl": "https://simpl-seo.com",
-    "featureFlagsChanged": false
+    "featureFlagsChanged": true,
+    "releaseCommit": "adc6a5984bebf894a8c96d5722b197388ad8f4ba",
+    "initialReleaseDeploymentId": "dpl_Cm4Na2w9scDdxfZhAozZiXfRMqh7",
+    "state": "READY",
+    "pilotAllowlistChanged": false
   },
   "checks": {
     "unitFiles": 74,
@@ -72,13 +76,123 @@
     "source": "automatic approval review",
     "action": "GitHub create_tree source upload",
     "reason": "External source upload requires explicit user authorization before a commit/review boundary.",
-    "retriedThroughAnotherRoute": false
+    "retriedThroughAnotherRoute": false,
+    "resolved": true,
+    "resolution": "User explicitly authorized commit, push to main and deployment. Existing local commits were pushed through Git."
   },
   "remaining": [
-    "Authorize reviewed GitHub upload and pilot application deployment",
-    "Deploy and run read-only live application checks",
     "Verify actual scheduled monitoring after real owner enrollment",
     "Observe later completed periods and real monthly reminders"
   ],
-  "sourceCommit": "1e5901d30730b8f1e94ee92c8da98ad0063a8ed8"
+  "sourceCommit": "1e5901d30730b8f1e94ee92c8da98ad0063a8ed8",
+  "liveVerification": {
+    "verifiedAt": "2026-11-22T07:45:57.819Z",
+    "origin": "https://simpl-seo.com",
+    "monitoringEnabled": true,
+    "savedRecordsPreserved": 201,
+    "fingerprint": "f819a75ec1bd6338bd22836024f7faba16533cf7ab563abffd59b7c9fb959c57",
+    "authenticatedReads": 2,
+    "rejectedWrites": 2,
+    "pagesEnrolled": 0,
+    "reviewsGenerated": 0,
+    "publicationsRecorded": 0,
+    "schedulerInvoked": false,
+    "scheduler": [
+      {
+        "job": "website-monitoring",
+        "trigger": "vercel_cron_header",
+        "startedAt": "2026-11-22T03:41:46.948Z",
+        "finishedAt": "2026-11-22T03:41:57.573Z",
+        "status": "completed"
+      },
+      {
+        "job": "progress",
+        "trigger": "vercel_cron_header",
+        "startedAt": "2026-11-22T02:14:02.818Z",
+        "finishedAt": "2026-11-22T02:14:06.850Z",
+        "status": "completed"
+      },
+      {
+        "job": "website-monitoring",
+        "trigger": "vercel_cron_header",
+        "startedAt": "2026-11-21T03:41:46.887Z",
+        "finishedAt": "2026-11-21T03:41:56.577Z",
+        "status": "completed"
+      },
+      {
+        "job": "progress",
+        "trigger": "vercel_cron_header",
+        "startedAt": "2026-11-21T02:14:03.108Z",
+        "finishedAt": "2026-11-21T02:14:07.054Z",
+        "status": "completed"
+      },
+      {
+        "job": "website-monitoring",
+        "trigger": "vercel_cron_header",
+        "startedAt": "2026-11-20T03:41:46.896Z",
+        "finishedAt": "2026-11-20T03:41:59.233Z",
+        "status": "completed"
+      },
+      {
+        "job": "progress",
+        "trigger": "vercel_cron_header",
+        "startedAt": "2026-11-20T02:14:02.964Z",
+        "finishedAt": "2026-11-20T02:14:07.932Z",
+        "status": "completed"
+      },
+      {
+        "job": "website-monitoring",
+        "trigger": "vercel_cron_header",
+        "startedAt": "2026-11-19T03:41:46.821Z",
+        "finishedAt": "2026-11-19T03:41:56.999Z",
+        "status": "completed"
+      },
+      {
+        "job": "progress",
+        "trigger": "vercel_cron_header",
+        "startedAt": "2026-11-19T02:14:03.058Z",
+        "finishedAt": "2026-11-19T02:14:07.702Z",
+        "status": "completed"
+      },
+      {
+        "job": "website-monitoring",
+        "trigger": "vercel_cron_header",
+        "startedAt": "2026-11-18T03:41:46.914Z",
+        "finishedAt": "2026-11-18T03:41:56.924Z",
+        "status": "completed"
+      },
+      {
+        "job": "progress",
+        "trigger": "vercel_cron_header",
+        "startedAt": "2026-11-18T02:14:02.836Z",
+        "finishedAt": "2026-11-18T02:14:07.904Z",
+        "status": "completed"
+      },
+      {
+        "job": "website-monitoring",
+        "trigger": "vercel_cron_header",
+        "startedAt": "2026-11-17T03:41:46.570Z",
+        "finishedAt": "2026-11-17T03:41:58.029Z",
+        "status": "completed"
+      },
+      {
+        "job": "progress",
+        "trigger": "vercel_cron_header",
+        "startedAt": "2026-11-17T02:14:02.474Z",
+        "finishedAt": "2026-11-17T02:14:06.835Z",
+        "status": "completed"
+      }
+    ],
+    "limitation": "A scheduled run after a real enrollment and a later completed period are still needed to verify live monitoring and its monthly reminder."
+  },
+  "runtimeErrorScan": {
+    "deploymentId": "dpl_Cm4Na2w9scDdxfZhAozZiXfRMqh7",
+    "from": "2026-11-22T07:32:02.402Z",
+    "to": "2026-11-22T07:47:02.402Z",
+    "levels": [
+      "error",
+      "fatal"
+    ],
+    "matchingLogs": 0
+  }
 }
