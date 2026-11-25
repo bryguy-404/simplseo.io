@@ -1,4 +1,5 @@
 import { auth } from '../../lib/firebaseAdmin';
+import { saveContactFeedback } from '../../lib/server/dashboardFeedback';
 import { requireUser } from '../../lib/server/requestAuth';
 import { publicRoute, escapeHtml } from '../../lib/server/publicRequest';
 import { NextResponse } from "next/server";
@@ -85,7 +86,9 @@ async function handlePOST(req) {
     };
 
     // Save to contactMessages collection
-    const docRef = await db.collection("contactMessages").add(contactData);
+    const docRef = db.collection("contactMessages").doc();
+    if (userId && subject === "feedback") await saveContactFeedback(userId, docRef, contactData);
+    else await docRef.set(contactData);
 
     console.log(`✅ Contact message saved: ${docRef.id}`);
 

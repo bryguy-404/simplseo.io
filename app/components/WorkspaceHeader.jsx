@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import DashboardFeedback from './dashboard/DashboardFeedback';
 import NotificationBell from "./notifications/NotificationBell";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ChevronDown, Globe, LayoutDashboard, LogOut, Mail, Menu,
   MessageSquare, Moon, Settings, Sun, TrendingUp,
@@ -29,7 +30,9 @@ function websiteLabel(value) {
   } catch { return value; }
 }
 
-export default function WorkspaceHeader({ pathname, businessName, websiteUrl, isDarkMode, toggleTheme, onLogout, isAdmin = false }) {
+export default function WorkspaceHeader({ pathname, businessName, websiteUrl, isDarkMode, toggleTheme, onLogout, isAdmin = false, feedbackUserId, feedbackOverview = false }) {
+  const [manualFeedback, setManualFeedback] = useState(false);
+  const accountButton = useRef(null);
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
@@ -51,7 +54,7 @@ export default function WorkspaceHeader({ pathname, businessName, websiteUrl, is
     finally { setLoggingOut(false); }
   };
 
-  return (
+  return (<>
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-sm">
       <div className="container mx-auto flex h-[76px] items-center justify-between gap-1 px-3 sm:gap-3 sm:px-6">
         <div className="flex shrink-0 items-center gap-2">
@@ -93,13 +96,13 @@ export default function WorkspaceHeader({ pathname, businessName, websiteUrl, is
         <NotificationBell />
         <DropdownMenu key={`account-${pathname}`}>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" aria-label="Account" disabled={loggingOut} className="h-11 shrink-0 gap-1 rounded-full px-2 sm:gap-2 sm:pl-2 sm:pr-3">
+            <Button ref={accountButton} variant="outline" aria-label="Account" disabled={loggingOut} className="h-11 shrink-0 gap-1 rounded-full px-2 sm:gap-2 sm:pl-2 sm:pr-3">
               <span aria-hidden="true" className="hidden size-7 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary sm:flex">{initial}</span>
               <span>{loggingOut ? "Logging out…" : "Account"}</span>
               <ChevronDown aria-hidden="true" className="size-3.5 text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" sideOffset={12} collisionPadding={16} className="z-[70] w-72 max-w-[calc(100vw-2rem)] rounded-xl p-2">
+          <DropdownMenuContent onCloseAutoFocus={event => { if (manualFeedback) event.preventDefault(); }} align="end" sideOffset={12} collisionPadding={16} className="z-[70] w-72 max-w-[calc(100vw-2rem)] rounded-xl p-2">
             <DropdownMenuLabel className="space-y-1 px-3 py-3">
               <p className="break-words text-sm font-semibold">{name}</p>
               <p className="break-all text-xs font-normal text-muted-foreground">{websiteLabel(websiteUrl)}</p>
@@ -112,6 +115,9 @@ export default function WorkspaceHeader({ pathname, businessName, websiteUrl, is
             <DropdownMenuItem asChild className="min-h-11 rounded-lg px-3">
               <Link href="/contact" aria-current={active("/contact") ? "page" : undefined}><Mail aria-hidden="true" />Help &amp; contact</Link>
             </DropdownMenuItem>
+            {feedbackUserId && <DropdownMenuItem onSelect={() => setManualFeedback(true)} className="min-h-11 rounded-lg px-3">
+              <MessageSquare aria-hidden="true" />Give feedback
+            </DropdownMenuItem>}
             <DropdownMenuItem onSelect={toggleTheme} className="min-h-11 rounded-lg px-3">
               {isDarkMode ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
               {isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
@@ -126,5 +132,8 @@ export default function WorkspaceHeader({ pathname, businessName, websiteUrl, is
       </div>
       {logoutError && <p role="alert" className="container mx-auto px-4 pb-3 text-sm text-destructive">{logoutError}</p>}
     </header>
+    {feedbackUserId && <DashboardFeedback userId={feedbackUserId} pathname={pathname} overviewReady={feedbackOverview} manual={manualFeedback}
+      onCloseManual={() => { setManualFeedback(false); accountButton.current?.focus(); }} />}
+    </>
   );
 }

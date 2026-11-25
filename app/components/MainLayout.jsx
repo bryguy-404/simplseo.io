@@ -16,6 +16,7 @@ import { PageLoader } from '@/app/components/BrandLoader';
 const MainLayout = ({
   children,
   showChat = true,
+  feedbackOverview = false,
   aiTips = [],
   gscKeywords = [],
   easyWins = [],
@@ -111,6 +112,9 @@ const MainLayout = ({
     <div className="min-h-screen bg-background flex flex-col">
       {!isPublicPage && (
         <WorkspaceHeader
+          key={JSON.stringify([user?.id, pathname])}
+          feedbackUserId={user && data?.isComplete ? user.id : null}
+          feedbackOverview={feedbackOverview}
           isAdmin={access?.isAdmin}
           pathname={pathname}
           businessName={data?.businessName || user?.displayName || user?.email}

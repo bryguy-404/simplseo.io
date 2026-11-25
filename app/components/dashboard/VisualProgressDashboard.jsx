@@ -200,7 +200,7 @@ export default function VisualProgressDashboard() {
   const partial = Boolean(workResponse?.coverage?.partial || workResponse?.nextCursor || workError);
   const business = data.businessName || 'Your website';
 
-  return <MainLayout topPages={availablePages.map(page => ({ ...page, page: page.pageUrl }))} impressionTrends={overview?.daily || []}>
+  return <MainLayout feedbackOverview topPages={availablePages.map(page => ({ ...page, page: page.pageUrl }))} impressionTrends={overview?.daily || []}>
     <div className="space-y-6 text-foreground sm:space-y-8" data-testid="visual-progress-dashboard">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 space-y-2"><p className="text-xs font-semibold uppercase tracking-widest text-primary">Your SEO workspace</p><h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">A clear view of your progress.</h1><p className="break-all text-sm text-muted-foreground sm:text-base">{business} <span aria-hidden="true">·</span> {data.websiteUrl || overview?.property || data.gscProperty}</p></div>

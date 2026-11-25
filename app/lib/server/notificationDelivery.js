@@ -129,7 +129,7 @@ async function reserveDeliveryAttempt(id, { now, deadline }) {
   });
 }
 
-async function claimProviderLane(deadline, sleepImpl) {
+export async function claimProviderLane(deadline, sleepImpl = sleep) {
   const ref = db.collection('notificationJobs').doc('resend-send-lane'), token = randomUUID();
   while (Date.now() + 4000 < deadline) {
     const result = await db.runTransaction(async tx => {
@@ -144,7 +144,7 @@ async function claimProviderLane(deadline, sleepImpl) {
   }
   return null;
 }
-async function releaseProviderLane(lane) {
+export async function releaseProviderLane(lane) {
   if (!lane) return;
   await db.runTransaction(async tx => {
     const value = (await tx.get(lane.ref)).data();

@@ -45,6 +45,8 @@ async function openDashboard(page, options = {}) {
     // SDK. A harmless script fixture avoids that SDK loader's rejected Event.
     if (!['127.0.0.1', 'localhost'].includes(url.hostname)) return request.resourceType() === 'script' ? route.fulfill({ contentType: 'application/javascript', body: '' }) : route.abort();
     if (url.port !== '3100' || !url.pathname.startsWith('/api/')) return route.continue();
+    // Feedback timing is independent of dashboard data loading.
+    if (url.pathname === '/api/dashboard/feedback') return route.fulfill({ json: {} });
     state.requests.push({ path: url.pathname, query: url.search, method: request.method() });
     const json = (body, status = 200) => route.fulfill({ json: body, status });
     if (url.pathname === '/api/dashboard/config') return json({ enabled: true });

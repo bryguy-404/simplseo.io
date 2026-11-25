@@ -93,7 +93,7 @@ function LegacyWebsiteDashboard() {
   const uncheckedTracked = tracked.length - observedTracked - noDataTracked;
   const business = data.businessName || data.websiteUrl || 'Your website';
 
-  return <MainLayout topPages={availablePages.map(page => ({ ...page, page: page.pageUrl }))} impressionTrends={overview?.daily || []}>
+  return <MainLayout feedbackOverview topPages={availablePages.map(page => ({ ...page, page: page.pageUrl }))} impressionTrends={overview?.daily || []}>
     <div className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2 min-w-0">
