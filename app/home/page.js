@@ -15,6 +15,7 @@ import AIBubble from "@/components/AIBubble";
 import ChaosVisualizer from "@/components/ChaosVisualizer";
 import { KeywordModalProvider } from "@/components/KeywordTooltip";
 import SeoSchemas from "./_components/SeoSchemas";
+import motion from "@/components/HomepageMotion.module.css";
 export default function HomePage() {
   const { isDarkMode, toggleTheme } = useTheme();
 
@@ -23,20 +24,8 @@ export default function HomePage() {
       <SeoSchemas />
       <KeywordModalProvider>
       <div className="min-h-screen bg-background relative">
-      {/* Static Background Orbs - Large and Spread Out */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        {/* Top left - Teal */}
-        <div className="absolute -top-20 -left-32 w-[600px] h-[600px] bg-teal-500/15 rounded-full blur-3xl animate-pulse"></div>
-        
-        {/* Top right - Blue */}
-        <div className="absolute top-[15%] -right-40 w-[550px] h-[550px] bg-blue-500/15 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        
-        {/* Bottom left - Purple */}
-        <div className="absolute bottom-[10%] -left-20 w-[500px] h-[500px] bg-purple-500/15 rounded-full blur-3xl animate-pulse delay-2000"></div>
-        
-        {/* Bottom right - Pink */}
-        <div className="absolute -bottom-32 -right-20 w-[550px] h-[550px] bg-pink-500/15 rounded-full blur-3xl animate-pulse delay-3000"></div>
-      </div>
+      {/* Ambient light: four soft colours drifting slowly behind the page */}
+      <div className={motion.ambient} aria-hidden="true"><i /><i /><i /><i /></div>
 
       {/* Content */}
       <div className="relative z-10">

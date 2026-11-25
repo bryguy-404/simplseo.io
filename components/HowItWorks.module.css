@@ -1,0 +1,89 @@
+/* "How it works": four steps on one rising line.
+   Colours come from the .polish variables in HomepageRefinements.module.css. */
+
+.head { max-width: 470px; }
+.head > p:last-child { margin-top: 17px; font-size: 16px; color: var(--muted-foreground); line-height: 1.7; }
+
+.diagram { position: relative; container-type: inline-size; --ease: cubic-bezier(0.2, 0.8, 0.2, 1); }
+
+/* ---------- The chart (desktop) ---------- */
+.chart { position: relative; aspect-ratio: 1104 / 300; margin-top: -92px; pointer-events: none; }
+.chart > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; -webkit-mask-image: linear-gradient(to right, #000 78%, transparent 99%); mask-image: linear-gradient(to right, #000 78%, transparent 99%); }
+.lineFrom { stop-color: var(--polish-green); stop-opacity: 0.55; }
+.lineTo { stop-color: var(--polish-green); }
+.grid { stroke: var(--polish-line); stroke-width: 1; stroke-dasharray: 2 6; opacity: 0.7; }
+.line { stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 0; }
+.pulseCore { fill: var(--polish-green); }
+.pulseHalo { fill: var(--polish-green); opacity: 0.22; }
+
+.marker { position: absolute; width: 0; height: 0; }
+.dot { position: absolute; left: -7px; top: -7px; width: 14px; height: 14px; border-radius: 50%; background: var(--how-base); border: 2px solid var(--polish-green); box-shadow: 0 0 0 5px color-mix(in srgb, var(--polish-green) 14%, transparent); }
+.dot[data-last] { background: var(--polish-green); }
+.dot[data-last]::after { content: ""; position: absolute; inset: -2px; border-radius: 50%; border: 1px solid var(--polish-green); animation: ring 2.6s ease-out infinite; }
+/* Dashed line from each point on the curve down to its step. */
+.drop { position: absolute; left: -0.5px; top: 12px; width: 1px; height: calc(100cqw * (300 - var(--y)) / 1104 + 8px); background: repeating-linear-gradient(to bottom, color-mix(in srgb, var(--polish-green) 55%, transparent) 0 3px, transparent 3px 7px); transform-origin: top; }
+
+.note { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; padding: 7px 11px; border: 1px solid var(--polish-line); border-radius: 10px; background: var(--polish-surface); color: var(--polish-ink); font-size: 12px; font-weight: 500; line-height: 1.3; box-shadow: 0 10px 24px -18px rgba(8, 28, 19, 0.55); }
+.note svg { flex-shrink: 0; color: var(--polish-secondary); }
+.note .noteGood { color: var(--polish-green); }
+.noteDot { width: 6px; height: 6px; border-radius: 50%; background: #e0a53a; box-shadow: 0 0 0 3px rgba(224, 165, 58, 0.18); }
+.caret { width: 1px; height: 13px; margin-left: -5px; background: var(--polish-green); animation: blink 1.1s steps(1) infinite; }
+.marker > .note { position: absolute; left: 14px; top: 14px; }
+
+/* ---------- The steps ---------- */
+.steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: 2.6%; margin-top: 20px; }
+.steps > li { min-width: 0; padding-left: 1.304cqw; }
+.number { display: grid; place-items: center; width: 30px; height: 30px; margin-left: -15px; border: 1px solid var(--polish-line); border-radius: 50%; background: var(--how-base); color: var(--polish-green); font-size: 10.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.steps h3 { margin: 18px 0 9px; font-size: 18px; letter-spacing: -0.025em; font-weight: 600; line-height: 1.35; }
+.steps li p { max-width: 250px; font-size: 14px; color: var(--muted-foreground); line-height: 1.75; }
+.inlineNote { display: none; }
+
+/* ---------- Motion: armed (waiting off-screen) and in (playing) ---------- */
+.diagram[data-state="armed"] .line { stroke-dashoffset: 1; }
+.diagram[data-state="armed"] :is(.area, .pulse, .dot, .drop, .note, .steps > li) { opacity: 0; }
+
+.diagram[data-state="in"] .line { animation: draw 2.4s cubic-bezier(0.45, 0, 0.25, 1) both; }
+.diagram[data-state="in"] .area { animation: fade 1.6s ease-out 0.9s both; }
+.diagram[data-state="in"] .pulse { animation: fade 0.8s ease-out 2.6s both; }
+.diagram[data-state="in"] .dot { animation: pop 620ms var(--ease) var(--at) both; }
+.diagram[data-state="in"] .drop { animation: grow 700ms var(--ease) calc(var(--at) + 0.12s) both; }
+.diagram[data-state="in"] .note { animation: lift 700ms var(--ease) calc(var(--at) + 0.3s) both; }
+.diagram[data-state="in"] .steps > li { animation: lift 800ms var(--ease) calc(var(--at) + 0.2s) both; }
+.diagram[data-state="in"] .typed { animation: type 900ms steps(28) calc(var(--at) + 0.75s) both; }
+
+.typed { display: inline-block; }
+
+@keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop { from { opacity: 0; transform: scale(0.3); } to { opacity: 1; transform: none; } }
+@keyframes grow { from { opacity: 0; transform: scaleY(0); } to { opacity: 1; transform: none; } }
+@keyframes lift { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes blink { 50% { opacity: 0; } }
+@keyframes ring { from { transform: scale(1); opacity: 0.7; } to { transform: scale(2.6); opacity: 0; } }
+
+/* ---------- Smaller screens: a vertical timeline ---------- */
+@media (max-width: 1099px) {
+  .steps li p { font-size: 13.5px; }
+  .note { font-size: 11px; padding: 6px 9px; gap: 6px; }
+}
+
+@media (max-width: 999px) {
+  .head { max-width: none; text-align: center; margin-bottom: 40px; }
+  .chart { display: none; }
+  .steps { display: block; max-width: 440px; margin: 0 auto; }
+  .steps > li { position: relative; display: grid; grid-template-columns: 30px minmax(0, 1fr); column-gap: 18px; padding: 0 0 34px; }
+  .number { margin-left: 0; }
+  .steps > li:last-child { padding-bottom: 0; }
+  .steps > li:not(:last-child)::before { content: ""; position: absolute; left: 14.5px; top: 38px; bottom: 8px; width: 1px; background: linear-gradient(to bottom, var(--polish-green), var(--polish-line)); opacity: 0.6; }
+  .steps > li:last-child .number { background: var(--polish-green); border-color: var(--polish-green); color: var(--how-base); }
+  .steps h3 { margin: 4px 0 8px; font-size: 19px; }
+  .steps li p { max-width: none; font-size: 14px; }
+  .inlineNote { display: block; margin-top: 14px; }
+  .note { font-size: 12px; padding: 7px 11px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse, .dot[data-last]::after { display: none; }
+  .caret { animation: none; }
+}

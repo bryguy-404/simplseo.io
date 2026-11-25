@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, createContext, useContext } from "react";
 import { KeywordTooltip } from "./KeywordTooltip";
+import styles from "./HomepageRefinements.module.css";
 
 // Context to share scroll progress across all text elements
 const ScrollContext = createContext(0);
@@ -116,9 +117,10 @@ const Features = () => {
   
   return (
     <ScrollContext.Provider value={progress}>
-      <section ref={sectionRef} id="features" className="pt-16 pb-1 px-4">
+      <section ref={sectionRef} id="features" className={`${styles.polish} pt-16 pb-1 px-4`}>
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-10">
+          <p className={styles.eyebrow}>Why SimplSEO</p>
+          <h2 className={`${styles.sectionTitle} mb-10`}>
           SEO tools are confusing. SimplSEO isn’t.
           </h2>
           
