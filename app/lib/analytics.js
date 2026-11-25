@@ -37,7 +37,8 @@ export function analyticsCampaign(search) {
   const query = new URLSearchParams(search);
   return Object.fromEntries(Object.entries(CAMPAIGNS).flatMap(([key, values]) => {
     const value = query.get(key);
-    return values.includes(value) ? [[key.replace('utm_', 'campaign_'), value]] : [];
+    const parameter = key === 'utm_campaign' ? 'campaign_name' : key.replace('utm_', 'campaign_');
+    return values.includes(value) ? [[parameter, value]] : [];
   }));
 }
 

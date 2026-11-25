@@ -5,7 +5,7 @@ function browser(hostname = 'simpl-seo.com') {
   const values = new Map();
   const scripts = [];
   const window = {
-    location: { hostname, search: '?email=private@example.test&utm_source=outreach&utm_medium=email&utm_campaign=photographers#token=private' },
+    location: { hostname, search: '?email=private@example.test&utm_source=outreach&utm_medium=email&utm_campaign=photographers', hash: '#token=private' },
     navigator: {},
     localStorage: { getItem: key => values.get(key) ?? null, setItem: vi.fn((key, value) => values.set(key, value)) },
   };
@@ -45,7 +45,7 @@ describe('consent-gated GA4 collection', () => {
     expect(b.events()[2][2].page_referrer).toBe('https://simpl-seo.com/seo-for-photographers');
     expect(JSON.stringify(b.calls())).not.toMatch(/private|customer|email=/i);
     const config = b.calls().find(call => call[0] === 'config')[2];
-    expect(config).toMatchObject({ send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false, campaign_source: 'outreach', campaign_medium: 'email' });
+    expect(config).toMatchObject({ send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false, campaign_source: 'outreach', campaign_medium: 'email', campaign_name: 'photographers' });
   });
 
   it('blocks unknown routes and arbitrary event names and never takes caller-supplied parameters', () => {
