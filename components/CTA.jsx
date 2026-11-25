@@ -11,7 +11,13 @@ const delay = (ms) => ({ "--rise-delay": `${ms}ms` });
 
 // The closing panel picks the hero's particle field back up, so the page
 // ends on the same note it opened with.
-const CTA = () => {
+const CTA = ({
+  eyebrow = "A little clarity. A clear next step.",
+  title = "Ready to understand your SEO?",
+  description = "Free during early access, with no credit card required. Bring your website, your questions, and your feedback.",
+  buttonLabel = "Get started",
+  note,
+}) => {
   const [ref, state] = useReveal({ threshold: 0.35 });
 
   return (
@@ -19,12 +25,13 @@ const CTA = () => {
       <div ref={ref} className={`section-secondary ${styles.ctaInner}`} data-state={state}>
         <HeroField className={motion.ctaField} bleed={0} />
         <div className={`max-w-3xl mx-auto text-center ${styles.ctaContent}`}>
-          <p className={`${styles.eyebrow} ${motion.reveal}`}>A little clarity. A clear next step.</p>
-          <h2 id="homepage-cta-title" className={`${styles.sectionTitle} ${motion.reveal}`} style={delay(90)}>Ready to understand your SEO?</h2>
-          <p className={`${styles.ctaDescription} ${motion.reveal}`} style={delay(190)}>Free during early access, with no credit card required. Bring your website, your questions, and your feedback.</p>
+          <p className={`${styles.eyebrow} ${motion.reveal}`}>{eyebrow}</p>
+          <h2 id="homepage-cta-title" className={`${styles.sectionTitle} ${motion.reveal}`} style={delay(90)}>{title}</h2>
+          <p className={`${styles.ctaDescription} ${motion.reveal}`} style={delay(190)}>{description}</p>
           <div className={motion.reveal} style={delay(290)}>
-            <Link href="/request-access" className={styles.primaryButton}>Get started<ArrowRight size={17} aria-hidden="true" /></Link>
+            <Link href="/request-access" className={styles.primaryButton}>{buttonLabel}<ArrowRight size={17} aria-hidden="true" /></Link>
           </div>
+          {note && <p className={styles.heroNote}>{note}</p>}
           <p className={`${styles.signInNote} ${motion.reveal}`} style={delay(380)}>Already have access? <Link href="/auth">Sign in</Link></p>
         </div>
       </div>

@@ -1,0 +1,69 @@
+{
+  "checkedAt": "2026-11-25T07:45:06.995Z",
+  "target": "local production build; not deployed",
+  "responses": [
+    {
+      "path": "/seo-for-photographers",
+      "status": 200
+    },
+    {
+      "path": "/home",
+      "status": 200
+    },
+    {
+      "path": "/request-access",
+      "status": 200
+    },
+    {
+      "path": "/robots.txt",
+      "status": 200
+    },
+    {
+      "path": "/sitemap.xml",
+      "status": 200
+    }
+  ],
+  "title": "SEO for Photographers: Simple SEO Software | SimplSEO",
+  "canonical": "https://simpl-seo.com/seo-for-photographers",
+  "description": "SEO guidance for wedding and portrait photographers who manage their own websites. Find what to improve with SimplSEO. Request free early access.",
+  "h1Count": 1,
+  "serverRenderedFaqs": 7,
+  "schemaType": "WebPage",
+  "missingAnchors": [],
+  "homepageLink": true,
+  "homepageCanonical": "https://simpl-seo.com/home",
+  "sitemapUrls": [
+    "https://simpl-seo.com/home",
+    "https://simpl-seo.com/seo-for-photographers",
+    "https://simpl-seo.com/privacy"
+  ],
+  "robots": "User-Agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: https://simpl-seo.com/sitemap.xml\n",
+  "ogImage": {
+    "url": "https://simpl-seo.com/seo-for-photographers/opengraph-image?7d2b60e96ae62c39",
+    "status": 200,
+    "width": 1200,
+    "height": 630,
+    "bytes": 33889
+  },
+  "browser": {
+    "viewportWidths": [
+      320,
+      390,
+      768,
+      1280
+    ],
+    "navigationFits": true,
+    "horizontalOverflow": false,
+    "lightAndDarkTheme": true,
+    "exampleSteps": true,
+    "keyboardExampleAndFaq": true,
+    "accessFormNavigation": true,
+    "homepageFooterNavigation": true,
+    "consoleErrorsObserved": 0
+  },
+  "notTested": [
+    "Search Console account access, live URL inspection, sitemap submission and indexing",
+    "Submitting an access request or invitation email delivery",
+    "Fresh invited-account feature eligibility and authenticated product workflow"
+  ]
+}

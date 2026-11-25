@@ -3,8 +3,9 @@
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/app/contexts/ThemeContext";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
-const Navbar = () => {
+const Navbar = ({ links, actionLabel = "Get started" }) => {
   const { isDarkMode } = useTheme();
   const router = useRouter();
   
@@ -12,31 +13,50 @@ const Navbar = () => {
     <>
       <style dangerouslySetInnerHTML={{__html: `
         @media (max-width: 767px) {
+          .marketing-nav {
+            width: calc(100% - 24px);
+            max-width: 420px;
+          }
+          .marketing-nav .navbar-brand {
+            flex: 1;
+            min-width: 0;
+            padding-inline: 4px;
+          }
           .navbar-logo-force {
-            width: clamp(100px, calc(100vw - 210px), 150px) !important;
-            min-width: clamp(100px, calc(100vw - 210px), 150px) !important;
-            max-width: none !important;
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 130px !important;
             height: auto !important;
+          }
+          .marketing-nav .navbar-action {
+            flex-shrink: 0;
+            padding-inline: 10px;
+            font-size: 12px;
           }
         }
         @media (min-width: 768px) {
           .navbar-logo-force {
-            width: 200px !important;
+            width: 130px !important;
             height: auto !important;
           }
         }
       `}} />
-      <nav className="floating-nav flex items-center gap-1">
-        <div className="flex items-center gap-2 px-1 sm:px-4">
+      <nav aria-label="Main navigation" className="floating-nav marketing-nav flex items-center gap-1">
+        <Link href="/home" aria-label="SimplSEO home" className="navbar-brand flex shrink-0 items-center gap-2 px-1 sm:px-4">
           <img
-            src={isDarkMode ? "./dark.png" : "./light.png"}
+            src={isDarkMode ? "/dark.png" : "/light.png"}
             alt="SimplSEO Logo"
-            className="rounded-md navbar-logo-force"
+            className="shrink-0 rounded-md navbar-logo-force"
             style={{ width: '250px', height: 'auto' }}
           />
-        </div>
+        </Link>
       
       <div className="hidden md:flex items-center gap-1">
+        {links ? links.map(link => (
+          <a key={link.href} href={link.href} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-muted whitespace-nowrap">
+            {link.label}
+          </a>
+        )) : <>
         <button 
           onClick={() => {
             const el = document.getElementById('features');
@@ -85,14 +105,15 @@ const Navbar = () => {
         >
           FAQ
         </button>
+        </>}
       </div>
-      <Button variant="ghost" size="sm" onClick={() => router.push('/auth')}>Sign in</Button>
+      <Button className="navbar-action" variant="ghost" size="sm" onClick={() => router.push('/auth')}>Sign in</Button>
       <Button 
-        className="rounded-full px-3 sm:px-6"
+        className="navbar-action rounded-full px-3 sm:px-6"
         size="sm"
         onClick={() => router.push('/request-access')}
       >
-        Get started
+        {actionLabel}
       </Button>
     </nav>
     </>
