@@ -19,7 +19,7 @@ export default function RequestAccessPage() {
       setSent(true);
     } catch (failure) { setError(failure.message); } finally { setBusy(false); }
   };
-  return <main className="min-h-screen bg-background px-5 py-12"><div className="mx-auto max-w-lg space-y-6"><Link href="/home" className="text-sm text-muted-foreground">← Back to home</Link><Card>
+  return <main className="flex min-h-svh items-center justify-center bg-background px-5 py-12"><div className="flex w-full max-w-lg flex-col gap-6"><Link href="/home" className="w-fit text-sm text-muted-foreground hover:underline">← Back to home</Link><Card>
     <CardHeader><p className="text-sm font-semibold text-primary">SIMPLSEO · EARLY ACCESS</p><CardTitle className="text-2xl">{sent ? 'Your request is saved' : 'Request early access'}</CardTitle><CardDescription>{sent ? 'We’ll review your request and email you an invitation link if approved. Check your spam folder too.' : 'We’re inviting a small group of business owners to try SimplSEO and help shape it.'}</CardDescription></CardHeader>
     <CardContent className="space-y-5">
       {access.status === 'approved' ? <><p>You already have access. Your saved work is ready for you.</p><Button asChild><Link href={access.nextPath || '/dashboard'}>Continue to your account</Link></Button></> : !sent && <form onSubmit={submit} className="space-y-4">
