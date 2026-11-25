@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, ArrowDown, Check, Globe2, Search, PencilLine, BarChart3, Plus } from "lucide-react";
+import { ArrowRight, ArrowDown, Check, Globe2, Heart, Search, PencilLine, BarChart3, Plus, Users } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import HeroField from "@/components/HeroField";
@@ -111,11 +111,11 @@ export default function PhotographersPage() {
               <p className={styles.bodyCopy}>Your photographs show what you do. Your website also needs to explain who you photograph, where you work, and what a client can expect.</p>
               <p className={styles.bodyCopy}>SimplSEO helps you take a practical, DIY approach to SEO, one page at a time. Use your website and its search data to understand a useful next step, then make the change in your own editor.</p>
             </div>
-            <ol className={styles.benefits}>
-              <li><span>01</span><div><h3>Understand your search traffic</h3><p>See how your pages appear in Google and which searches are available in your site’s data.</p></div></li>
-              <li><span>02</span><div><h3>Know why a change is suggested</h3><p>Connect the recommendation to your page, your services, and the evidence behind it.</p></div></li>
-              <li><span>03</span><div><h3>Keep the work manageable</h3><p>Review a focused improvement. Keep wording that already describes your business well.</p></div></li>
-            </ol>
+            <ul className={styles.benefits}>
+              <li><span aria-hidden="true"><Check size={14} strokeWidth={2.4} /></span><div><h3>Understand your search traffic</h3><p>See how your pages appear in Google and which searches are available in your site’s data.</p></div></li>
+              <li><span aria-hidden="true"><Check size={14} strokeWidth={2.4} /></span><div><h3>Know why a change is suggested</h3><p>Connect the recommendation to your page, your services, and the evidence behind it.</p></div></li>
+              <li><span aria-hidden="true"><Check size={14} strokeWidth={2.4} /></span><div><h3>Keep the work manageable</h3><p>Review a focused improvement. Keep wording that already describes your business well.</p></div></li>
+            </ul>
           </section>
 
           <section id="example" className={styles.section} aria-labelledby="photographer-example-title">
@@ -135,7 +135,7 @@ export default function PhotographersPage() {
             </div>
             <div className={styles.specialties}>
               <article className={styles.specialty}>
-                <div className={styles.specialtyHeading}><span className={styles.specialtyNumber}>01 / Weddings</span><span className={styles.specialtyMark} aria-hidden="true">↗</span></div>
+                <p className={styles.specialtyTag}><Heart size={14} strokeWidth={2} aria-hidden="true" />Weddings</p>
                 <h3>SEO for wedding photographers</h3>
                 <p>A couple finding your wedding page should be able to understand your approach, where you photograph, and how to inquire.</p>
                 <ul>
@@ -146,7 +146,7 @@ export default function PhotographersPage() {
                 <p className={styles.specialtyPrompt}><span>A useful question</span>“Does my wedding page explain where I work, or only show my photographs?”</p>
               </article>
               <article className={styles.specialty}>
-                <div className={styles.specialtyHeading}><span className={styles.specialtyNumber}>02 / Portraits</span><span className={styles.specialtyMark} aria-hidden="true">↗</span></div>
+                <p className={styles.specialtyTag}><Users size={14} strokeWidth={2} aria-hidden="true" />Portraits</p>
                 <h3>SEO for portrait photographers</h3>
                 <p>Parents looking for family portraits need different details from someone booking a professional headshot. Help each visitor understand the service you offer.</p>
                 <ul>

@@ -12,16 +12,16 @@
 .hero .titleIntro { font-size: 0.55em; font-weight: 500; letter-spacing: -0.035em; margin-bottom: 14px; }
 .titleAccent { color: var(--polish-green); }
 .heroDescription { max-width: 620px; margin: 29px auto 31px; font-size: clamp(17px, 1.6vw, 20px); line-height: 1.65; color: var(--muted-foreground); }
-.accessNote { margin: 19px auto 0; max-width: 470px; font-size: 11px; line-height: 1.7; color: var(--muted-foreground); }
+.accessNote { margin: 19px auto 0; max-width: 520px; font-size: 13px; line-height: 1.7; color: var(--muted-foreground); }
 .section { max-width: 1152px; margin: 0 auto; padding: 78px 32px; scroll-margin-top: 95px; }
 .sectionHeading { max-width: 760px; text-align: center; margin: 0 auto 44px; }
 .sectionHeading > p:last-child { max-width: 610px; margin: 21px auto 0; color: var(--muted-foreground); font-size: 16px; line-height: 1.8; }
 .introduction, .fit { display: grid; grid-template-columns: 1.05fr 1fr; gap: 86px; align-items: center; }
 .bodyCopy { margin-top: 23px; color: var(--muted-foreground); font-size: 16px; line-height: 1.85; }
 .benefits { list-style: none; padding: 0; }
-.benefits li { display: flex; gap: 23px; border-bottom: 1px solid var(--polish-line); padding: 27px 0; }
+.benefits li { display: flex; gap: 18px; border-bottom: 1px solid var(--polish-line); padding: 27px 0; }
 .benefits li:first-child { padding-top: 0; }
-.benefits li > span { font-family: var(--font-geist-mono), monospace; color: var(--polish-green); font-size: 12px; padding-top: 5px; }
+.benefits li > span { display: grid; place-items: center; flex: 0 0 24px; width: 24px; height: 24px; margin-top: 2px; border-radius: 50%; background: var(--polish-soft); color: var(--polish-green); }
 .benefits h3 { font-size: 19px; font-weight: 550; line-height: 1.35; letter-spacing: -0.02em; }
 .benefits p { margin-top: 9px; font-size: 14px; line-height: 1.8; color: var(--muted-foreground); }
 .example { border: 1px solid var(--polish-line); border-radius: 28px; overflow: hidden; background: color-mix(in srgb, var(--background) 88%, var(--polish-soft)); box-shadow: 0 24px 65px -45px rgba(0, 0, 0, 0.5); }
@@ -58,23 +58,22 @@
 .exampleCaption { text-align: center; padding: 20px 24px 22px; font-size: 11px; line-height: 1.8; color: var(--muted-foreground); }
 .specialties { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
 .specialty { padding: 34px; border-radius: 24px; background: color-mix(in srgb, var(--background) 78%, var(--polish-soft)); border: 1px solid var(--polish-line); }
-.specialtyHeading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 27px; }
-.specialtyNumber { font-size: 11px; color: var(--polish-green); }
-.specialtyMark { display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; border: 1px solid var(--polish-line); border-radius: 50%; color: var(--polish-green); font-size: 23px; }
+/* A small tinted tag, like the ones on the homepage feature cards. */
+.specialtyTag { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 24px; padding: 6px 13px 6px 10px; border-radius: 999px; background: var(--polish-soft); color: var(--polish-green); font-size: 13px; font-weight: 500; line-height: 1.3; }
 .specialty h3 { font-size: 29px; letter-spacing: -0.035em; line-height: 1.22; font-weight: 550; max-width: 300px; }
-.specialty > p:not(.specialtyPrompt) { color: var(--muted-foreground); font-size: 14px; line-height: 1.85; margin-top: 18px; }
+.specialty > p:not(.specialtyPrompt):not(.specialtyTag) { color: var(--muted-foreground); font-size: 14px; line-height: 1.85; margin-top: 18px; }
 .specialty ul { display: grid; gap: 17px; list-style: none; padding: 0; margin-top: 26px; }
-.specialty li { display: flex; align-items: flex-start; gap: 11px; color: var(--polish-ink); font-size: 13px; line-height: 1.8; }
+.specialty li { display: flex; align-items: flex-start; gap: 11px; color: var(--polish-ink); font-size: 14px; line-height: 1.75; }
 .specialty li svg { flex-shrink: 0; margin-top: 4px; color: var(--polish-green); }
 .specialtyPrompt { margin-top: 30px; border-top: 1px solid var(--polish-line); padding-top: 22px; font-size: 15px; line-height: 1.75; color: var(--polish-ink); }
-.specialtyPrompt span { display: block; margin-bottom: 9px; font-size: 10px; color: var(--muted-foreground); }
-.sectionNote { margin: 21px auto 0; text-align: center; color: var(--muted-foreground); font-size: 12px; line-height: 1.8; max-width: 680px; }
+.specialtyPrompt span { display: block; margin-bottom: 9px; font-size: 12px; color: var(--muted-foreground); }
+.sectionNote { margin: 21px auto 0; text-align: center; color: var(--muted-foreground); font-size: 13px; line-height: 1.8; max-width: 680px; }
 .workflowPanel { background: color-mix(in srgb, var(--background) 72%, var(--polish-soft)); border-radius: 30px; border: 1px solid var(--polish-line); padding: 48px 36px; }
 .workflow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; padding: 0; list-style: none; margin-top: 50px; }
 .workflowIcon { display: flex; align-items: center; gap: 13px; color: var(--polish-green); margin-bottom: 22px; }
 .workflowIcon span { font-size: 10px; font-family: var(--font-geist-mono), monospace; }
 .workflow h3 { font-size: 16px; line-height: 1.4; font-weight: 550; margin-bottom: 13px; }
-.workflow p { font-size: 13px; line-height: 1.85; color: var(--muted-foreground); }
+.workflow p { font-size: 14px; line-height: 1.8; color: var(--muted-foreground); }
 .fit { padding-top: 50px; padding-bottom: 75px; }
 .fit .bodyCopy:first-child { margin-top: 0; }
 .textLink { display: inline-flex; align-items: center; gap: 10px; color: var(--polish-green); font-size: 14px; line-height: 1.7; margin-top: 23px; text-decoration: underline; text-underline-offset: 5px; text-decoration-color: var(--polish-line); }
@@ -102,7 +101,7 @@
   .hero .titleIntro { font-size: 0.65em; }
   .heroDescription { font-size: 17px; margin-top: 25px; }
   .audience { font-size: 10px; gap: 7px; padding: 8px 11px; margin-bottom: 25px; }
-  .accessNote { max-width: 300px; }
+  .accessNote { max-width: 320px; font-size: 12px; }
   .section { padding: 55px 23px; }
   .introduction, .fit { grid-template-columns: 1fr; gap: 33px; }
   .bodyCopy { font-size: 15px; }
