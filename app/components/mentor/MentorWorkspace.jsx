@@ -11,6 +11,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import useMentorSession from './useMentorSession';
 import MentorMessage, { MentorMark } from './MentorMessage';
 import MentorCheckResult from './MentorCheckResult';
+import MentorDot from './MentorDot';
 import { firstNameFrom, pickTagline } from './mentorTaglines';
 
 const starters = ['How is my homepage doing?', 'What should I work on next?', 'Why might a page not be indexed?'];
@@ -82,12 +83,39 @@ export function MentorWorkspaceView({ session, compact = false, onClose, firstNa
   const centred = empty && !compact && !showHistory;
   const thinking = session.busy && session.pending?.status === 'sending';
 
+  // What the mentor's dot is doing. None of this changes the conversation.
+  const [typing, setTyping] = useState(false);
+  const [nod, setNod] = useState(0);
+  const [cheer, setCheer] = useState(false);
+  const typingTimer = useRef(null);
+  const cheerTimer = useRef(null);
+  const noteTyping = () => {
+    setNod(count => count + 1);
+    setTyping(true);
+    clearTimeout(typingTimer.current);
+    typingTimer.current = setTimeout(() => setTyping(false), 1600);
+  };
+  // A new reply gets a happy hop.
+  useEffect(() => {
+    if (!session.animateId) return;
+    setCheer(true);
+    clearTimeout(cheerTimer.current);
+    cheerTimer.current = setTimeout(() => setCheer(false), 1800);
+  }, [session.animateId]);
+  useEffect(() => () => { clearTimeout(typingTimer.current); clearTimeout(cheerTimer.current); }, []);
+  const dotMood = session.busy ? 'thinking'
+    : cheer ? 'happy'
+    : typing ? ((session.draft || '').trim().endsWith('?') ? 'curious' : 'listening')
+    : session.error || terminalFailure ? 'worried'
+    : 'idle';
+
   const starterButtons = <div className={`mt-4 flex flex-wrap gap-2 ${centred ? 'justify-center' : ''}`}>{starters.map(question => <Button key={question} type="button" variant="outline" size="sm" className="h-auto whitespace-normal rounded-full px-4 py-2 text-left font-normal text-muted-foreground hover:text-foreground" disabled={!enabled} onClick={() => { session.writeDraft(question); draftRef.current?.focus(); }}>{question}</Button>)}</div>;
 
   return <section aria-label="SEO Mentor workspace" className={`flex min-w-0 flex-col bg-background ${compact ? 'h-[min(660px,75dvh)] w-full' : 'h-[calc(100dvh-120px)] min-h-[440px]'}`}>
     <header className={`flex items-center justify-between gap-2 ${compact ? 'border-b border-border p-3' : 'px-1 pb-3 sm:px-2'}`}>
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <MentorMark className="h-8 w-8" />
+        {/* On a new full-page chat the large dot in the middle does the reacting, so this one stays calm. */}
+        <MentorDot size={32} mood={centred ? 'idle' : dotMood} nod={nod} calm={centred} />
         <div className="min-w-0"><h1 className="truncate text-base font-semibold leading-tight">SEO Mentor</h1><p className={`text-xs text-muted-foreground ${compact ? 'sr-only' : 'hidden sm:block'}`}>SEO guidance for your business</p></div>
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-1">
@@ -121,7 +149,7 @@ export function MentorWorkspaceView({ session, compact = false, onClose, firstNa
           <div className={`mx-auto max-w-3xl space-y-6 ${centred ? 'flex min-h-full flex-col justify-center sm:block' : ''}`}>
             {session.loading ? <PageLoader compact label="Opening your saved conversation…" /> : null}
             {empty ? <div className={centred ? 'pb-7 text-center' : compact ? 'py-2' : 'py-6'}>
-              {centred ? <MentorMark className="mx-auto mb-5 h-12 w-12" /> : null}
+              {centred ? <div className="mb-5 flex justify-center"><MentorDot size={48} mood={dotMood} nod={nod} /></div> : null}
               <p className="text-xs font-semibold uppercase tracking-wider text-primary">Your SEO questions, explained</p>
               <h2 className={`mt-3 text-balance font-semibold tracking-tight transition-opacity duration-500 motion-reduce:transition-none ${centred ? 'mx-auto max-w-2xl text-3xl sm:text-4xl' : 'text-xl sm:text-2xl'} ${tagline ? '' : 'opacity-0'}`}>{tagline || 'What would you like help with?'}</h2>
               <p className={`mt-3 text-sm leading-relaxed text-muted-foreground ${centred ? 'mx-auto max-w-md' : 'max-w-lg'}`}>Ask about your website, your next steps, or how SEO works. I use saved account evidence and Google guidance when relevant.</p>
@@ -143,7 +171,7 @@ export function MentorWorkspaceView({ session, compact = false, onClose, firstNa
             <div role="status" aria-live="polite" className={`mb-1.5 flex min-h-5 items-center gap-2 px-2 text-xs text-muted-foreground ${centred ? 'justify-center' : ''}`}>{session.busy ? <BrandLoader tone="brand" aria-hidden="true" className="h-3.5 w-3.5" /> : null}{session.status}</div>
             {!session.loading && workspace && !enabled ? <p className="mb-3 px-2 text-sm text-muted-foreground">{workspace.notice || 'New mentor replies are paused. Your saved conversations remain available.'}</p> : null}
             <form onSubmit={submit} className="relative rounded-[1.75rem] border border-border bg-card shadow-sm transition-[border-color,box-shadow] focus-within:border-primary/50 focus-within:shadow-[0_0_0_4px_color-mix(in_srgb,var(--primary)_12%,transparent)]">
-              <Textarea ref={draftRef} aria-label="Ask your SEO question" placeholder={readOnly ? 'Open a current conversation to continue' : 'Ask an SEO question…'} value={session.draft} maxLength={6000} disabled={busy || !enabled || readOnly} onChange={event => session.writeDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(); } }} className="max-h-40 min-h-[52px] resize-none overflow-y-auto rounded-none border-0 bg-transparent px-5 pb-1 pt-4 text-base shadow-none focus-visible:ring-0 md:text-base dark:bg-transparent" />
+              <Textarea ref={draftRef} aria-label="Ask your SEO question" placeholder={readOnly ? 'Open a current conversation to continue' : 'Ask an SEO question…'} value={session.draft} maxLength={6000} disabled={busy || !enabled || readOnly} onChange={event => { session.writeDraft(event.target.value); noteTyping(); }} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(); } }} className="max-h-40 min-h-[52px] resize-none overflow-y-auto rounded-none border-0 bg-transparent px-5 pb-1 pt-4 text-base shadow-none focus-visible:ring-0 md:text-base dark:bg-transparent" />
               <div className="flex items-end justify-between gap-2 px-3 pb-3 pt-1">
                 {selectedPage && !readOnly && enabled ? <details className="group min-w-0 text-xs">
                   <summary className="inline-flex max-w-full cursor-pointer list-none items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden"><Globe className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /><span className="truncate">Page context · {labelPage(selectedPage)}</span><ChevronDown className="h-3 w-3 shrink-0 transition-transform group-open:rotate-180" aria-hidden="true" /></summary>

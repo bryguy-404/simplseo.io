@@ -1,0 +1,234 @@
+/* The SEO Mentor's face (app/components/mentor/MentorDot.jsx).
+   Every length is a fraction of --s, the dot's width, so it works at any size. */
+
+.mark {
+  --dot: #00bf63;
+  --ink: #06281a;
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: var(--s);
+  height: var(--s);
+  animation: pop 520ms cubic-bezier(0.3, 1.5, 0.5, 1) 80ms backwards;
+}
+
+/* Three nested boxes keep the motion simple: the hopper jumps, squashes and
+   tilts; the dot bobs (and nods); the eyes move inside it. */
+.hopper {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 100%;
+  transition: transform 260ms cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+.dot {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--dot);
+  box-shadow:
+    inset 0 calc(var(--s) * -0.14) 0 rgba(0, 0, 0, 0.12),
+    inset 0 calc(var(--s) * 0.08) 0 rgba(255, 255, 255, 0.25);
+  animation: bob 3.6s ease-in-out 1s infinite;
+}
+
+/* The gaze follows the pointer (set from the component); the eyes inside it
+   carry the mood. */
+.gaze {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transition: transform 120ms ease-out;
+}
+
+.eyes {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 32%;
+  height: calc(var(--s) * 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--s) * 0.195);
+  transition: transform 200ms ease-out, gap 160ms ease-out;
+}
+
+.eyes i {
+  display: block;
+  width: calc(var(--s) * 0.14);
+  height: calc(var(--s) * 0.195);
+  border-radius: 50%;
+  background: var(--ink);
+  animation: blink 4.6s infinite;
+  transition: transform 200ms ease-out;
+}
+
+/* ---------- Moods ---------- */
+
+/* Listening: looks down at what is being typed. */
+.mark[data-mood="listening"] .eyes,
+.mark[data-mood="curious"] .eyes {
+  transform: translateY(calc(var(--s) * 0.07));
+}
+
+/* Curious: a tilt, and one eye raised. */
+.mark[data-mood="curious"] .hopper {
+  transform: rotate(-11deg);
+}
+
+.mark[data-mood="curious"] .eyes i:last-child {
+  transform: translateY(-22%) scale(1.18);
+  animation: none;
+}
+
+/* Thinking: looks up, glancing from side to side, with a slow sway. */
+.mark[data-mood="thinking"] .hopper {
+  animation: ponder 1.8s ease-in-out infinite;
+}
+
+.mark[data-mood="thinking"] .eyes {
+  animation: scan 1.8s ease-in-out infinite;
+}
+
+.mark[data-mood="thinking"] .eyes i {
+  animation: none;
+}
+
+/* Happy: a hop, and the eyes squeeze into smiling arcs. */
+.mark[data-mood="happy"] .hopper {
+  animation: yay 620ms;
+}
+
+.mark[data-mood="happy"] .eyes,
+.mark[data-antic="joy"] .eyes {
+  gap: calc(var(--s) * 0.11);
+}
+
+.mark[data-mood="happy"] .eyes i,
+.mark[data-antic="joy"] .eyes i {
+  width: calc(var(--s) * 0.25);
+  height: calc(var(--s) * 0.14);
+  border: calc(var(--s) * 0.07) solid var(--ink);
+  border-bottom: 0;
+  border-radius: calc(var(--s) * 0.25) calc(var(--s) * 0.25) 0 0;
+  background: transparent;
+  animation: none;
+  transition: none;
+}
+
+/* Worried: it sags and its eyes droop. */
+.mark[data-mood="worried"] .hopper {
+  transform: scale(1.08, 0.9);
+}
+
+.mark[data-mood="worried"] .eyes i {
+  width: calc(var(--s) * 0.165);
+  height: calc(var(--s) * 0.22);
+  animation: none;
+}
+
+.mark[data-mood="worried"] .eyes i:first-child {
+  clip-path: polygon(0 55%, 100% 5%, 100% 100%, 0 100%);
+}
+
+.mark[data-mood="worried"] .eyes i:last-child {
+  clip-path: polygon(0 5%, 100% 55%, 100% 100%, 0 100%);
+}
+
+/* ---------- Things it does on its own while idle ---------- */
+
+.mark[data-antic="hop"] .hopper { animation: hop 700ms; }
+.mark[data-antic="bounce"] .hopper { animation: bounce 1000ms; }
+.mark[data-antic="joy"] .hopper { animation: giggle 1100ms; }
+.mark[data-antic="tilt"] .hopper { animation: tilt 1300ms ease-in-out; }
+.mark[data-antic="spin"] .hopper { animation: hop 900ms; }
+.mark[data-antic="spin"] .dot { animation: spin 900ms cubic-bezier(0.4, 0, 0.2, 1); }
+.mark[data-antic="peek"] .eyes { animation: peek 1500ms ease-in-out; }
+.mark[data-antic="peek"] .eyes i { animation: none; }
+/* While it performs, the eyes stop chasing the pointer. */
+.mark[data-antic="peek"] .gaze,
+.mark[data-antic="spin"] .gaze { transform: none !important; }
+
+@keyframes pop {
+  from { transform: scale(0); }
+}
+
+@keyframes bob {
+  0%, 100% { transform: none; }
+  50% { transform: translateY(-5%); }
+}
+
+@keyframes blink {
+  0%, 94%, 100% { transform: none; }
+  97% { transform: scaleY(0.12); }
+}
+
+@keyframes hop {
+  0% { transform: none; animation-timing-function: ease-in; }
+  18% { transform: translateY(6%) scale(1.14, 0.84); animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1); }
+  50% { transform: translateY(-34%) scale(0.95, 1.08); animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.3); }
+  78% { transform: translateY(0) scale(1.12, 0.88); animation-timing-function: ease-out; }
+  100% { transform: none; }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: none; }
+  12% { transform: translateY(5%) scale(1.1, 0.88); }
+  32% { transform: translateY(-24%) scale(0.96, 1.06); }
+  50% { transform: translateY(0) scale(1.1, 0.9); }
+  68% { transform: translateY(-13%) scale(0.98, 1.03); }
+  84% { transform: translateY(0) scale(1.05, 0.95); }
+}
+
+@keyframes giggle {
+  0%, 100% { transform: none; }
+  20% { transform: translateY(-9%) rotate(-5deg); }
+  40% { transform: translateY(0) rotate(4deg); }
+  60% { transform: translateY(-7%) rotate(-3deg); }
+  80% { transform: translateY(0) rotate(2deg); }
+}
+
+@keyframes tilt {
+  0%, 100% { transform: none; }
+  25%, 70% { transform: rotate(-13deg); }
+}
+
+@keyframes spin {
+  0%, 12% { transform: none; }
+  80%, 100% { transform: rotate(360deg); }
+}
+
+@keyframes peek {
+  0%, 100% { transform: none; }
+  18%, 40% { transform: translateX(calc(var(--s) * -0.09)); }
+  58%, 82% { transform: translateX(calc(var(--s) * 0.09)); }
+}
+
+@keyframes ponder {
+  0%, 100% { transform: rotate(-6deg); }
+  50% { transform: rotate(6deg) translateY(-4%); }
+}
+
+@keyframes scan {
+  0%, 100% { transform: translate(calc(var(--s) * -0.07), calc(var(--s) * -0.07)); }
+  50% { transform: translate(calc(var(--s) * 0.07), calc(var(--s) * -0.07)); }
+}
+
+@keyframes yay {
+  0% { transform: none; }
+  22% { transform: translateY(6%) scale(1.12, 0.86); }
+  52% { transform: translateY(-30%) scale(0.95, 1.08); }
+  80% { transform: translateY(0) scale(1.08, 0.92); }
+  100% { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mark, .mark * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
