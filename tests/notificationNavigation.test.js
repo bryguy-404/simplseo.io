@@ -9,6 +9,14 @@ describe('notification navigation', () => {
     expect(notificationReturnFromLocation({ pathname: destination })).toBe(destination);
     expect(notificationAuthPath('/onboarding', destination)).toContain('returnTo=');
   });
+  it('retains settings recovery links without allowing arbitrary query destinations', () => {
+    for (const destination of ['/settings', '/settings?tab=profile', '/settings?tab=integrations', '/settings?tab=notifications', '/settings?tab=account']) {
+      const signIn = notificationAuthPath('/auth', destination);
+      expect(notificationReturnFromLocation({ pathname: '/auth', search: new URL(signIn, 'https://example.test').search })).toBe(destination);
+    }
+    expect(safeNotificationReturn('/settings?tab=integrations&returnTo=https://attacker.test')).toBeNull();
+    expect(safeNotificationReturn('/settings?tab=https://attacker.test')).toBeNull();
+  });
   it.each(['https://attacker.test', '//attacker.test', '/\\attacker.test', '/notifications/../auth', '/notifications/id?returnTo=https://attacker.test', '/notifications/%2f%2fattacker', '/notifications/unsubscribe', '/api/delete-account', '/notifications/id\n'])('rejects unsafe or unrelated return %s', value => {
     expect(safeNotificationReturn(value)).toBeNull();
     expect(notificationAuthPath('/auth', value)).toBe('/auth');

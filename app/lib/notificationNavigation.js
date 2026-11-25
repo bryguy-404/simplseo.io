@@ -2,7 +2,7 @@
 // SimplSEO. Never trust a return URL supplied by an email or browser.
 export function safeNotificationReturn(value) {
   if (value === '/admin/access-requests') return value;
-  if (value === '/settings?tab=notifications') return value;
+  if (['/settings', '/settings?tab=profile', '/settings?tab=integrations', '/settings?tab=notifications', '/settings?tab=account'].includes(value)) return value;
   if (typeof value !== 'string' || !/^\/notifications(?:\/[A-Za-z0-9_-]{1,160})?$/.test(value)) return null;
   if (value === '/notifications/unsubscribe') return null;
   return value;
