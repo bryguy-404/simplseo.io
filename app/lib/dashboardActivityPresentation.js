@@ -28,6 +28,11 @@ export function dashboardActivityWeeks(window, daily = []) {
     const reported = days.map(date => rows.get(date)).filter(Boolean);
     return {
       index: index + 1, startDate: days[0], endDate: days[6],
+      // One entry per calendar day; an unreturned day keeps null values (unknown, not zero).
+      days: days.map(date => {
+        const row = rows.get(date);
+        return row ? { date, reported: true, clicks: row.clicks, impressions: row.impressions } : { date, reported: false, clicks: null, impressions: null };
+      }),
       reportedDays: reported.length, missingDays: 7 - reported.length,
       complete: reported.length === 7,
       clicks: reported.length ? reported.reduce((sum, row) => sum + row.clicks, 0) : null,
