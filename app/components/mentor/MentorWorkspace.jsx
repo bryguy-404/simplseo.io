@@ -42,6 +42,7 @@ export function MentorWorkspaceView({ session, compact = false, onClose, firstNa
   const followBottom = useRef(true);
   const draftRef = useRef(null);
   const previousConversation = useRef(null);
+  const hasTurns = session.messages.length > 0 || Boolean(session.pending);
   const { completeAnimation, loadHistory } = session;
   const currentSearch = typeof window === 'undefined' ? '' : window.location.search;
   useEffect(() => { setSelection(routeSelection()); }, [pathname, currentSearch]);
@@ -55,15 +56,16 @@ export function MentorWorkspaceView({ session, compact = false, onClose, firstNa
     if (previousConversation.current !== session.conversation?.id) {
       followBottom.current = true; previousConversation.current = session.conversation?.id;
     }
-    if (followBottom.current && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [session.messages, session.pending, session.conversation?.id]);
+    // A conversation stays at its latest message; an empty chat stays at its greeting.
+    if (followBottom.current && scrollRef.current) scrollRef.current.scrollTop = hasTurns ? scrollRef.current.scrollHeight : 0;
+  }, [session.messages, session.pending, session.conversation?.id, hasTurns]);
   useEffect(() => {
     const node = scrollRef.current;
     if (!node) return;
-    const observer = new ResizeObserver(() => { if (followBottom.current) node.scrollTop = node.scrollHeight; });
+    const observer = new ResizeObserver(() => { if (followBottom.current) node.scrollTop = hasTurns ? node.scrollHeight : 0; });
     if (node.firstElementChild) observer.observe(node.firstElementChild);
     return () => observer.disconnect();
-  }, [session.loading]);
+  }, [session.loading, hasTurns]);
   const busy = session.busy || session.loading;
   const readOnly = Boolean(session.conversation?.readOnly || session.conversation?.legacy);
   const workspace = session.workspace;
@@ -145,7 +147,7 @@ export function MentorWorkspaceView({ session, compact = false, onClose, firstNa
       </aside> : null}
 
       <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${centred ? 'sm:justify-center sm:pb-[8vh]' : ''}`}>
-        <div ref={scrollRef} role="log" aria-label="SEO conversation" aria-live="polite" aria-relevant="additions" aria-busy={session.loading} tabIndex={0} onScroll={event => { const node = event.currentTarget; followBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80; }} className={`overflow-y-auto overscroll-contain px-3 [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin] focus-visible:outline focus-visible:outline-primary sm:px-5 ${centred ? 'flex-1 sm:flex-none' : 'flex-1 py-4'}`}>
+        <div ref={scrollRef} role="log" aria-label="SEO conversation" aria-live="polite" aria-relevant="additions" aria-busy={session.loading} tabIndex={0} onScroll={event => { const node = event.currentTarget; followBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80; }} className={`overflow-y-auto overscroll-contain px-3 [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin] focus-visible:outline focus-visible:outline-primary sm:px-5 ${centred ? 'flex-1 pt-6 sm:flex-none' : 'flex-1 py-4'}`}>
           <div className={`mx-auto max-w-3xl space-y-6 ${centred ? 'flex min-h-full flex-col justify-center sm:block' : ''}`}>
             {session.loading ? <PageLoader compact label="Opening your saved conversation…" /> : null}
             {empty ? <div className={centred ? 'pb-7 text-center' : compact ? 'py-2' : 'py-6'}>
