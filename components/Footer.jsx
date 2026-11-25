@@ -2,6 +2,7 @@
 
 import { useTheme } from "@/app/contexts/ThemeContext";
 import Link from "next/link";
+import { AnalyticsChoicesButton } from './Analytics';
 
 const Footer = () => {
   const { isDarkMode } = useTheme();
@@ -22,6 +23,7 @@ const Footer = () => {
           <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-3 text-sm text-muted-foreground">
             <Link href="/seo-for-photographers" className="hover:text-foreground transition-colors">SEO for photographers</Link>
             <a href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</a>
+            <AnalyticsChoicesButton className="hover:text-foreground transition-colors" />
           </div>
           <p className="text-sm text-muted-foreground">
             © {new Date().getFullYear()} SimplSEO. All rights reserved.

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../contexts/AuthContext';
 import { authenticatedFetch } from '../lib/authenticatedFetch';
+import { trackInvitationAccepted } from '../lib/analytics';
 import { useOnboarding } from '../contexts/OnboardingContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -31,6 +32,7 @@ export default function AcceptInvitationPage() {
       setBusy('Saving your access…');
       const response = await authenticatedFetch('/api/access/invitation', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'accept', token }) });
       const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Your invitation could not be accepted.');
+      trackInvitationAccepted(data);
       const result = await refreshAccess();
       if (!result?.approved) throw new Error('Your invitation was accepted, but we couldn’t finish loading your account. Use Sign in or retry.');
       await refreshSetup().catch(() => {});

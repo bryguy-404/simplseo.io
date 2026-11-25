@@ -9,6 +9,7 @@ import { db } from '../../lib/firebaseConfig';
 import { useAuth } from '../../contexts/AuthContext';
 import { writeSeoRecord } from '../../lib/writeSeoRecord';
 import { authenticatedFetch } from '../../lib/authenticatedFetch';
+import { trackPublishedImprovement } from '../../lib/analytics';
 import { seoImplementationId, usableSuggestion } from '../../lib/pageTaskFlow';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -62,6 +63,7 @@ export default function SeoRecommendationPanel({
     if (!user?.id || !pageUrl || !ready || busy || loadingSaved || saved || !confirmedLive || loadError) return;
     setBusy(true); setError('');
     try {
+      let alreadyConfirmed = false;
       let record = { userId: user.id, pageUrl, implementedAt: new Date().toISOString(),
         title: draftTitle.trim(), description: draftDescription.trim(), status: 'implemented',
         ...(focusKeyword ? { focusKeyword, keywordSource } : {}),
@@ -75,10 +77,12 @@ export default function SeoRecommendationPanel({
         if (!response.ok) throw new Error(body.error || 'Your confirmation was not saved. Please try again.');
         if (!body.record || body.record.pageUrl !== pageUrl) throw new Error('The saved change could not be verified. Reload to check its status.');
         record = body.record;
+        alreadyConfirmed = body.alreadyConfirmed === true;
       } else {
         await writeSeoRecord(doc(db, 'implementedSeoTips', seoImplementationId(user.id, pageUrl)), record, { merge: true });
       }
       setSaved(record); setConfirmOpen(false);
+      trackPublishedImprovement(alreadyConfirmed);
       window.dispatchEvent(new Event('seo-implementation-changed')); window.dispatchEvent(new Event('seo-publication-confirmed'));
       onConfirmed?.(record);
       toast.success('Change saved. Page progress will collect dated search observations.');

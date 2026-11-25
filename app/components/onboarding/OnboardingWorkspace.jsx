@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 import { authenticatedFetch } from '../../lib/authenticatedFetch';
+import { trackSetupComplete } from '../../lib/analytics';
 import { reconnectGsc } from '../../lib/reconnectGsc';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -187,6 +188,7 @@ export default function OnboardingWorkspace({ existing = false }) {
       catch { toast.error('Your setup can continue. Your email choice was not saved; you can retry in Settings → Notifications.'); }
     }
     const result = await act('Finishing your website setup…', 'complete', { expectedRevision: saved.session.revision });
+    trackSetupComplete(result, existingMode);
     if (result) await reloadData();
   };
   const reload = async () => {

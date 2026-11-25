@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../contexts/AuthContext';
+import { trackAccessRequest } from '../lib/analytics';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +18,7 @@ export default function RequestAccessPage() {
       const response = await fetch('/api/access-request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
       const data = await response.json(); if (!response.ok) throw new Error(data.error || 'We couldn’t save your request. Please try again.');
       setSent(true);
+      trackAccessRequest(data);
     } catch (failure) { setError(failure.message); } finally { setBusy(false); }
   };
   return <main className="flex min-h-svh items-center justify-center bg-background px-5 py-12"><div className="flex w-full max-w-lg flex-col gap-6"><Link href="/home" className="w-fit text-sm text-muted-foreground hover:underline">← Back to home</Link><Card>

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useTheme } from "@/app/contexts/ThemeContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { trackAnalyticsEvent } from '@/app/lib/analytics';
 
 const Navbar = ({ links, actionLabel = "Get started" }) => {
   const { isDarkMode } = useTheme();
@@ -111,7 +112,7 @@ const Navbar = ({ links, actionLabel = "Get started" }) => {
       <Button 
         className="navbar-action rounded-full px-3 sm:px-6"
         size="sm"
-        onClick={() => router.push('/request-access')}
+        onClick={() => { trackAnalyticsEvent('early_access_click'); router.push('/request-access'); }}
       >
         {actionLabel}
       </Button>

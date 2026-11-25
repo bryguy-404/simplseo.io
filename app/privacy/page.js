@@ -3,6 +3,7 @@
 import { useTheme } from "@/app/contexts/ThemeContext";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { AnalyticsChoicesButton } from '@/components/Analytics';
 
 export default function PrivacyPolicyPage() {
   const { isDarkMode } = useTheme();
@@ -36,6 +37,14 @@ export default function PrivacyPolicyPage() {
         <p className="text-muted-foreground mb-8">Last Updated: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
 
         <div className="prose prose-lg dark:prose-invert max-w-none space-y-8">
+          <section className="space-y-4" aria-labelledby="optional-analytics">
+            <h2 id="optional-analytics" className="text-2xl font-semibold text-foreground border-b border-border pb-2">Optional website analytics</h2>
+            <p className="text-foreground/90 leading-relaxed">If you choose “Allow analytics,” we use Google Analytics to understand visits, traffic sources, early-access requests, completed setup, and confirmed website improvements. Google receives a browser cookie identifier, basic device information, and general page and event names. These measurements help us improve SimplSEO and understand whether our marketing is useful.</p>
+            <p className="text-foreground/90 leading-relaxed">We do not send your name, email, form answers, customer website URLs, Search Console data, invitation tokens, or private SEO conversations to Google Analytics. Advertising features and automatic form tracking are disabled. Analytics is optional and is not a condition of using SimplSEO or accepting the rest of this policy.</p>
+            <p className="text-foreground/90 leading-relaxed">Analytics loads only after you opt in. We remember your choice for six months. You can decline or withdraw permission below; withdrawing stops future collection and removes Analytics cookies from this site. Reports include only measured visits and may miss activity when visitors decline or use blocking tools.</p>
+            <AnalyticsChoicesButton className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted" />
+            <p className="text-sm text-muted-foreground"><a href="https://policies.google.com/technologies/partner-sites" className="underline">How Google uses data from sites that use its services</a></p>
+          </section>
           
           {/* Introduction */}
           <section className="space-y-4">
@@ -301,14 +310,14 @@ export default function PrivacyPolicyPage() {
               BY USING OUR SERVICE, YOU EXPLICITLY CONSENT TO:
             </p>
             <ul className="list-disc pl-6 space-y-2 text-foreground/90">
-              <li>The collection and processing of all data described in this Policy.</li>
+              <li>The collection and processing described in this Policy, except optional Google Analytics, which requires your separate choice.</li>
               <li>The use of your data for AI processing, saved conversations, and usage accounting as described in Section 7.</li>
               <li>The sharing of your data with third-party service providers as described in Section 6.</li>
               <li>The storage of your data using the infrastructure described in Section 5.</li>
               <li>Receiving service-related communications at the email address associated with your account.</li>
             </ul>
             <p className="text-foreground/90 leading-relaxed">
-              <strong>Mandatory Agreement:</strong> During onboarding, you will be required to explicitly acknowledge and accept this Privacy Policy before proceeding. You cannot use the Service without this acceptance. This consent is a condition of using our Service.
+              <strong>Mandatory Agreement:</strong> During onboarding, you will be required to explicitly acknowledge and accept this Privacy Policy before proceeding. You cannot use the Service without this acceptance. Optional Google Analytics remains a separate choice; declining it does not limit your access.
             </p>
           </section>
 

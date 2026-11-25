@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "./contexts/AuthContext";
 import { OnboardingProvider } from "./contexts/OnboardingContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import Analytics from "@/components/Analytics";
 
 // ✅ Import Next.js Script component
 import Script from "next/script";
@@ -53,6 +54,7 @@ export default function RootLayout({ children }) {
           <AuthProvider>
             <OnboardingProvider>
               {children}
+              <Analytics measurementId={process.env.VERCEL_ENV === 'production' ? process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID : undefined} />
               <Toaster />
             </OnboardingProvider>
           </AuthProvider>
