@@ -78,12 +78,16 @@ export function createAnalyticsClient({ window: win, document: doc, measurementI
     win.dataLayer = win.dataLayer || [];
     win.gtag = function () { win.dataLayer.push(arguments); };
     send('consent', 'default', { ...DENIED, analytics_storage: 'granted' });
-    send('js', new Date());
-    send('config', measurementId, {
+    const settings = {
       send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false,
       cookie_expires: SIX_MONTHS / 1000, cookie_update: false,
       ...context(), ...campaign,
-    });
+    };
+    // Google's remotely configured tag can initialize a destination on gtm.js
+    // before our stream config. Defaults must protect that first event too.
+    send('set', settings);
+    send('js', new Date());
+    send('config', measurementId, settings);
     const script = doc.createElement('script');
     script.async = true;
     script.src = `https://www.googletagmanager.com/gtag/js?id=${measurementId}`;

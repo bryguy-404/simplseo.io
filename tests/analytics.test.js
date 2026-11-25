@@ -46,6 +46,10 @@ describe('consent-gated GA4 collection', () => {
     expect(JSON.stringify(b.calls())).not.toMatch(/private|customer|email=/i);
     const config = b.calls().find(call => call[0] === 'config')[2];
     expect(config).toMatchObject({ send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false, campaign_source: 'outreach', campaign_medium: 'email', campaign_name: 'photographers' });
+    const commands = b.calls();
+    const defaults = commands.findIndex(call => call[0] === 'set' && call[1].send_page_view === false);
+    expect(defaults).toBeLessThan(commands.findIndex(call => call[0] === 'js'));
+    expect(commands[defaults][1]).toEqual(config);
   });
 
   it('blocks unknown routes and arbitrary event names and never takes caller-supplied parameters', () => {

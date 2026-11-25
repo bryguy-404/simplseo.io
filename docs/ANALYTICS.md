@@ -11,6 +11,7 @@ Configured November 25, 2026 for the early-access launch.
 - Vercel project `simplseo-io`: `NEXT_PUBLIC_GA_MEASUREMENT_ID` is scoped to **Production** only. The server includes it only for `VERCEL_ENV=production`; the browser also requires the exact production hostname.
 - Google enhanced measurement is **off**. Do not enable it without reviewing privacy and duplicate page-view behavior: the app sends sanitized manual page views.
 - `generate_lead` is registered as a **key event**, once per event, with no default monetary value.
+- Google created an upgraded Tag Manager container, `GTM-58WVKW5R`, alongside the stream. **Version 2 is live**: all automatic event detection and user-provided data capabilities are off. The Analytics destination explicitly sets `send_page_view`, `allow_google_signals`, and `allow_ad_personalization_signals` to false. “Ignore duplicate instances of on-page configuration” is off so the app's sanitized context, cookie lifetime, and campaign settings apply. Keep these settings when publishing future container versions.
 
 ## Measurements
 
@@ -57,7 +58,8 @@ Story: visitor opts in → visits the photographer page → clicks Request acces
 - 88 targeted tests passed across Analytics, early access, onboarding workspace, and publication confirmations. The test suite makes no external production requests.
 - Targeted JS/JSX lint passed with existing image warnings; production build passed with existing unrelated warnings.
 - Browser checks: decline → request form works; privacy page reopens the choice; opt-in on localhost loads no GA script; mobile banner fits a 390px viewport; no browser console errors in the local check.
-- Live collection and deployment evidence is recorded after release. Production lead requests, invitations, and published changes must not be fabricated for Analytics QA.
+- Live GA Realtime confirmed the photographer page, request page, and `early_access_click`. The first smoke test exposed an extra automatic page view from Google's upgraded container. Container version 2 disables that automatic view; app defaults are also set before tag initialization. The initial QA view remains in November 25 reports.
+- Live consent checks confirmed no GA script before opt-in and no GA script after withdrawal and reload. Production lead requests, invitations, and published changes were not fabricated for Analytics QA; their success/failure boundaries are covered by the targeted tests.
 
 ## Official references
 
