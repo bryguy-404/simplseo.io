@@ -51,9 +51,7 @@ export default function DashboardFeedback({ userId, pathname, overviewReady, man
       try { await requestFeedback(userId, 'dismiss', { promptId }); }
       catch { toast.error('Feedback closed. Your reminder preference could not be saved.'); }
     }
-  }} onSend={async data => {
-    await requestFeedback(userId, 'submit', data);
-    close();
-    toast.success('Thanks for sharing your feedback!');
-  }} />;
+  }} onSend={data => requestFeedback(userId, 'submit', data)}
+    // The card thanks the customer itself, then asks to be put away.
+    onDone={close} />;
 }
