@@ -1,8 +1,8 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { auth, db } from '../firebaseAdmin';
 import { RequestError } from './requestAuth';
-import { escapeHtml } from './publicRequest';
 import { notificationOrigin } from './notificationEmail';
+import { invitationEmailHtml, longDate, requestEmailHtml } from './accessEmailTemplate';
 
 const DAY = 86400000;
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -50,14 +50,15 @@ export function renderAccessMail({ kind, email, name, company, reason, invitatio
     `Hi${name ? ` ${name}` : ''}, you’re invited to try SimplSEO’s private early access.`,
     'Accept your invitation and choose the Google account you want to use for SimplSEO. There is no code to enter.',
     'You can connect a different Google account for Search Console during setup. If you have not set it up yet, we’ll guide you.',
-    `This one-use invitation expires on ${expiresAt.slice(0, 10)}. Keep this link private: it joins the first verified account that accepts it.`,
+    `This one-use invitation expires on ${longDate(expiresAt)}. Keep this link private: it joins the first verified account that accepts it.`,
     'Already joined? Use the regular Sign in button with your SimplSEO account.',
   ] : [`Email: ${email}`, `Name: ${name || 'Not provided'}`, `Business: ${company || 'Not provided'}`, `Message: ${reason || 'Not provided'}`];
   const action = invited ? 'Accept invitation' : 'Review access requests';
   return { ...sender, to: [invited ? email : accessEmail(process.env.EARLY_ACCESS_ADMIN_EMAIL || 'simplseoai@gmail.com')],
     subject: invited ? 'Your invitation to SimplSEO' : 'SimplSEO: new early-access request',
     text: [heading, '', ...paragraphs, '', `${action}: ${href}`, '', `Sign in: ${origin}/auth`].join('\n\n'),
-    html: `<!doctype html><html><body style="margin:0;background:#f4f7f5;color:#1a2922;font-family:Arial,sans-serif"><main style="max-width:560px;margin:24px auto;padding:28px;background:white;border-radius:16px"><p style="color:#087d44;font-weight:bold">SimplSEO · EARLY ACCESS</p><h1 style="font-size:25px">${heading}</h1>${paragraphs.map(p => `<p style="line-height:1.6;white-space:pre-wrap">${escapeHtml(p)}</p>`).join('')}<p><a style="display:inline-block;padding:12px 18px;background:#087d44;color:white;text-decoration:none;border-radius:8px" href="${escapeHtml(href)}">${action}</a></p><p><a href="${origin}/auth">Sign in to your existing account</a></p></main></body></html>`,
+    // How the email looks lives in accessEmailTemplate.js; the plain-text copy above says the same things.
+    html: invited ? invitationEmailHtml({ origin, href, name, expiresAt }) : requestEmailHtml({ origin, href, email, name, company, reason }),
     tags: [{ name: 'feature', value: 'early_access' }] };
 }
 
