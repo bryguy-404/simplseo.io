@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ANALYTICS_CHOICE_KEY, analyticsCampaign, analyticsPage, createAnalyticsClient, readAnalyticsChoice } from '../app/lib/analytics';
+import { ANALYTICS_CHOICE_KEY, analyticsCampaign, analyticsPage, analyticsPromptPage, createAnalyticsClient, readAnalyticsChoice } from '../app/lib/analytics';
 
 function browser(hostname = 'simpl-seo.com') {
   const values = new Map();
@@ -28,6 +28,11 @@ describe('consent-gated GA4 collection', () => {
   it.each(['localhost', '127.0.0.1', 'simplseo-preview.vercel.app', 'simpl-seo.com.evil.test'])('does not load on %s', host => {
     const b = browser(host); b.client.page('/home'); b.client.choose('granted');
     expect(b.scripts).toEqual([]); expect(b.events()).toEqual([]);
+  });
+
+  it('offers the choice card on public pages only, never inside the workspace', () => {
+    for (const path of ['/home', '/seo-for-photographers', '/request-access', '/accept-invite', '/privacy', '/auth']) expect(analyticsPromptPage(path)).toBe(true);
+    for (const path of ['/dashboard', '/settings', '/chatbot', '/low-ctr', '/generic-keywords', '/onboarding', '/contact', '/unknown', '']) expect(analyticsPromptPage(path)).toBe(false);
   });
 
   it('respects Global Privacy Control', () => {

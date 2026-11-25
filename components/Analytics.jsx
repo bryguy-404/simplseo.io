@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import Link from 'next/link';
-import { ANALYTICS_CHOICES_EVENT, ANALYTICS_CHOICE_KEY, initializeAnalytics, openAnalyticsChoices, readAnalyticsChoice, trackAnalyticsEvent } from '@/app/lib/analytics';
+import { ANALYTICS_CHOICES_EVENT, ANALYTICS_CHOICE_KEY, analyticsPromptPage, initializeAnalytics, openAnalyticsChoices, readAnalyticsChoice, trackAnalyticsEvent } from '@/app/lib/analytics';
+import AnalyticsConsent from './AnalyticsConsent';
 
 export function AnalyticsChoicesButton({ className }) {
   return <button type="button" className={className} onClick={openAnalyticsChoices}>Analytics choices</button>;
@@ -17,7 +17,9 @@ export default function Analytics({ measurementId }) {
   useEffect(() => {
     if (!measurementId) return;
     client.current = initializeAnalytics(measurementId, pathname);
-    if (client.current && !client.current.choice() && !navigator.globalPrivacyControl) setOpen(true);
+    // Ask only on public pages. If someone moves into the workspace without
+    // choosing, the card steps aside; it returns on their next public page.
+    if (client.current && !client.current.choice() && !navigator.globalPrivacyControl) setOpen(analyticsPromptPage(pathname));
   }, [measurementId, pathname]);
 
   useEffect(() => {
@@ -43,14 +45,7 @@ export default function Analytics({ measurementId }) {
     };
   }, [measurementId]);
 
-  const choose = choice => { client.current?.choose(choice); setOpen(false); };
   if (!open) return null;
-  return <section aria-label="Analytics choices" className="fixed bottom-4 left-4 right-4 z-50 rounded-2xl border border-border bg-background p-5 text-foreground shadow-xl sm:right-auto sm:max-w-sm">
-    <p className="text-sm font-semibold">Help us improve SimplSEO?</p>
-    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">With your permission, Google Analytics measures visits and useful actions. We don’t send your form answers or private SEO content. You can change your choice in our <Link href="/privacy" className="underline underline-offset-2">privacy policy</Link>.</p>
-    <div className="mt-4 grid grid-cols-2 gap-3">
-      <button type="button" onClick={() => choose('denied')} className="rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2">No thanks</button>
-      <button type="button" onClick={() => choose('granted')} className="rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2">Allow analytics</button>
-    </div>
-  </section>;
+  // The choice is saved straight away; the card closes once its short goodbye has played.
+  return <AnalyticsConsent onChoose={choice => client.current?.choose(choice)} onDone={() => setOpen(false)} />;
 }

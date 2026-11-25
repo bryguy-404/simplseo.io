@@ -22,6 +22,14 @@ const EVENTS = new Set(['early_access_click', 'generate_lead', 'sign_up', 'tutor
 const SIX_MONTHS = 180 * 24 * 60 * 60 * 1000;
 const DENIED = { analytics_storage: 'denied', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' };
 
+// The choice card is only offered on public pages (marketing, privacy, and the
+// ways into the app). Inside the signed-in workspace it never appears uninvited.
+const PROMPT_PAGES = new Set(['/home', '/seo-for-photographers', '/request-access', '/accept-invite', '/privacy', '/auth']);
+
+export function analyticsPromptPage(pathname) {
+  return PROMPT_PAGES.has(pathname);
+}
+
 export function analyticsPage(pathname) {
   return Object.hasOwn(PAGES, pathname) ? { page_location: ORIGIN + pathname, page_title: `${PAGES[pathname]} | SimplSEO` } : null;
 }

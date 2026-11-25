@@ -1,0 +1,73 @@
+/* The analytics choice card and its mascot (components/AnalyticsConsent.jsx). */
+
+.wrap { --dot: #00bf63; --dot-size: 38px; --peek: 15px; animation: cardIn 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.card { position: relative; z-index: 1; }
+
+/* The mascot lives on a track along the card's top edge. Three nested boxes
+   keep its motion simple: the runner moves sideways, the hopper moves up and
+   down (and squashes), and the dot itself spins. */
+.track { position: absolute; left: 26px; right: 26px; top: 0; height: 0; z-index: 0; }
+.runner { width: 100%; }
+.hopper { position: absolute; left: 0; bottom: calc(var(--peek) * -1); width: var(--dot-size); height: var(--dot-size); transform-origin: 50% 100%; animation: peek 700ms cubic-bezier(0.3, 1.5, 0.5, 1) 450ms backwards; transition: transform 260ms cubic-bezier(0.3, 1.6, 0.5, 1); }
+.dot { position: relative; width: 100%; height: 100%; border-radius: 50%; background: var(--dot); box-shadow: inset 0 -5px 0 rgba(0, 0, 0, 0.12), inset 0 3px 0 rgba(255, 255, 255, 0.25); animation: bob 3.6s ease-in-out 1.4s infinite; }
+.eyes { position: absolute; left: 0; right: 0; top: 34%; display: flex; justify-content: center; gap: 7px; transition: transform 120ms ease-out; }
+.eyes i { width: 5px; height: 7px; border-radius: 50%; background: #06281a; animation: blink 4.6s infinite; }
+
+/* Leans in when the pointer is on "Allow analytics". */
+.wrap[data-eager][data-state="idle"] .hopper { transform: translateY(-9px) scale(1.04); }
+
+/* ---------- The show (allowed) ---------- */
+.wrap[data-state="show"] .runner { animation: run 2000ms linear both; }
+.wrap[data-state="show"] .hopper { transition: none; animation: hop 2000ms both; }
+.wrap[data-state="show"] .dot { animation: spin 2000ms both; }
+.wrap[data-state="show"] .eyes i { animation: none; }
+.wrap[data-state="show"] .sparks i { animation: spark 2000ms both; }
+.wrap[data-state="show"] { animation: cardOut 300ms ease-in 2000ms both; }
+
+.sparks { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+.sparks i { position: absolute; left: -1.5px; top: -5px; width: 3px; height: 10px; border-radius: 3px; background: var(--dot); opacity: 0; transform: rotate(var(--turn)) translateY(-16px); }
+
+/* ---------- The nod (declined) ---------- */
+.wrap[data-state="bye"] .hopper { transition: none; animation: duck 380ms ease-in both; }
+.wrap[data-state="bye"] { animation: cardOut 260ms ease-in 160ms both; }
+
+@keyframes cardIn { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes cardOut { to { opacity: 0; transform: translateY(14px); } }
+@keyframes peek { from { transform: translateY(calc(var(--dot-size) * 0.75)); } to { transform: none; } }
+@keyframes bob { 0%, 100% { transform: none; } 50% { transform: translateY(-3px); } }
+@keyframes blink { 0%, 94%, 100% { transform: none; } 97% { transform: scaleY(0.12); } }
+@keyframes duck { 0% { transform: none; } 30% { transform: translateY(-5px); } 100% { transform: translateY(calc(var(--dot-size) * 0.8)); } }
+
+/* Sideways: wait for the crouch, then travel most of the card's width. */
+@keyframes run { 0%, 9% { transform: none; } 92%, 100% { transform: translateX(calc(100% - var(--dot-size))); } }
+
+/* Up and down: three hops along the top edge, each landing with a squash.
+   "On the edge" is one peek-height above where the dot hides. */
+@keyframes hop {
+  0% { transform: none; animation-timing-function: ease-in; }
+  9% { transform: translateY(5px) scale(1.14, 0.82); animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1); }
+  24% { transform: translateY(-74px) scale(0.94, 1.08); animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.3); }
+  38% { transform: translateY(calc(var(--peek) * -1)) scale(1.2, 0.76); animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1); }
+  51% { transform: translateY(-56px) scale(0.96, 1.05); animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.3); }
+  63% { transform: translateY(calc(var(--peek) * -1)) scale(1.18, 0.8); animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1); }
+  79% { transform: translateY(-98px) scale(0.92, 1.1); animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.3); }
+  92% { transform: translateY(calc(var(--peek) * -1)) scale(1.22, 0.74); animation-timing-function: ease-out; }
+  100% { transform: translateY(calc(var(--peek) * -1)); }
+}
+/* A full spin during the last, biggest hop. */
+@keyframes spin { 0%, 63% { transform: none; } 92%, 100% { transform: rotate(360deg); } }
+/* A small burst at the top of that hop. */
+@keyframes spark {
+  0%, 77% { opacity: 0; transform: rotate(var(--turn)) translateY(-16px) scaleY(0.4); }
+  80% { opacity: 1; transform: rotate(var(--turn)) translateY(-24px); }
+  94%, 100% { opacity: 0; transform: rotate(var(--turn)) translateY(-44px) scaleY(0.5); }
+}
+
+@media (max-width: 420px) {
+  .wrap { --dot-size: 34px; --peek: 13px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wrap, .hopper, .dot, .eyes i { animation: none !important; }
+  .hopper, .eyes { transition: none; }
+}
