@@ -11,7 +11,6 @@ import {
   History, 
   TrendingUp, 
   AlertCircle, 
-  Loader2,
   ChevronDown,
   ChevronRight,
   Check,
@@ -22,6 +21,7 @@ import {
   Lightbulb,
   ArrowRight
 } from "lucide-react";
+import BrandLoader from "@/app/components/BrandLoader";
 // ChevronUp removed - now using ChevronRight/ChevronDown to match Content Audit Card
 import { toast } from "sonner";
 import { db } from "../../lib/firebaseConfig";
@@ -1754,7 +1754,7 @@ const PivotOptionsPanel = ({
                 <div className="space-y-4">
                   {isLoadingInsights ? (
                     <div className="text-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-muted-foreground" />
+                      <BrandLoader className="flex h-6 w-6 mx-auto mb-2 text-muted-foreground" />
                       <p className="text-sm text-muted-foreground">Loading keyword data...</p>
                     </div>
                   ) : keywordInsightsData ? (
@@ -2043,7 +2043,7 @@ const PivotOptionsPanel = ({
                   {/* Loading indicator for keyword comparison */}
                   {isLoadingKeywordComparison && !keywordComparisonLoaded && (
                     <div className="mt-2 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                      <div className="w-3 h-3 border-2 border-gray-300 dark:border-gray-600 border-t-indigo-500 rounded-full animate-spin" />
+                      <BrandLoader className="h-3 w-3" />
                       Analyzing keyword performance...
                     </div>
                   )}
@@ -2123,7 +2123,7 @@ const PivotOptionsPanel = ({
                     >
                       {isMarkingPivotImplemented ? (
                         <>
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          <BrandLoader className="h-4 w-4 mr-2" />
                           Updating...
                         </>
                       ) : (
@@ -2205,7 +2205,7 @@ const PivotOptionsPanel = ({
                     >
                       {isMarkingOptimizeMetaImplemented ? (
                         <>
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          <BrandLoader className="h-4 w-4 mr-2" />
                           Updating...
                         </>
                       ) : (
@@ -2249,7 +2249,7 @@ const PivotOptionsPanel = ({
                         }`}
                       >
                         {isOptimizingMeta ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <BrandLoader className="h-4 w-4" />
                         ) : (
                           <Zap className="h-4 w-4" />
                         )}
@@ -2342,7 +2342,7 @@ const PivotOptionsPanel = ({
                   
                   {loadingRankingKeywords ? (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <BrandLoader className="h-4 w-4" />
                       Loading ranking keywords...
                     </div>
                   ) : currentRankingKeywords.length > 0 ? (
@@ -2430,7 +2430,7 @@ const PivotOptionsPanel = ({
                     >
                       {loadingHybridKeywords ? (
                         <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <BrandLoader className="h-4 w-4" />
                           Generating...
                         </>
                       ) : (
@@ -2520,7 +2520,7 @@ const PivotOptionsPanel = ({
                       >
                         {isSaving ? (
                           <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <BrandLoader className="h-4 w-4" />
                             Saving...
                           </>
                         ) : (
@@ -2621,7 +2621,7 @@ const PivotOptionsPanel = ({
               >
                 {isMarkingPivotImplemented ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <BrandLoader className="h-4 w-4 mr-2" />
                     Confirming...
                   </>
                 ) : (
@@ -2670,7 +2670,7 @@ const PivotOptionsPanel = ({
               >
                 {isMarkingOptimizeMetaImplemented ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <BrandLoader className="h-4 w-4 mr-2" />
                     Confirming...
                   </>
                 ) : (

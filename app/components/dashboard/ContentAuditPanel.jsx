@@ -7,7 +7,8 @@ import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronRight, FileText, TrendingUp, AlertTriangle, CheckCircle2, Clock, Sparkles, Loader2, BarChart3, Search, MousePointerClick, ArrowUp, ArrowDown, Minus, ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronRight, FileText, TrendingUp, AlertTriangle, CheckCircle2, Clock, Sparkles, BarChart3, Search, MousePointerClick, ArrowUp, ArrowDown, Minus, ExternalLink } from "lucide-react";
+import BrandLoader from "@/app/components/BrandLoader";
 import { getPageContent } from "../../lib/pageScraper";
 import { useAuth } from "../../contexts/AuthContext";
 import { saveContentAuditResult, getContentAuditResult, saveAiSuggestions, getAiSuggestions, getFocusKeywords, saveFocusKeywords } from "../../lib/firestoreHelpers";
@@ -2009,7 +2010,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
                       <div className="space-y-4">
                         {isLoadingKeywords ? (
                           <div className="text-center py-8">
-                            <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-muted-foreground" />
+                            <BrandLoader className="flex h-6 w-6 mx-auto mb-2 text-muted-foreground" />
                             <p className="text-sm text-muted-foreground">Loading keyword data...</p>
                           </div>
                         ) : keywordData ? (
@@ -2273,7 +2274,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
                               </span>
                               {isLoadingE3Keywords && (
                                 <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 flex items-center gap-1">
-                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  <BrandLoader className="h-3 w-3" />
                                   Analyzing keywords...
                                 </span>
                               )}
@@ -2325,7 +2326,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
                           >
                             {isRewriting ? (
                               <>
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                <BrandLoader className="h-4 w-4 mr-2" />
                                 Analyzing & Generating...
                               </>
                             ) : aiSuggestions ? (
@@ -2355,7 +2356,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
                             >
                               {isPivoting ? (
                                 <>
-                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  <BrandLoader className="h-4 w-4 mr-2" />
                                   Pivoting...
                                 </>
                               ) : (
@@ -2413,7 +2414,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
                           
                           {loadingRankingKeywords ? (
                             <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <BrandLoader className="h-4 w-4" />
                               Loading ranking keywords...
                             </div>
                           ) : currentRankingKeywords.length > 0 ? (
@@ -2487,7 +2488,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
                             >
                               {loadingHybridKeywords ? (
                                 <>
-                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  <BrandLoader className="h-4 w-4" />
                                   Generating...
                                 </>
                               ) : (
@@ -2569,7 +2570,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
                               >
                                 {isSavingKeyword ? (
                                   <>
-                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    <BrandLoader className="h-4 w-4" />
                                     Saving...
                                   </>
                                 ) : (
@@ -2600,7 +2601,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
 
         {isLoadingSavedData ? (
           <div className="text-center py-4">
-            <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2 text-muted-foreground" />
+            <BrandLoader className="flex h-5 w-5 mx-auto mb-2 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">Loading saved data...</p>
           </div>
         ) : showE1MetaSuggestions && e1NewMetaTitle && e1NewMetaDescription ? (
@@ -2664,7 +2665,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
               >
                 {isMarkingE1Implemented ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <BrandLoader className="h-4 w-4 mr-2" />
                     Marking as Implemented...
                   </>
                 ) : (
@@ -2756,7 +2757,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
               >
                 {isMarkingE3PivotImplemented ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <BrandLoader className="h-4 w-4 mr-2" />
                     Completing Pivot...
                   </>
                 ) : (
@@ -2788,7 +2789,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
               >
                 {isOptimizingMeta ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <BrandLoader className="h-4 w-4 mr-2" />
                     Generating New Metas...
                   </>
                 ) : (
@@ -2807,7 +2808,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
               >
                 {isLoadingContentGaps ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <BrandLoader className="h-4 w-4 mr-2" />
                     Analyzing Content Gaps...
                   </>
                 ) : contentGaps ? (
@@ -2831,7 +2832,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <BrandLoader className="h-4 w-4 mr-2" />
                     Analyzing...
                   </>
                 ) : (
@@ -3018,7 +3019,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
 
             {isLoadingInternalLinks && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <BrandLoader className="h-4 w-4" />
                 Loading internal link suggestions...
               </div>
             )}
@@ -3037,7 +3038,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
               >
                 {isRewriting ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <BrandLoader className="h-4 w-4 mr-2" />
                     Starting Fresh Tracking...
                   </>
                 ) : (
@@ -3352,7 +3353,7 @@ const ContentAuditPanel = ({ pageUrl, pageData, implementationData, focusKeyword
                       >
                         {isRewriting ? (
                           <>
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            <BrandLoader className="h-4 w-4 mr-2" />
                             Starting Fresh Tracking...
                           </>
                         ) : (

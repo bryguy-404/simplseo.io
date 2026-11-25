@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { FileText, LoaderCircle, RefreshCw, Sparkles } from 'lucide-react';
+import { FileText, RefreshCw, Sparkles } from 'lucide-react';
+import BrandLoader, { PageLoader } from '@/app/components/BrandLoader';
 import { useAuth } from '../contexts/AuthContext';
 import { useOnboarding } from '../contexts/OnboardingContext';
 import { authenticatedFetch } from '../lib/authenticatedFetch';
@@ -305,11 +306,11 @@ function LowCtrWorkspace() {
 
   const savedTasks = plan && <SavedPagePlan plan={plan} busy={publishingBusy || Boolean(trackingStatus.error)} savingStatus={taskSaving} error={taskError} onStatus={updateTaskStatus} onReload={() => setPlanReload(value => value + 1)} selectedTaskIds={selectedTaskIds} onTogglePublished={togglePublished} tracking={quietMonitoring || (taskConfirmed && !editingWhileTracked)} />;
 
-  if (isLoading || !isLoaded || !user) return <MainLayout><p role="status">Loading your website tasks…</p></MainLayout>;
+  if (isLoading || !isLoaded || !user) return <MainLayout><PageLoader label="Loading your website tasks…" /></MainLayout>;
   return <MainLayout>
     <div className="mb-6 space-y-2"><Link href="/dashboard" className="text-sm underline">Back to dashboard</Link><h1 className="text-3xl font-bold">Improve a page</h1></div>
     <Card className="mb-4"><CardContent className="space-y-3 pt-5">
-      {loading && <p role="status">Loading your pages…</p>}
+      {loading && <PageLoader compact label="Loading your pages…" />}
       {dataError && <div role="alert" className="space-y-2 text-sm"><p>{dataError}</p><Button variant="outline" onClick={() => setReload(value => value + 1)} disabled={loading}>Retry search data</Button> <Link className="underline" href="/revamp">Website setup</Link></div>}
       {selectionError && <p role="alert" className="text-sm text-amber-700 dark:text-amber-300">{selectionError}</p>}
       {!loading && !pages.length && <p>No current pages are available yet. <Link href="/revamp" className="underline">Review your website pages</Link> to get started.</p>}
@@ -318,7 +319,7 @@ function LowCtrWorkspace() {
       </select></label>}
     </CardContent></Card>
     {selected && <>
-      {pageLoading && <div role="status" aria-live="polite" className="mb-4 flex items-center gap-2 rounded-lg border bg-muted/30 px-4 py-3 text-sm"><LoaderCircle className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" /><span>Loading this page…</span></div>}
+      {pageLoading && <div role="status" aria-live="polite" className="mb-4 flex items-center gap-2 rounded-lg border bg-muted/30 px-4 py-3 text-sm"><BrandLoader tone="brand" className="h-4 w-4" aria-hidden="true" /><span>Loading this page…</span></div>}
       <div aria-busy={pageLoading} aria-label="Page review workspace">
       <PageSearchActivity key={selected.url} pageUrl={selected.url} evidence={visibleActivity} busy={activityBusy} error={activityError} onRetry={() => setActivityReload(value => value + 1)} />
       <PageMonitoringControl key={`monitor-${selected.url}`} pageUrl={selected.url} property={property} websiteRunId={data.revampRunId} cycle={ongoingCycle} goal={goal} enabled={monitoringEnabled} disabled={publishingBusy || redirected || Boolean(trackingStatus.error)} onBusy={setMonitoringBusy} onChanged={result => { setOngoingCycle(result.cycle.lifecycle === 'active' ? result.cycle : null); setPlanReload(value => value + 1); }} onRefresh={() => setProgressReload(value => value + 1)} />
@@ -344,7 +345,7 @@ function LowCtrWorkspace() {
       {!taskConfirmed && !ongoingCycle && <section aria-label="Analyze this page" className="mb-6 space-y-4 rounded-xl border p-5">
         {!suggestion && <div><h2 className="text-lg font-semibold">Find your next useful changes</h2><p className="mt-1 text-sm text-muted-foreground">We’ll review this page, choose a search focus, and save your tasks.</p></div>}
         <details className="text-sm"><summary className="cursor-pointer font-medium">Tell us more about this page (optional)</summary><label className="mt-3 block space-y-2"><span>What should this page help visitors do?</span><input value={goal} maxLength={180} disabled={pageLoading || generating} onChange={event => { setGoal(event.target.value); setUpdateCheck(null); }} className="w-full rounded-lg border bg-background p-3 text-sm" placeholder="For example: understand my service and request a quote." /></label></details>
-        <div className="flex flex-wrap items-center gap-3"><Button onClick={generate} variant={hasExistingReview ? 'link' : 'default'} className={hasExistingReview ? 'px-0 text-muted-foreground underline underline-offset-4 hover:text-foreground' : undefined} disabled={!currentPage || publishingBusy || redirected || Boolean(planError) || Boolean(trackingStatus.error)}>{generating ? <LoaderCircle className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" /> : hasExistingReview ? <RefreshCw className="h-4 w-4" aria-hidden="true" /> : <Sparkles className="h-4 w-4" aria-hidden="true" />}{generating ? hasExistingReview ? 'Checking for updates…' : 'Reviewing your page…' : hasExistingReview ? 'Check for updates' : 'Analyze this page'}</Button><span className="text-xs text-muted-foreground">{plan ? 'Your saved tasks stay unless new information supports an update.' : 'Web research included. Your website won’t change.'}</span></div>
+        <div className="flex flex-wrap items-center gap-3"><Button onClick={generate} variant={hasExistingReview ? 'link' : 'default'} className={hasExistingReview ? 'px-0 text-muted-foreground underline underline-offset-4 hover:text-foreground' : undefined} disabled={!currentPage || publishingBusy || redirected || Boolean(planError) || Boolean(trackingStatus.error)}>{generating ? <BrandLoader className="h-4 w-4" aria-hidden="true" /> : hasExistingReview ? <RefreshCw className="h-4 w-4" aria-hidden="true" /> : <Sparkles className="h-4 w-4" aria-hidden="true" />}{generating ? hasExistingReview ? 'Checking for updates…' : 'Reviewing your page…' : hasExistingReview ? 'Check for updates' : 'Analyze this page'}</Button><span className="text-xs text-muted-foreground">{plan ? 'Your saved tasks stay unless new information supports an update.' : 'Web research included. Your website won’t change.'}</span></div>
         {generating && <p role="status" className="text-xs text-muted-foreground">{plan ? 'Checking your page and search data. Your saved tasks stay available.' : 'Reviewing your page and search data. This may take a moment.'}</p>}
         {updateCheck && !generating && <p role="status" aria-live="polite" className={`text-sm ${updateCheck.status === 'incomplete' ? 'text-amber-800 dark:text-amber-200' : 'text-muted-foreground'}`}>{updateCheck.status === 'unchanged' ? 'Your saved plan is up to date.' : updateCheck.message || (updateCheck.status === 'updated' ? 'Your saved plan has been updated.' : 'We couldn’t finish checking. Your saved plan is unchanged.')} {updateCheck.limitation && <span className="block pt-1 text-xs">{updateCheck.limitation}</span>}</p>}
       </section>}
@@ -361,7 +362,7 @@ function LowCtrWorkspace() {
 export default function LowCtrPage() {
   const { user, isLoading } = useAuth();
   const { data, isLoaded } = useOnboarding();
-  if (isLoading || !isLoaded || !user) return <MainLayout><p role="status">Loading your website tasks…</p></MainLayout>;
+  if (isLoading || !isLoaded || !user) return <MainLayout><PageLoader label="Loading your website tasks…" /></MainLayout>;
   // Discard unfinished drafts and requests when the account, property or website changes.
   return <LowCtrWorkspace key={`${user.id}:${data.gscProperty || ''}:${data.revampRunId || ''}`} />;
 }

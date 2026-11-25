@@ -22,6 +22,7 @@ import { db } from "../lib/firebaseConfig";
 import { detectLocationIssues } from "../lib/smartLocationDetector";
 import LocationIssueAlert from "../components/dashboard/LocationIssueAlert";
 import { generateRecommendedKeyword, updateSuggestionWithKeyword } from "../lib/locationUtils";
+import BrandLoader from '@/app/components/BrandLoader';
 
 export default function IntentMismatch() {
   const { user, isLoading: authLoading } = useAuth();
@@ -1262,7 +1263,7 @@ Can you analyze my page structure and give me specific, actionable advice for im
         <div className="flex-1"></div>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00BF63] mx-auto mb-4"></div>
+            <BrandLoader tone="brand" className="mx-auto mb-4 flex h-10 w-10" />
             <p className="text-muted-foreground">Checking authentication...</p>
           </div>
         </div>

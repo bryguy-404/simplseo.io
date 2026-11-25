@@ -13,9 +13,10 @@ import MainLayout from '../MainLayout';
 import PageProgress from './PageProgress';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageLoader } from '@/app/components/BrandLoader';
 
 const SearchActivityChart = dynamic(() => import('./SearchActivityChart'), { ssr: false, loading: () => <p>Loading chart…</p> });
-const VisualProgressDashboard = dynamic(() => import('./VisualProgressDashboard'), { loading: () => <MainLayout><p role="status">Loading your dashboard…</p></MainLayout> });
+const VisualProgressDashboard = dynamic(() => import('./VisualProgressDashboard'), { loading: () => <MainLayout><PageLoader label="Loading your dashboard…" /></MainLayout> });
 const count = value => Number(value).toLocaleString();
 const reviewHref = pageUrl => `/low-ctr?page=${encodeURIComponent(pageUrl)}`;
 const pageLabel = pageUrl => { try { const url = new URL(pageUrl); return url.pathname === '/' && !url.search ? 'Homepage' : url.pathname + url.search; } catch { return pageUrl; } };
@@ -33,7 +34,7 @@ export default function CurrentWebsiteDashboard() {
       .catch(() => { if (current) setEnabled(false); });
     return () => { current = false; controller.abort(); };
   }, [user?.id]);
-  if (enabled === null) return <MainLayout><p role="status">Loading your dashboard…</p></MainLayout>;
+  if (enabled === null) return <MainLayout><PageLoader label="Loading your dashboard…" /></MainLayout>;
   return enabled ? <VisualProgressDashboard /> : <LegacyWebsiteDashboard />;
 }
 

@@ -46,10 +46,10 @@ import {
   X,
   RefreshCw,
   Info,
-  HelpCircle,
-} from "lucide-react";
+  HelpCircle } from "lucide-react";
+import BrandLoader from "@/app/components/BrandLoader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, XCircle } from "lucide-react";
 import DateRangeFilter from "../components/dashboard/DateRangeFilter";
 import KeywordTable from "../components/dashboard/KeywordTable";
 import ContentExpansionCard from "../components/dashboard/ContentExpansionCard";
@@ -2131,7 +2131,7 @@ export default function Dashboard() {
 
         {data?.siteCrawlStatus === "in-progress" && (
           <Alert className="mt-4 border-blue-200 bg-blue-50 dark:border-blue-900/40 dark:bg-blue-900/20">
-            <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+            <BrandLoader className="h-4 w-4 text-blue-600" />
             <AlertTitle>Scanning your website…</AlertTitle>
             <AlertDescription>
               We&apos;re crawling up to 25 pages so the AI coach can understand your content.
@@ -2330,7 +2330,7 @@ export default function Dashboard() {
                     }
                   >
                     {isInitialCrawlRunning ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <BrandLoader className="mr-2 h-4 w-4" />
                     ) : null}
                     Initial Crawl
                   </Button>
@@ -2344,7 +2344,7 @@ export default function Dashboard() {
                     }
                   >
                     {isRecrawling ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <BrandLoader className="mr-2 h-4 w-4" />
                     ) : null}
                     {hasNewManualUrls ? "Add & Save" : "Save"}
                   </Button>

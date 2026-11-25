@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ChartNoAxesCombined, Clock3, LoaderCircle, TriangleAlert } from 'lucide-react';
+import { ChartNoAxesCombined, Clock3, TriangleAlert } from 'lucide-react';
+import BrandLoader from '@/app/components/BrandLoader';
 import { authenticatedFetch } from '../../lib/authenticatedFetch';
 import { pageIdentity } from './PageSearchActivity';
 import { googleInspectionLink } from './PageReviewDiagnostics';
@@ -125,7 +126,7 @@ export default function OngoingPageProgress({ cycle, selected = false, disabled 
       {!cycle.readOnly && !reviewPending && cycle.latestCheckpoint && <Button variant={decision && !newResults ? 'link' : 'default'} className={decision && !newResults ? 'h-auto px-0 text-sm' : undefined} disabled={locked} onClick={() => act('review')}>{busy === 'review' ? 'Reviewing results…' : decision && !newResults ? 'Check this review for updates' : 'Review my results'}</Button>}
       <div className="flex flex-wrap gap-x-5 gap-y-2"><Button variant="link" className="h-auto px-0 text-xs text-muted-foreground" disabled={locked} onClick={() => act('troubleshoot')}>Something seems wrong</Button>{cycle.canRecordInterveningChange && onRecordEdit && <Button variant="link" className="h-auto px-0 text-xs text-muted-foreground" disabled={locked} onClick={() => onRecordEdit(cycle)}>{monitoring ? 'I published an edit' : 'Record another published edit'}</Button>}</div>
     </div> : <Link className="inline-block text-sm underline" href={`/low-ctr?page=${encodeURIComponent(cycle.pageUrl)}`}>{collecting ? 'View this page’s tracking' : 'Review my results'}</Link>}
-    {busy && <p role="status" className="flex items-center gap-2 text-sm"><LoaderCircle className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />{busy === 'load' ? 'Loading your saved review…' : busy === 'troubleshoot' ? 'Checking the live page and Google’s stored indexing result…' : busy === 'accept_tasks' ? 'Saving your next tasks…' : 'Reviewing the evidence for this page…'}</p>}
+    {busy && <p role="status" className="flex items-center gap-2 text-sm"><BrandLoader tone="brand" className="h-4 w-4" aria-hidden="true" />{busy === 'load' ? 'Loading your saved review…' : busy === 'troubleshoot' ? 'Checking the live page and Google’s stored indexing result…' : busy === 'accept_tasks' ? 'Saving your next tasks…' : 'Reviewing the evidence for this page…'}</p>}
     {error && <div role="alert" className="space-y-2 text-sm text-destructive"><p>{error}</p><Button variant="outline" size="sm" disabled={Boolean(busy)} onClick={() => setReload(value => value + 1)}>Reload saved review</Button></div>}
     {notice && !busy && <p role="status" className="text-sm text-muted-foreground">{notice}</p>}
   </section>;

@@ -141,6 +141,26 @@
   }
 }
 
+/* The three-dot loading mark (app/components/BrandLoader.jsx). */
+@keyframes brand-hop {
+  0%, 55%, 100% { transform: translateY(0); opacity: 0.35; }
+  28% { transform: translateY(-115%); opacity: 1; }
+}
+@keyframes brand-fade {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+/* The floating SEO Mentor button (app/components/mentor/MentorLauncher.jsx). */
+@keyframes mentor-ring {
+  from { transform: scale(1); opacity: 0.55; }
+  to { transform: scale(1.9); opacity: 0; }
+}
+@keyframes mentor-nudge-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+
 /* Toast description text override for better readability */
 [data-sonner-toaster] [data-description] {
   color: #000000 !important;

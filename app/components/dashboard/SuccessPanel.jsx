@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { 
   CheckCircle2, 
   PartyPopper,
-  Loader2,
   ChevronDown,
   ChevronRight,
   ExternalLink,
@@ -17,6 +16,7 @@ import {
   Clock,
   AlertTriangle
 } from "lucide-react";
+import BrandLoader from "@/app/components/BrandLoader";
 import { toast } from "sonner";
 import { db } from "../../lib/firebaseConfig";
 import { doc, deleteField, getDoc } from "firebase/firestore";
@@ -455,7 +455,7 @@ export default function SuccessPanel({
             >
               {isStartingFresh ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <BrandLoader className="h-4 w-4 mr-2" />
                   Starting...
                 </>
               ) : (
@@ -512,7 +512,7 @@ export default function SuccessPanel({
             >
               {isDismissing ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <BrandLoader className="h-4 w-4 mr-2" />
                   Dismissing...
                 </>
               ) : (

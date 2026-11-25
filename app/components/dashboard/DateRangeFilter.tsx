@@ -6,6 +6,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CalendarDays } from "lucide-react";
+import BrandLoader from '@/app/components/BrandLoader';
 
 interface DateRangeFilterProps {
   value: string;
@@ -20,7 +21,7 @@ const DateRangeFilter = ({ value, onValueChange, isLoading }: DateRangeFilterPro
         <CalendarDays className="mr-2 h-4 w-4" />
         <SelectValue placeholder="Select date range" />
         {isLoading && (
-          <div className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <BrandLoader tone="brand" className="ml-2 h-4 w-4" />
         )}
       </SelectTrigger>
       <SelectContent>

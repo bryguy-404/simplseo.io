@@ -16,7 +16,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Info, Sparkles, Plus, Loader2 } from "lucide-react";
+import { Info, Sparkles, Plus } from "lucide-react";
+import BrandLoader from '@/app/components/BrandLoader';
 import { cn } from "@/lib/utils";
 
 // Must match normalizePageKey in dashboard/page.js for consistent lookups
@@ -327,7 +328,7 @@ const FocusKeywordSelector = ({
                   >
                     {isLoading ? (
                       <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <BrandLoader className="h-4 w-4" />
                         Generating...
                       </>
                     ) : (

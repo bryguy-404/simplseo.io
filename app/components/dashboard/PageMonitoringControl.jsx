@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
-import { Eye, LoaderCircle } from 'lucide-react';
+import { Eye } from 'lucide-react';
+import BrandLoader from '@/app/components/BrandLoader';
 import { authenticatedFetch } from '../../lib/authenticatedFetch';
 import { isMonitoringCycle } from '../../lib/pageMonitoring';
 import { Button } from '@/components/ui/button';
@@ -41,7 +42,7 @@ export default function PageMonitoringControl({ pageUrl, property, websiteRunId,
     {!active && <><div><h2 className="text-lg font-semibold">Know when this page needs attention</h2><p className="mt-1 text-sm text-muted-foreground">Get an initial recommendation and monthly review reminders. You don’t need to edit your website first.</p></div><Button disabled={disabled || Boolean(busy)} onClick={() => act('start')}><Eye className="h-4 w-4" aria-hidden="true" />Monitor this page</Button><p className="text-xs text-muted-foreground">We reuse a current review when possible. A new review uses your existing review allowance.</p></>}
     {retry && <div className="space-y-2"><p className="text-sm">Monitoring is active. {cycle.initialReviewStatus === 'checking' ? 'Your initial review is still being prepared.' : cycle.initialReviewError || 'Your initial review has not finished yet.'}</p><Button variant="outline" disabled={disabled || Boolean(busy)} onClick={() => act('start')}>Retry initial review</Button></div>}
     {active && cycle.canStopMonitoring && <details className="text-sm"><summary className="cursor-pointer font-medium">Monitoring settings</summary><p className="my-3 text-muted-foreground">Stop future checks and reminders for this page. Your saved tasks and history stay available.</p><Button variant="outline" disabled={disabled || Boolean(busy)} onClick={() => act('stop')}>Stop monitoring</Button></details>}
-    {busy && <p role="status" className="flex items-center gap-2 text-sm"><LoaderCircle className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />{busy === 'stop' ? 'Stopping monitoring…' : 'Starting monitoring and reviewing your page…'}</p>}
+    {busy && <p role="status" className="flex items-center gap-2 text-sm"><BrandLoader tone="brand" className="h-4 w-4" aria-hidden="true" />{busy === 'stop' ? 'Stopping monitoring…' : 'Starting monitoring and reviewing your page…'}</p>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     {notice && !busy && <p role="status" className="text-sm text-muted-foreground">{notice}</p>}
   </section>;

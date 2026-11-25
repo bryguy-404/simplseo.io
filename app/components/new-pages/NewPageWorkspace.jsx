@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { ArrowRight, CheckCircle2, ChevronDown, ChevronUp, LoaderCircle, MapPin, RefreshCw, Search } from 'lucide-react';
+import { ArrowRight, CheckCircle2, ChevronDown, ChevronUp, MapPin, RefreshCw, Search } from 'lucide-react';
+import BrandLoader from '@/app/components/BrandLoader';
 import { useAuth } from '../../contexts/AuthContext';
 import { authenticatedFetch } from '../../lib/authenticatedFetch';
 import { Button } from '@/components/ui/button';
@@ -275,12 +276,12 @@ export default function NewPageWorkspace() {
   const checkIdeasDisabled = generationDisabled || !savedContext?.confirmed || contextDirty
     || !inventory || Boolean(inventory.canContinue) || inventory.status === 'unavailable';
 
-  if (authLoading || loading) return <div role="status" className="flex items-center gap-3 p-8"><LoaderCircle className="size-5 animate-spin" />Loading your saved page ideas…</div>;
+  if (authLoading || loading) return <div role="status" className="flex items-center gap-3 p-8"><BrandLoader tone="brand" className="size-5" />Loading your saved page ideas…</div>;
   if (!user) return null;
   if (requestedPlanId !== null) return <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6" aria-label="New page planning workspace" aria-busy={Boolean(busy)}>
     <header className="space-y-3"><Link href="/generic-keywords" className="inline-block text-sm underline">Back to New page ideas</Link><h1 className="text-3xl font-semibold tracking-tight">New page ideas</h1></header>
     {error && <div role="alert" className="space-y-3 rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm"><p>{error}</p>{!linkedPlan && <Button variant="outline" onClick={() => setReload(value => value + 1)}>Try loading again</Button>}</div>}
-    {busy && <div role="status" className="flex items-center gap-3 rounded-lg border bg-background p-3 text-sm"><LoaderCircle className="size-4 animate-spin" />{busy}</div>}
+    {busy && <div role="status" className="flex items-center gap-3 rounded-lg border bg-background p-3 text-sm"><BrandLoader tone="brand" className="size-4" />{busy}</div>}
     {linkedPlan && (linkedPlan.readOnly || linkedPlan.status === 'dismissed' ? <section id="selected-new-page-plan" tabIndex={-1} aria-label="Selected page plan" className="scroll-mt-24 rounded-xl border bg-card p-5">
       <h2 className="text-xl font-semibold">{linkedPlan.status === 'dismissed' ? 'Set-aside page plan' : 'Previous website plan'}</h2>
       <p className="mt-2 text-sm text-muted-foreground">This saved work is read-only. Your current area and plans have not changed.</p>
@@ -291,7 +292,7 @@ export default function NewPageWorkspace() {
     <header className="space-y-2"><p className="text-xs font-semibold uppercase tracking-widest text-primary">Grow with purpose</p><h1 className="text-3xl font-semibold tracking-tight">New page ideas</h1><p className="text-muted-foreground">Find useful gaps in one area. Create a page only when it adds something worthwhile.</p></header>
     {error && <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm"><p>{error}</p>{!data && <Button variant="outline" className="mt-3" onClick={() => setReload(value => value + 1)}>Try loading again</Button>}</div>}
     {notice && <p role="status" className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">{notice}</p>}
-    {busy && <div role="status" className="sticky top-20 z-10 flex items-center gap-3 rounded-lg border bg-background p-3 text-sm shadow-sm"><LoaderCircle className="size-4 animate-spin" />{busy}</div>}
+    {busy && <div role="status" className="sticky top-20 z-10 flex items-center gap-3 rounded-lg border bg-background p-3 text-sm shadow-sm"><BrandLoader tone="brand" className="size-4" />{busy}</div>}
     {data?.enabled === false && <p className="rounded-lg border p-4 text-sm">New research is temporarily paused. Your saved drafts, editing and tracking remain available.</p>}
     {data?.profileNotices?.map((message, index) => <div key={index} className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 text-sm"><p>{message}</p><Button variant="link" className="mt-2 px-0" onClick={() => setAreaExpanded(true)}>Review area details</Button></div>)}
     {data && <>

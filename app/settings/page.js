@@ -47,10 +47,10 @@ import {
   Plus,
   FileText,
   X,
-  Loader2,
   Clock,
   Rocket
 } from "lucide-react";
+import BrandLoader from "@/app/components/BrandLoader";
 import { toast } from "sonner";
 import { 
   Dialog,
@@ -1354,7 +1354,7 @@ export default function Settings() {
                     >
                       {isSaving ? (
                         <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <BrandLoader className="h-4 w-4" />
                           Saving...
                         </>
                       ) : (
@@ -1407,7 +1407,7 @@ export default function Settings() {
                   <Card>
                     <CardContent className="pt-6">
                       <div className="flex items-center justify-center py-8">
-                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        <BrandLoader className="h-6 w-6 text-muted-foreground" />
                         <span className="ml-2 text-muted-foreground">Loading content and keywords...</span>
                       </div>
                     </CardContent>
@@ -1607,7 +1607,7 @@ export default function Settings() {
                       >
                         {isSavingContent ? (
                           <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <BrandLoader className="h-4 w-4" />
                             Saving...
                           </>
                         ) : (
@@ -1684,7 +1684,7 @@ export default function Settings() {
                       >
                         {isSavingContent ? (
                           <>
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            <BrandLoader className="h-4 w-4 mr-2" />
                             Saving...
                           </>
                         ) : (
@@ -2035,7 +2035,7 @@ export default function Settings() {
                               >
                                 {isDeleting ? (
                                   <>
-                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    <BrandLoader className="h-4 w-4" />
                                     Deleting...
                                   </>
                                 ) : (

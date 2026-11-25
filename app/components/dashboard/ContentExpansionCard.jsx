@@ -20,9 +20,8 @@ import {
   MapPin, 
   Wrench, 
   FileText, 
-  ArrowRight,
-  Loader2
-} from "lucide-react";
+  ArrowRight } from "lucide-react";
+import BrandLoader from '@/app/components/BrandLoader';
 import Link from "next/link";
 
 export default function ContentExpansionCard() {
@@ -190,7 +189,7 @@ export default function ContentExpansionCard() {
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+            <BrandLoader className="flex w-6 h-6 mx-auto mb-2" />
             <p className="text-sm text-muted-foreground">Analyzing content opportunities...</p>
           </div>
         </CardContent>
