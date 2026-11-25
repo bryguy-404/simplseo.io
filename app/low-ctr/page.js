@@ -136,7 +136,7 @@ function LowCtrWorkspace() {
   }, [user?.id, reload]);
 
   const property = overview?.property || data.gscProperty;
-  const pages = useMemo(() => taskPages({ property, trackedPages: [...(data.revampPages || []), ...redirectDestinations, ...monitoringPages], observedPages: overview?.pages || [], keywords, focusKeywords }), [property, data.revampPages, redirectDestinations, monitoringPages, overview?.pages, keywords, focusKeywords]);
+  const pages = useMemo(() => taskPages({ property, websiteUrl: data.websiteUrl, trackedPages: [...(data.revampPages || []), ...redirectDestinations, ...monitoringPages], observedPages: overview?.pages || [], keywords, focusKeywords }), [property, data.websiteUrl, data.revampPages, redirectDestinations, monitoringPages, overview?.pages, keywords, focusKeywords]);
   const selected = pages.find(page => page.url === selectedUrl);
   const canRecordEdit = Boolean(ongoingCycle?.canRecordInterveningChange && !ongoingCycle.readOnly);
   const followupTasks = Boolean(canRecordEdit && plan?.followUp?.cycleId === ongoingCycle.id);

@@ -2,6 +2,22 @@ import { describe, expect, it } from 'vitest';
 import { taskPages, usableSuggestion, seoImplementationId } from '../app/lib/pageTaskFlow';
 
 describe('manual page task selection', () => {
+  it('offers a confirmed homepage before a first scan or any search activity, without inventing metrics or monitoring', () => {
+    const pages = taskPages({ property: 'sc-domain:studio.test', websiteUrl: 'https://studio.test/' });
+    expect(pages).toEqual([{ url: 'https://studio.test/', tracked: null, queries: [], focusKeyword: '' }]);
+  });
+  it('retains a legacy website address and merges its real observations without duplicating the homepage', () => {
+    const pages = taskPages({ property: 'https://studio.test/', websiteUrl: 'studio.test',
+      observedPages: [{ pageUrl: 'https://studio.test/', impressions: 20, clicks: 1 }] });
+    expect(pages).toHaveLength(1); expect(pages[0].metrics.impressions).toBe(20);
+  });
+  it('does not infer a homepage from an absent, foreign, credentialed or incompatible website', () => {
+    for (const websiteUrl of ['', 'https://other.test/', 'https://person:secret@studio.test/', 'https://studio.test/#fragment', 'https://studio.test/?token=value']) {
+      expect(taskPages({ property: 'https://studio.test/', websiteUrl })).toEqual([]);
+    }
+    expect(taskPages({ property: 'https://studio.test/photography/', websiteUrl: 'https://studio.test/' })).toEqual([]);
+    expect(taskPages({ websiteUrl: 'https://studio.test/' })).toEqual([]);
+  });
   it('retains exact page identity, includes tracked pages without data, and rejects foreign URLs', () => {
     const pages = taskPages({ property: 'https://example.test/',
       trackedPages: ['https://example.test/Case/?City=A', 'https://example.test/case/?City=a', 'https://other.test/page'],

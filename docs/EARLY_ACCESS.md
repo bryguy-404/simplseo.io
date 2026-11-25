@@ -9,7 +9,7 @@ Public **Get started** opens the invitation request form. Requests are saved bef
 - Google login establishes SimplSEO identity only. Search Console authorization remains a separate onboarding step and can use another Google account.
 - A grant is attached to the Firebase UID. Logout, email changes and later visits do not require another invitation. Unfinished setup resumes; completed accounts go to the dashboard.
 - Existing Firebase accounts created before the fixed rollout cutoff retain access. Existing `approvedUsers` approvals and administrator claims are also honored. No plans, website identities, confirmations or measurement dates are migrated or overwritten.
-- Newly admitted accounts use onboarding v2 even outside its original pilot allowlist. Other feature pilot controls remain unchanged.
+- Newly admitted accounts use onboarding v2 even outside its original pilot allowlist. The November 25 simplified rollout enables the remaining experience for admitted members as well; see [rollout configuration and verification](EARLY_ACCESS_ROLLOUT.md).
 - Browser-supplied approval checks and typed invitation codes are retired. New authenticated APIs enforce admission before protected application work.
 
 ## Operations and controls

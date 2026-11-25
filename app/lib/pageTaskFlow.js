@@ -1,7 +1,7 @@
 import { propertyContainsUrl } from './revampState';
 
 // Keep Google page identity exact: case, trailing slashes and queries may matter.
-export function taskPages({ property, trackedPages = [], observedPages = [], keywords = [], focusKeywords = [] }) {
+export function taskPages({ property, websiteUrl = '', trackedPages = [], observedPages = [], keywords = [], focusKeywords = [] }) {
   if (!property) return [];
   const pages = new Map();
   const add = (url, tracked) => {
@@ -12,6 +12,17 @@ export function taskPages({ property, trackedPages = [], observedPages = [], key
     return page;
   };
   trackedPages.forEach(value => add(typeof value === 'string' ? value : value.url, typeof value === 'string' ? null : value));
+  // A confirmed website is a useful first page even before Google reports any
+  // activity or a site inventory exists. This does not enroll it in monitoring
+  // or claim it was crawled/indexed; the review still fetches its current HTML.
+  if (typeof websiteUrl === 'string' && websiteUrl.trim()) {
+    try {
+      const raw = websiteUrl.trim();
+      const homepage = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+      if (['https:', 'http:'].includes(homepage.protocol) && !homepage.username && !homepage.password
+        && !homepage.hash && !homepage.search) add(homepage.href);
+    } catch { /* An invalid or out-of-property website is not a selectable page. */ }
+  }
   observedPages.forEach(value => { const page = add(value.pageUrl); if (page) page.metrics = value; });
   keywords.forEach(row => {
     const page = add(row.page);
