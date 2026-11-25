@@ -4,7 +4,7 @@ Research date: November 25, 2026. Market: wedding and portrait photographers acr
 
 ## Current direction
 
-Bryan accepted the keyword and page strategy and requested implementation on November 25. The national `/seo-for-photographers` page is implemented and verified locally, covering wedding and portrait photographers together. It has not been committed, published, or submitted to Search Console. Supporting articles follow the landing page; city-specific acquisition pages are not part of the initial plan.
+Bryan accepted the keyword and page strategy, approved the finished page, and authorized publishing on November 25. The national `/seo-for-photographers` page is live, covering wedding and portrait photographers together. Source commit `5592d92` was pushed to `main` and deployed to production. Google successfully read the sitemap, passed the page's live URL test, and accepted its indexing request. Index inclusion and search performance remain to be observed. Supporting articles follow the landing page; city-specific acquisition pages are not part of the initial plan.
 
 The separate feature for applying approved edits to customers' websites is deferred in the [website publishing backlog](WEBSITE_PUBLISHING_BACKLOG.md). It is not a dependency for this marketing page and must not be advertised as an existing SimplSEO capability.
 
@@ -148,7 +148,7 @@ Source attribution and funnel events are proposed measurements, not verified exi
 
 Review early page and onboarding behavior after launch, then inspect search trends over subsequent weeks and months. Low impressions or sparse data should trigger investigation, not an immediate conclusion that the niche is wrong.
 
-The first implementation package is complete locally: the dedicated page, a clearly labeled illustrative walkthrough, a homepage link, and the discovery/metadata work above. Release and Search Console work remain next. The supporting articles follow separately.
+The first implementation package is live: the dedicated page, a clearly labeled illustrative walkthrough, a homepage link, and the discovery/metadata work above. The initial Search Console submission is complete. The supporting articles and observation of actual search performance follow separately.
 
 ## Implementation and verification — November 25, 2026
 
@@ -172,10 +172,22 @@ Evidence: [verification report](evidence/photographer-page-verification-2026-11-
 
 The development preview encountered a local file-watcher limit, so final verification used the successfully built production preview. This was a local preview issue, not a failed production build. All preview processes started for this task are stopped at closeout.
 
-### Release and Search Console next steps
+### Release and Search Console record — November 25, 2026
 
-1. Review the page and confirm the intended photographer cohort can use the described review workflow. This task checked the public page and access-form navigation; it did not re-test the authenticated workflow in a newly invited account or change pilot eligibility.
-2. Commit only this page's implementation and documentation, excluding unrelated local work, and deploy through the project's normal release process. Verify the public page, canonical, social image, robots, sitemap, and invitation links on the live domain.
-3. In the verified Search Console property covering `https://simpl-seo.com/`, submit `https://simpl-seo.com/sitemap.xml`. Inspect `https://simpl-seo.com/seo-for-photographers`, run the live URL test, and request indexing if eligible. An owner or full user is required for an indexing request. Record Google's actual status and selected canonical; a request is not proof of indexing or ranking. [Google's recrawl guidance](https://developers.google.com/search/docs/crawling-indexing/ask-google-to-recrawl).
-4. Filter Search Console performance to this exact page and review relevant queries, impressions, and clicks over subsequent weeks. Search Console access and these submission actions have not been completed in this task. No acquisition-event tracking was added; access-request attribution remains separate work.
-5. Publish the first supporting guide, **Google Search Console for photographers**, with a contextual link to this landing page. Use actual search queries and early-user feedback to choose subsequent content.
+- **Source:** `5592d9271049b8db3d02a669cba66c21583be120`, pushed to `main` in `bryguy-404/simplseo.io` after Bryan approved publication. Unrelated local work was excluded.
+- **Production:** `dpl_APmVeDk7i3mWpxTb2cSGd9RNv5hc`, Vercel project `simplseo-io`, state `READY`. The verified production aliases include `simpl-seo.com`. Build/deploy time from `buildingAt` to `ready` was approximately 101 seconds.
+- **Live checks:** HTTP 200 for the landing page, `/home`, `/request-access`, `/sitemap.xml`, and `/robots.txt`. Verified the production canonical, one H1, seven server-rendered FAQs, indexing directives, homepage link, three sitemap URLs, and 1200 × 630 social image. The live browser displayed the page and its CTA opened the invitation request form; no request was submitted.
+- **Search Console:** used the existing domain property `sc-domain:simpl-seo.com` in Bryan's open browser. Submitted `https://simpl-seo.com/sitemap.xml`; Google reported **Success** and **3 discovered pages**. Initial inspection said the page was not indexed and the URL was unknown to Google. The live test reported **URL is available to Google** and **Page can be indexed**. Google then confirmed **Indexing requested**, with the URL added to its priority crawl queue. These results do not establish indexing, rankings, or traffic.
+- **Initial data:** the property overview reported that performance/indexing data was still processing. No search or conversion results are claimed.
+- **Observability:** the release-specific error/fatal runtime-log query returned no matching records for the previous 15 minutes at 07:55 UTC. No project log drains were configured. This is a bounded launch check, not a continuous monitoring service or full application audit.
+- **Cleanup:** no local dev servers or containers were started for publication. The previous implementation previews were already stopped. Existing user processes were untouched.
+
+Sanitized live verification is recorded in [the release evidence](evidence/photographer-page-release-2026-11-25.json). Browser screenshots of the Google submission remain local and are not included in the repository.
+
+### Next checks and supporting content
+
+1. Before admitting the intended photographer cohort, confirm its account eligibility for the described review workflow. Public-page and invitation-link verification does not re-test the authenticated workflow in a newly invited account. No pilot settings were changed by this launch.
+2. Recheck index inclusion and Google's selected canonical after Google processes the page. Do not repeat indexing requests to try to improve queue priority. [Google's recrawl guidance](https://developers.google.com/search/docs/crawling-indexing/ask-google-to-recrawl).
+3. Once data is available, filter Search Console performance to `https://simpl-seo.com/seo-for-photographers` and review its **Queries**, **Impressions**, and **Clicks** weekly. Phrases such as “SEO software for photographers” and “SEO for wedding photographers” indicate the intended kind of interest; these are examples, not measured queries. Review trends over several weeks rather than treating a single day's movement as a conclusion. [Google's performance report guidance](https://support.google.com/webmasters/answer/7576553?hl=en).
+4. Review photographer access requests and subsequent activation separately. No acquisition-event tracking was added, so Search Console does not establish which query produced an access request. No recurring monitoring automation was created.
+5. Publish the first supporting guide, **Google Search Console for photographers**, with a contextual link to this landing page. Use actual queries and early-user feedback to choose subsequent content.

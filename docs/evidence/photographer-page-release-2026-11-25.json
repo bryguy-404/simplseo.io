@@ -1,0 +1,68 @@
+{
+  "verifiedAt": "2026-11-25T07:52:44.980Z",
+  "commit": "5592d9271049b8db3d02a669cba66c21583be120",
+  "deployment": "dpl_APmVeDk7i3mWpxTb2cSGd9RNv5hc",
+  "target": "production",
+  "routes": [
+    {
+      "path": "/seo-for-photographers",
+      "status": 200
+    },
+    {
+      "path": "/home",
+      "status": 200
+    },
+    {
+      "path": "/request-access",
+      "status": 200
+    },
+    {
+      "path": "/sitemap.xml",
+      "status": 200
+    },
+    {
+      "path": "/robots.txt",
+      "status": 200
+    }
+  ],
+  "title": "SEO for Photographers: Simple SEO Software | SimplSEO",
+  "canonical": "https://simpl-seo.com/seo-for-photographers",
+  "oneH1": true,
+  "serverRenderedFaqs": 7,
+  "indexingAllowed": true,
+  "homepageLink": true,
+  "sitemapUrls": [
+    "https://simpl-seo.com/home",
+    "https://simpl-seo.com/seo-for-photographers",
+    "https://simpl-seo.com/privacy"
+  ],
+  "socialImage": {
+    "url": "https://simpl-seo.com/seo-for-photographers/opengraph-image?7d2b60e96ae62c39",
+    "status": 200,
+    "width": 1200,
+    "height": 630
+  },
+  "browser": {
+    "pageRendered": true,
+    "earlyAccessCtaOpensRequestForm": true,
+    "requestSubmitted": false
+  },
+  "searchConsole": {
+    "property": "sc-domain:simpl-seo.com",
+    "checkedDate": "2026-11-25",
+    "sitemap": "https://simpl-seo.com/sitemap.xml",
+    "sitemapStatus": "Success",
+    "discoveredPages": 3,
+    "initialIndexStatus": "Page is not indexed: URL is unknown to Google",
+    "liveTest": "URL is available to Google; Page can be indexed",
+    "indexingRequest": "Accepted; added to priority crawl queue",
+    "performanceData": "Processing",
+    "indexInclusionConfirmed": false
+  },
+  "observability": {
+    "errorFatalRuntimeQuery": "No matching records",
+    "scope": "This deployment, preceding 15 minutes at 2026-11-25T07:55Z",
+    "projectDrains": 0,
+    "continuousMonitoringConfigured": false
+  }
+}
